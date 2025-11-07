@@ -38,8 +38,26 @@ namespace SalesChampion.Windows
             InitializeComponent();
             _accountList = new ObservableCollection<AccountInfo>();
             AccountGrid.ItemsSource = _accountList;
-            InitializeServices();
+            // 延迟初始化服务，避免在构造函数中初始化导致崩溃
             UpdateUI();
+        }
+
+        /// <summary>
+        /// 窗口加载完成事件
+        /// </summary>
+        private void MainWindow_Loaded(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                // 窗口加载完成后再初始化服务
+                InitializeServices();
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError($"窗口加载时初始化服务失败: {ex.Message}", ex);
+                MessageBox.Show($"初始化失败: {ex.Message}\n\n堆栈跟踪:\n{ex.StackTrace}", 
+                    "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
         }
 
         /// <summary>
@@ -52,80 +70,117 @@ namespace SalesChampion.Windows
                 // 订阅Logger日志事件，输出到UI（带颜色）
                 Logger.OnLogMessage += (message) =>
                 {
-                    Dispatcher.Invoke(() =>
+                    try
                     {
-                        // 从消息中提取日志级别
-                        string level = "INFO";
-                        if (message.StartsWith("[ERROR]"))
+                        Dispatcher.Invoke(() =>
                         {
-                            level = "ERROR";
-                            message = message.Substring(8).TrimStart();
-                        }
-                        else if (message.StartsWith("[WARN]"))
-                        {
-                            level = "WARN";
-                            message = message.Substring(7).TrimStart();
-                        }
-                        else if (message.StartsWith("[INFO]"))
-                        {
-                            level = "INFO";
-                            message = message.Substring(7).TrimStart();
-                        }
-                        AddLog(message, level);
-                    });
+                            // 从消息中提取日志级别
+                            string level = "INFO";
+                            if (message.StartsWith("[ERROR]"))
+                            {
+                                level = "ERROR";
+                                message = message.Substring(8).TrimStart();
+                            }
+                            else if (message.StartsWith("[WARN]"))
+                            {
+                                level = "WARN";
+                                message = message.Substring(7).TrimStart();
+                            }
+                            else if (message.StartsWith("[INFO]"))
+                            {
+                                level = "INFO";
+                                message = message.Substring(7).TrimStart();
+                            }
+                            AddLog(message, level);
+                        });
+                    }
+                    catch
+                    {
+                        // 忽略Dispatcher调用失败
+                    }
                 };
 
-                // 初始化连接管理器
-                _connectionManager = new WeChatConnectionManager();
-                _connectionManager.OnConnectionStateChanged += OnConnectionStateChanged;
-                _connectionManager.OnMessageReceived += OnWeChatMessageReceived;
-                
-                if (!_connectionManager.Initialize())
+                // 延迟初始化连接管理器，避免在UI线程中直接初始化导致崩溃
+                Task.Run(() =>
                 {
-                    Logger.LogError("连接管理器初始化失败");
-                    UpdateUI(); // 即使初始化失败，也更新UI显示
-                    return;
-                }
-                
-                // 初始化成功，立即更新UI显示版本号
-                UpdateUI();
-
-                // 初始化WebSocket服务
-                string webSocketUrl = ConfigurationManager.AppSettings["WebSocketUrl"] ?? "ws://localhost:8000/ws";
-                _webSocketService = new WebSocketService(webSocketUrl);
-                _webSocketService.OnMessageReceived += OnWebSocketMessageReceived;
-                _webSocketService.OnConnectionStateChanged += OnWebSocketConnectionStateChanged;
-
-                // 初始化同步服务
-                _contactSyncService = new ContactSyncService(_connectionManager, _webSocketService);
-                _momentsSyncService = new MomentsSyncService(_connectionManager, _webSocketService);
-                _tagSyncService = new TagSyncService(_connectionManager, _webSocketService);
-                _chatMessageSyncService = new ChatMessageSyncService(_connectionManager, _webSocketService);
-
-                // 初始化命令服务
-                _commandService = new CommandService(_connectionManager);
-
-                // 连接WebSocket
-                _ = Task.Run(async () => await _webSocketService.ConnectAsync());
-
-                Logger.LogInfo("服务初始化完成");
-                
-                // 自动尝试连接微信（如果微信已登录，会自动获取账号信息）
-                _ = Task.Run(() =>
-                {
-                    // 延迟一下，确保UI已完全加载
-                    System.Threading.Thread.Sleep(1000);
-                    Dispatcher.Invoke(() =>
+                    try
                     {
-                        AddLog("正在自动检测已登录的微信...", "INFO");
-                        AutoConnectWeChat();
-                    });
+                        Dispatcher.Invoke(() =>
+                        {
+                            AddLog("正在初始化连接管理器...", "INFO");
+                        });
+
+                        // 初始化连接管理器
+                        _connectionManager = new WeChatConnectionManager();
+                        _connectionManager.OnConnectionStateChanged += OnConnectionStateChanged;
+                        _connectionManager.OnMessageReceived += OnWeChatMessageReceived;
+                        
+                        Logger.LogInfo("已订阅连接管理器的事件");
+                        
+                        if (!_connectionManager.Initialize())
+                        {
+                            Logger.LogError("连接管理器初始化失败");
+                            Dispatcher.Invoke(() =>
+                            {
+                                UpdateUI(); // 即使初始化失败，也更新UI显示
+                            });
+                            return;
+                        }
+                        
+                        // 初始化成功，立即更新UI显示版本号
+                        Dispatcher.Invoke(() =>
+                        {
+                            UpdateUI();
+                        });
+
+                        // 初始化WebSocket服务
+                        string webSocketUrl = ConfigurationManager.AppSettings["WebSocketUrl"] ?? "ws://localhost:8000/ws";
+                        _webSocketService = new WebSocketService(webSocketUrl);
+                        _webSocketService.OnMessageReceived += OnWebSocketMessageReceived;
+                        _webSocketService.OnConnectionStateChanged += OnWebSocketConnectionStateChanged;
+
+                        // 初始化同步服务
+                        _contactSyncService = new ContactSyncService(_connectionManager, _webSocketService);
+                        _momentsSyncService = new MomentsSyncService(_connectionManager, _webSocketService);
+                        _tagSyncService = new TagSyncService(_connectionManager, _webSocketService);
+                        _chatMessageSyncService = new ChatMessageSyncService(_connectionManager, _webSocketService);
+
+                        // 初始化命令服务
+                        _commandService = new CommandService(_connectionManager);
+
+                        // 连接WebSocket
+                        _ = Task.Run(async () => await _webSocketService.ConnectAsync());
+
+                        Logger.LogInfo("服务初始化完成");
+                        
+                        // 自动尝试连接微信（如果微信已登录，会自动获取账号信息）
+                        _ = Task.Run(() =>
+                        {
+                            // 延迟一下，确保UI已完全加载
+                            System.Threading.Thread.Sleep(1000);
+                            Dispatcher.Invoke(() =>
+                            {
+                                AddLog("正在自动检测已登录的微信...", "INFO");
+                                AutoConnectWeChat();
+                            });
+                        });
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.LogError($"初始化服务失败: {ex.Message}", ex);
+                        Dispatcher.Invoke(() =>
+                        {
+                            MessageBox.Show($"初始化失败: {ex.Message}\n\n堆栈跟踪:\n{ex.StackTrace}", 
+                                "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                        });
+                    }
                 });
             }
             catch (Exception ex)
             {
                 Logger.LogError($"初始化服务失败: {ex.Message}", ex);
-                MessageBox.Show($"初始化失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show($"初始化失败: {ex.Message}\n\n堆栈跟踪:\n{ex.StackTrace}", 
+                    "错误", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
         
