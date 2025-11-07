@@ -18,7 +18,7 @@ echo   [5] 全部执行 (1-2-3-4)
 echo   [6] 退出
 echo.
 echo ========================================
-set /p choice=请输入选项 (1-6): 
+set /p "choice=请输入选项 (1-6): " 
 
 if "%choice%"=="1" goto clean
 if "%choice%"=="2" goto build
@@ -193,7 +193,7 @@ echo 下载地址: https://dotnet.microsoft.com/download/dotnet/9.0
 echo 选择: .NET Desktop Runtime 9.0.10 (x86)
 echo.
 echo 是否现在运行程序？(Y/N)
-set /p run_choice=
+set /p "run_choice= "
 if /i not "%run_choice%"=="Y" (
     goto main_menu
 )
@@ -263,7 +263,7 @@ echo [步骤1/4] 清理完成！
 echo ========================================
 echo.
 echo 按任意键继续下一步（编译项目）...
-pause >nul
+pause >nul 2>&1
 
 REM ========================================
 REM 步骤2: 编译项目
@@ -336,7 +336,7 @@ echo [步骤2/4] 编译完成！
 echo ========================================
 echo.
 echo 按任意键继续下一步（关闭程序）...
-pause >nul
+pause >nul 2>&1
 
 REM ========================================
 REM 步骤3: 关闭程序
@@ -383,7 +383,7 @@ echo [步骤3/4] 关闭完成！
 echo ========================================
 echo.
 echo 按任意键继续下一步（运行程序）...
-pause >nul
+pause >nul 2>&1
 
 REM ========================================
 REM 步骤4: 运行程序
