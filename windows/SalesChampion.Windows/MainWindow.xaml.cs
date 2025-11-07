@@ -21,13 +21,13 @@ namespace SalesChampion.Windows
     /// </summary>
     public partial class MainWindow : Window
     {
-        private WeChatConnectionManager _connectionManager;
-        private WebSocketService _webSocketService;
-        private ContactSyncService _contactSyncService;
-        private MomentsSyncService _momentsSyncService;
-        private TagSyncService _tagSyncService;
-        private ChatMessageSyncService _chatMessageSyncService;
-        private CommandService _commandService;
+        private WeChatConnectionManager? _connectionManager;
+        private WebSocketService? _webSocketService;
+        private ContactSyncService? _contactSyncService;
+        private MomentsSyncService? _momentsSyncService;
+        private TagSyncService? _tagSyncService;
+        private ChatMessageSyncService? _chatMessageSyncService;
+        private CommandService? _commandService;
         private ObservableCollection<AccountInfo> _accountList;
 
         /// <summary>
@@ -38,8 +38,26 @@ namespace SalesChampion.Windows
             InitializeComponent();
             _accountList = new ObservableCollection<AccountInfo>();
             AccountGrid.ItemsSource = _accountList;
-            InitializeServices();
+            // 延迟初始化服务，避免在构造函数中初始化导致崩溃
             UpdateUI();
+        }
+
+        /// <summary>
+        /// 窗口加载完成事件
+        /// </summary>
+        private void MainWindow_Loaded(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                // 窗口加载完成后再初始化服务
+                InitializeServices();
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError($"窗口加载时初始化服务失败: {ex.Message}", ex);
+                MessageBox.Show($"初始化失败: {ex.Message}\n\n堆栈跟踪:\n{ex.StackTrace}", 
+                    "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
         }
 
         /// <summary>
@@ -52,80 +70,115 @@ namespace SalesChampion.Windows
                 // 订阅Logger日志事件，输出到UI（带颜色）
                 Logger.OnLogMessage += (message) =>
                 {
-                    Dispatcher.Invoke(() =>
+                    try
                     {
-                        // 从消息中提取日志级别
-                        string level = "INFO";
-                        if (message.StartsWith("[ERROR]"))
+                        Dispatcher.Invoke(() =>
                         {
-                            level = "ERROR";
-                            message = message.Substring(8).TrimStart();
-                        }
-                        else if (message.StartsWith("[WARN]"))
-                        {
-                            level = "WARN";
-                            message = message.Substring(7).TrimStart();
-                        }
-                        else if (message.StartsWith("[INFO]"))
-                        {
-                            level = "INFO";
-                            message = message.Substring(7).TrimStart();
-                        }
-                        AddLog(message, level);
-                    });
+                            // 从消息中提取日志级别
+                            string level = "INFO";
+                            if (message.StartsWith("[ERROR]"))
+                            {
+                                level = "ERROR";
+                                message = message.Substring(8).TrimStart();
+                            }
+                            else if (message.StartsWith("[WARN]"))
+                            {
+                                level = "WARN";
+                                message = message.Substring(7).TrimStart();
+                            }
+                            else if (message.StartsWith("[INFO]"))
+                            {
+                                level = "INFO";
+                                message = message.Substring(7).TrimStart();
+                            }
+                            AddLog(message, level);
+                        });
+                    }
+                    catch
+                    {
+                        // 忽略Dispatcher调用失败
+                    }
                 };
 
-                // 初始化连接管理器
-                _connectionManager = new WeChatConnectionManager();
-                _connectionManager.OnConnectionStateChanged += OnConnectionStateChanged;
-                _connectionManager.OnMessageReceived += OnWeChatMessageReceived;
-                
-                if (!_connectionManager.Initialize())
+                // 延迟初始化连接管理器，避免在UI线程中直接初始化导致崩溃
+                Task.Run(() =>
                 {
-                    Logger.LogError("连接管理器初始化失败");
-                    UpdateUI(); // 即使初始化失败，也更新UI显示
-                    return;
-                }
-                
-                // 初始化成功，立即更新UI显示版本号
-                UpdateUI();
-
-                // 初始化WebSocket服务
-                string webSocketUrl = ConfigurationManager.AppSettings["WebSocketUrl"] ?? "ws://localhost:8000/ws";
-                _webSocketService = new WebSocketService(webSocketUrl);
-                _webSocketService.OnMessageReceived += OnWebSocketMessageReceived;
-                _webSocketService.OnConnectionStateChanged += OnWebSocketConnectionStateChanged;
-
-                // 初始化同步服务
-                _contactSyncService = new ContactSyncService(_connectionManager, _webSocketService);
-                _momentsSyncService = new MomentsSyncService(_connectionManager, _webSocketService);
-                _tagSyncService = new TagSyncService(_connectionManager, _webSocketService);
-                _chatMessageSyncService = new ChatMessageSyncService(_connectionManager, _webSocketService);
-
-                // 初始化命令服务
-                _commandService = new CommandService(_connectionManager);
-
-                // 连接WebSocket
-                _ = Task.Run(async () => await _webSocketService.ConnectAsync());
-
-                Logger.LogInfo("服务初始化完成");
-                
-                // 自动尝试连接微信（如果微信已登录，会自动获取账号信息）
-                _ = Task.Run(() =>
-                {
-                    // 延迟一下，确保UI已完全加载
-                    System.Threading.Thread.Sleep(1000);
-                    Dispatcher.Invoke(() =>
+                    try
                     {
-                        AddLog("正在自动检测已登录的微信...", "INFO");
-                        AutoConnectWeChat();
-                    });
+                        Dispatcher.Invoke(() =>
+                        {
+                            AddLog("正在初始化连接管理器...", "INFO");
+                        });
+
+                        // 初始化连接管理器
+                        _connectionManager = new WeChatConnectionManager();
+                        _connectionManager.OnConnectionStateChanged += OnConnectionStateChanged;
+                        _connectionManager.OnMessageReceived += OnWeChatMessageReceived;
+                        
+                        if (!_connectionManager.Initialize())
+                        {
+                            Logger.LogError("连接管理器初始化失败");
+                            Dispatcher.Invoke(() =>
+                            {
+                                UpdateUI(); // 即使初始化失败，也更新UI显示
+                            });
+                            return;
+                        }
+                        
+                        // 初始化成功，立即更新UI显示版本号
+                        Dispatcher.Invoke(() =>
+                        {
+                            UpdateUI();
+                        });
+
+                        // 初始化WebSocket服务
+                        string webSocketUrl = ConfigurationManager.AppSettings["WebSocketUrl"] ?? "ws://localhost:8000/ws";
+                        _webSocketService = new WebSocketService(webSocketUrl);
+                        _webSocketService.OnMessageReceived += OnWebSocketMessageReceived;
+                        _webSocketService.OnConnectionStateChanged += OnWebSocketConnectionStateChanged;
+
+                        // 初始化同步服务
+                        _contactSyncService = new ContactSyncService(_connectionManager, _webSocketService);
+                        _momentsSyncService = new MomentsSyncService(_connectionManager, _webSocketService);
+                        _tagSyncService = new TagSyncService(_connectionManager, _webSocketService);
+                        _chatMessageSyncService = new ChatMessageSyncService(_connectionManager, _webSocketService);
+
+                        // 初始化命令服务
+                        _commandService = new CommandService(_connectionManager);
+
+                        // 连接WebSocket
+                        _ = Task.Run(async () => await _webSocketService.ConnectAsync());
+
+                        Logger.LogInfo("服务初始化完成");
+                        
+                        // 自动尝试连接微信（如果微信已登录，会自动获取账号信息）
+                        _ = Task.Run(() =>
+                        {
+                            // 延迟一下，确保UI已完全加载
+                            System.Threading.Thread.Sleep(1000);
+                            Dispatcher.Invoke(() =>
+                            {
+                                AddLog("正在自动检测已登录的微信...", "INFO");
+                                AutoConnectWeChat();
+                            });
+                        });
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.LogError($"初始化服务失败: {ex.Message}", ex);
+                        Dispatcher.Invoke(() =>
+                        {
+                            MessageBox.Show($"初始化失败: {ex.Message}\n\n堆栈跟踪:\n{ex.StackTrace}", 
+                                "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                        });
+                    }
                 });
             }
             catch (Exception ex)
             {
                 Logger.LogError($"初始化服务失败: {ex.Message}", ex);
-                MessageBox.Show($"初始化失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show($"初始化失败: {ex.Message}\n\n堆栈跟踪:\n{ex.StackTrace}", 
+                    "错误", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
         
@@ -144,18 +197,18 @@ namespace SalesChampion.Windows
 
                 AddLog("步骤1: 检查连接管理器状态...", "INFO");
                 
-                if (!_connectionManager.IsConnected)
+                if (_connectionManager == null || !_connectionManager.IsConnected)
                 {
                     AddLog("步骤2: 微信未连接，尝试连接...", "INFO");
                     
-                    bool result = _connectionManager.Connect();
+                    bool result = _connectionManager?.Connect() ?? false;
                     
                     if (result)
                     {
                         AddLog("========== 微信连接成功 ==========", "SUCCESS");
-                        AddLog($"微信版本: {_connectionManager.WeChatVersion ?? "未知"}", "SUCCESS");
-                        AddLog($"客户端ID: {_connectionManager.ClientId}", "SUCCESS");
-                        AddLog($"连接状态: {(_connectionManager.IsConnected ? "已连接" : "未连接")}", _connectionManager.IsConnected ? "SUCCESS" : "WARN");
+                    AddLog($"微信版本: {_connectionManager?.WeChatVersion ?? "未知"}", "SUCCESS");
+                    AddLog($"客户端ID: {_connectionManager?.ClientId ?? 0}", "SUCCESS");
+                    AddLog($"连接状态: {(_connectionManager?.IsConnected == true ? "已连接" : "未连接")}", _connectionManager?.IsConnected == true ? "SUCCESS" : "WARN");
                         
                         // 连接成功后，自动更新账号列表
                         UpdateAccountList();
@@ -169,7 +222,7 @@ namespace SalesChampion.Windows
                         AddLog("  3. DLL文件不存在或版本不匹配", "WARN");
                         AddLog("  4. 未以管理员权限运行（需要管理员权限）", "WARN");
                         AddLog("  5. 微信版本不支持", "WARN");
-                        AddLog($"当前微信版本: {_connectionManager.WeChatVersion ?? "未知"}", "WARN");
+                        AddLog($"当前微信版本: {_connectionManager?.WeChatVersion ?? "未知"}", "WARN");
                         AddLog("提示: 如果微信已登录，请稍等片刻，程序会自动检测", "INFO");
                     }
                 }
@@ -258,7 +311,7 @@ namespace SalesChampion.Windows
                 int clientId = _connectionManager.ClientId;
                 string weChatId = clientId.ToString();
                 
-                AccountInfo currentAccount = null;
+                AccountInfo? currentAccount = null;
                 foreach (var account in _accountList)
                 {
                     if (account.WeChatId == weChatId)
@@ -329,7 +382,7 @@ namespace SalesChampion.Windows
         /// <summary>
         /// 连接状态变化事件处理
         /// </summary>
-        private void OnConnectionStateChanged(object sender, bool isConnected)
+        private void OnConnectionStateChanged(object? sender, bool isConnected)
         {
             Dispatcher.Invoke(() =>
             {
@@ -407,7 +460,7 @@ namespace SalesChampion.Windows
         /// <summary>
         /// WebSocket连接状态变化事件处理
         /// </summary>
-        private void OnWebSocketConnectionStateChanged(object sender, bool isConnected)
+        private void OnWebSocketConnectionStateChanged(object? sender, bool isConnected)
         {
             Dispatcher.Invoke(() =>
             {
@@ -418,14 +471,14 @@ namespace SalesChampion.Windows
         /// <summary>
         /// MyWeChat消息接收事件处理
         /// </summary>
-        private void OnWeChatMessageReceived(object sender, string message)
+        private void OnWeChatMessageReceived(object? sender, string message)
         {
             Dispatcher.Invoke(() =>
             {
                 try
                 {
                     // 清理消息：移除可能的额外字符和空白
-                    string cleanMessage = message?.Trim();
+                    string cleanMessage = message?.Trim() ?? string.Empty;
                     if (string.IsNullOrEmpty(cleanMessage))
                     {
                         return;
@@ -447,10 +500,10 @@ namespace SalesChampion.Windows
                     }
 
                     // 解析消息
-                    dynamic messageObj = null;
+                    dynamic? messageObj = null;
                     try
                     {
-                        messageObj = Newtonsoft.Json.JsonConvert.DeserializeObject<dynamic>(cleanMessage);
+                        messageObj = Newtonsoft.Json.JsonConvert.DeserializeObject<dynamic>(cleanMessage) ?? null;
                     }
                     catch (Newtonsoft.Json.JsonException ex)
                     {
@@ -465,7 +518,7 @@ namespace SalesChampion.Windows
                             cleanMessage = cleanMessage.Substring(firstBrace, lastBrace - firstBrace + 1);
                             try
                             {
-                                messageObj = Newtonsoft.Json.JsonConvert.DeserializeObject<dynamic>(cleanMessage);
+                                messageObj = Newtonsoft.Json.JsonConvert.DeserializeObject<dynamic>(cleanMessage) ?? null;
                             }
                             catch
                             {
@@ -499,17 +552,17 @@ namespace SalesChampion.Windows
                     {
                         // 解析登录信息
                         // 注意：11120消息的data可能直接是对象，不需要再次解析
-                        dynamic loginInfo = null;
+                        dynamic? loginInfo = null;
                         
-                        if (messageObj.data != null)
+                        if (messageObj?.data != null)
                         {
                             // 如果data是字符串，需要解析
-                            string dataJson = messageObj.data?.ToString();
+                            string dataJson = messageObj.data?.ToString() ?? string.Empty;
                             if (!string.IsNullOrEmpty(dataJson) && dataJson.TrimStart().StartsWith("{"))
                             {
                                 try
                                 {
-                                    loginInfo = Newtonsoft.Json.JsonConvert.DeserializeObject<dynamic>(dataJson);
+                                    loginInfo = Newtonsoft.Json.JsonConvert.DeserializeObject<dynamic>(dataJson) ?? null;
                                 }
                                 catch
                                 {
@@ -549,7 +602,7 @@ namespace SalesChampion.Windows
                             }
 
                             // 更新账号信息
-                            AccountInfo accountInfo = null;
+                            AccountInfo? accountInfo = null;
                             foreach (var acc in _accountList)
                             {
                                 if (acc.WeChatId == wxid || acc.WeChatId == clientId.ToString())
@@ -619,7 +672,7 @@ namespace SalesChampion.Windows
                     // 消息类型 11126 表示好友列表回调
                     else if (messageType == 11126)
                     {
-                        string dataJson = messageObj.data?.ToString();
+                        string dataJson = messageObj.data?.ToString() ?? string.Empty;
                         if (!string.IsNullOrEmpty(dataJson))
                         {
                             _contactSyncService?.ProcessContactsCallback(dataJson);
@@ -628,7 +681,7 @@ namespace SalesChampion.Windows
                     // 消息类型 11132 表示文本消息
                     else if (messageType == 11132)
                     {
-                        string dataJson = messageObj.data?.ToString();
+                        string dataJson = messageObj.data?.ToString() ?? string.Empty;
                         if (!string.IsNullOrEmpty(dataJson))
                         {
                             _chatMessageSyncService?.ProcessChatMessageCallback(messageType, dataJson);
@@ -637,7 +690,7 @@ namespace SalesChampion.Windows
                     // 消息类型 11144 表示语音消息
                     else if (messageType == 11144)
                     {
-                        string dataJson = messageObj.data?.ToString();
+                        string dataJson = messageObj.data?.ToString() ?? string.Empty;
                         if (!string.IsNullOrEmpty(dataJson))
                         {
                             _chatMessageSyncService?.ProcessChatMessageCallback(messageType, dataJson);
@@ -646,7 +699,7 @@ namespace SalesChampion.Windows
                     // 消息类型 11241 表示朋友圈回调
                     else if (messageType == 11241)
                     {
-                        string dataJson = messageObj.data?.ToString();
+                        string dataJson = messageObj.data?.ToString() ?? string.Empty;
                         if (!string.IsNullOrEmpty(dataJson))
                         {
                             _momentsSyncService?.ProcessMomentsCallback(dataJson);
@@ -655,7 +708,7 @@ namespace SalesChampion.Windows
                     // 消息类型 11238 表示标签列表回调
                     else if (messageType == 11238)
                     {
-                        string dataJson = messageObj.data?.ToString();
+                        string dataJson = messageObj.data?.ToString() ?? string.Empty;
                         if (!string.IsNullOrEmpty(dataJson))
                         {
                             _tagSyncService?.ProcessTagsCallback(dataJson);
@@ -668,7 +721,7 @@ namespace SalesChampion.Windows
                         string weChatId = messageObj.wxid?.ToString() ?? clientId.ToString();
                         
                         // 更新账号信息
-                        AccountInfo account = null;
+                        AccountInfo? account = null;
                         foreach (var acc in _accountList)
                         {
                             if (acc.WeChatId == weChatId || acc.WeChatId == clientId.ToString())
@@ -741,7 +794,7 @@ namespace SalesChampion.Windows
                     }
                 };
 
-                _ = _webSocketService.SendMessageAsync(syncData);
+                _ = _webSocketService?.SendMessageAsync(syncData);
 
                 Logger.LogInfo("我的信息同步完成");
             }
@@ -754,7 +807,7 @@ namespace SalesChampion.Windows
         /// <summary>
         /// WebSocket消息接收事件处理
         /// </summary>
-        private void OnWebSocketMessageReceived(object sender, string message)
+        private void OnWebSocketMessageReceived(object? sender, string message)
         {
             Dispatcher.Invoke(() =>
             {
@@ -769,7 +822,7 @@ namespace SalesChampion.Windows
                     {
                         // 处理App端发送的命令
                         string commandJson = Newtonsoft.Json.JsonConvert.SerializeObject(messageObj);
-                        bool result = _commandService.ProcessCommand(commandJson);
+                        bool result = _commandService?.ProcessCommand(commandJson) ?? false;
                         AddLog($"命令执行结果: {(result ? "成功" : "失败")}", result ? "SUCCESS" : "ERROR");
                     }
                 }
@@ -920,11 +973,11 @@ namespace SalesChampion.Windows
 
                 AddLog("步骤1: 检查连接管理器状态...", "INFO");
                 AddLog($"连接管理器已创建: {_connectionManager != null}", _connectionManager != null ? "SUCCESS" : "ERROR");
-                AddLog($"当前连接状态: {(_connectionManager.IsConnected ? "已连接" : "未连接")}", _connectionManager.IsConnected ? "SUCCESS" : "WARN");
-                AddLog($"当前微信版本: {_connectionManager.WeChatVersion ?? "未知"}", "INFO");
+                AddLog($"当前连接状态: {(_connectionManager?.IsConnected == true ? "已连接" : "未连接")}", _connectionManager?.IsConnected == true ? "SUCCESS" : "WARN");
+                AddLog($"当前微信版本: {_connectionManager?.WeChatVersion ?? "未知"}", "INFO");
 
                 AddLog("步骤2: 初始化连接管理器...", "INFO");
-                bool initResult = _connectionManager.Initialize();
+                bool initResult = _connectionManager?.Initialize() ?? false;
                 AddLog($"初始化结果: {(initResult ? "成功" : "失败")}", initResult ? "SUCCESS" : "ERROR");
                 
                 if (!initResult)
@@ -935,7 +988,7 @@ namespace SalesChampion.Windows
                     AddLog("  2. 无法检测到微信版本", "ERROR");
                     AddLog("  3. DLL文件不存在或路径不正确", "ERROR");
                     AddLog("  4. DLL版本与微信版本不匹配", "ERROR");
-                    AddLog($"当前检测到的微信版本: {_connectionManager.WeChatVersion ?? "未检测到"}", "ERROR");
+                    AddLog($"当前检测到的微信版本: {_connectionManager?.WeChatVersion ?? "未检测到"}", "ERROR");
                     
                     // 检查DLL目录
                     string dllsPath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "DLLs");
@@ -956,17 +1009,22 @@ namespace SalesChampion.Windows
                     return;
                 }
 
-                AddLog($"步骤3: 连接管理器初始化成功，微信版本: {_connectionManager.WeChatVersion}", "SUCCESS");
+                AddLog($"步骤3: 连接管理器初始化成功，微信版本: {_connectionManager?.WeChatVersion ?? "未检测到"}", "SUCCESS");
                 AddLog("步骤4: 正在打开微信...", "INFO");
                 
+                if (_connectionManager == null)
+                {
+                    AddLog("连接管理器未初始化", "ERROR");
+                    return;
+                }
                 bool result = _connectionManager.Connect();
                 
                 if (result)
                 {
                     AddLog("========== 微信登录成功 ==========", "SUCCESS");
-                    AddLog($"微信版本: {_connectionManager.WeChatVersion ?? "未知"}", "SUCCESS");
-                    AddLog($"客户端ID: {_connectionManager.ClientId}", "SUCCESS");
-                    AddLog($"连接状态: {(_connectionManager.IsConnected ? "已连接" : "未连接")}", _connectionManager.IsConnected ? "SUCCESS" : "WARN");
+                    AddLog($"微信版本: {_connectionManager?.WeChatVersion ?? "未知"}", "SUCCESS");
+                    AddLog($"客户端ID: {_connectionManager?.ClientId ?? 0}", "SUCCESS");
+                    AddLog($"连接状态: {(_connectionManager?.IsConnected == true ? "已连接" : "未连接")}", _connectionManager?.IsConnected == true ? "SUCCESS" : "WARN");
                     
                     // 登录成功后，自动更新账号列表
                     UpdateAccountList();
@@ -1029,7 +1087,7 @@ namespace SalesChampion.Windows
             try
             {
                 AddLog("开始同步好友...", "INFO");
-                bool result = _contactSyncService.SyncContacts();
+                bool result = _contactSyncService?.SyncContacts() ?? false;
                 if (result)
                 {
                     AddLog("好友同步命令已发送", "SUCCESS");
@@ -1054,7 +1112,7 @@ namespace SalesChampion.Windows
             try
             {
                 AddLog("开始同步朋友圈...", "INFO");
-                bool result = _momentsSyncService.SyncMoments();
+                bool result = _momentsSyncService?.SyncMoments() ?? false;
                 if (result)
                 {
                     AddLog("朋友圈同步命令已发送", "SUCCESS");
@@ -1079,7 +1137,7 @@ namespace SalesChampion.Windows
             try
             {
                 AddLog("开始同步标签...", "INFO");
-                bool result = _tagSyncService.SyncTags();
+                bool result = _tagSyncService?.SyncTags() ?? false;
                 if (result)
                 {
                     AddLog("标签同步命令已发送", "SUCCESS");
