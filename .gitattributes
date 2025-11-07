@@ -1,0 +1,69 @@
+# 自动检测文本文件并标准化换行符
+* text=auto
+
+# 明确指定文本文件使用 LF（推荐用于跨平台项目）
+*.dart text eol=lf
+*.py text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+*.txt text eol=lf
+*.xml text eol=lf
+*.html text eol=lf
+*.css text eol=lf
+*.js text eol=lf
+*.ts text eol=lf
+*.cpp text eol=lf
+*.cc text eol=lf
+*.h text eol=lf
+*.hpp text eol=lf
+*.c text eol=lf
+*.cs text eol=lf
+*.kt text eol=lf
+*.gradle text eol=lf
+*.properties text eol=lf
+*.cmake text eol=lf
+*.cmake.in text eol=lf
+*.sh text eol=lf
+*.bat text eol=crlf
+*.ps1 text eol=crlf
+*.cmd text eol=crlf
+
+# Windows 特定文件使用 CRLF
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# 二进制文件
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.zip binary
+*.dll binary
+*.exe binary
+*.so binary
+*.dylib binary
+*.db binary
+*.sqlite binary
+*.sqlite3 binary
+*.dill binary
+*.bin binary
+
+# Flutter 生成的文件（保持原样）
+**/build/** -text
+**/.dart_tool/** -text
+**/ephemeral/** -text
+
+# Python 虚拟环境（保持原样）
+**/.venv/** -text
+**/venv/** -text
+**/env/** -text
+**/ENV/** -text
+
+# 元数据文件（保持原样）
+**/.metadata/** -text
+

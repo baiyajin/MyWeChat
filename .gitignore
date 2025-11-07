@@ -1,0 +1,259 @@
+# ============================================
+# Flutter 相关
+# ============================================
+# Flutter/Dart/Pub 相关
+**/doc/api/
+**/ios/Flutter/.last_build_id
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+/build/
+
+# Flutter 构建输出
+app/build/
+*.dill
+*.track.dill
+
+# Flutter 生成的代码
+**/*.g.dart
+**/*.freezed.dart
+
+# ============================================
+# Android 相关
+# ============================================
+# Android Studio / IntelliJ IDEA
+*.iml
+.idea/
+.gradle/
+local.properties
+*.hprof
+*.orig
+
+# Android 构建输出
+**/android/app/build/
+**/android/build/
+**/android/.gradle/
+**/android/captures/
+**/android/gradlew
+**/android/gradlew.bat
+**/android/local.properties
+**/android/.cxx/
+**/android/.externalNativeBuild/
+
+# ============================================
+# iOS 相关（如果有）
+# ============================================
+**/ios/Pods/
+**/ios/.symlinks/
+**/ios/Flutter/Flutter.framework
+**/ios/Flutter/Flutter.podspec
+**/ios/Flutter/Generated.xcconfig
+**/ios/Flutter/ephemeral/
+**/ios/Flutter/app.flx
+**/ios/Flutter/app.zip
+**/ios/Flutter/flutter_assets/
+**/ios/Flutter/flutter_export_environment.sh
+**/ios/ServiceDefinitions.json
+**/ios/Runner/GeneratedPluginRegistrant.*
+
+# ============================================
+# Windows 相关
+# ============================================
+# Flutter Windows 临时文件
+**/windows/flutter/ephemeral/
+
+# Windows 构建输出
+**/windows/x64/
+**/windows/x86/
+**/windows/arm64/
+**/windows/*.vcxproj.user
+**/windows/*.vcxproj.filters
+**/windows/*.sln.docstates
+**/windows/*.suo
+**/windows/*.user
+**/windows/*.userosscache
+**/windows/*.sln.docstates
+
+# WPF 项目构建输出
+windows/**/bin/
+windows/**/obj/
+windows/**/packages/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# DLLs 目录
+**/DLLs/
+
+# Visual Studio 相关
+.vs/
+*.vcxproj.user
+*.vcxproj.filters
+*.sln.docstates
+
+# ============================================
+# Python 相关
+# ============================================
+# Python 缓存和编译文件
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Python 虚拟环境
+.venv/
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# Python 数据库文件（开发环境）
+*.db
+*.sqlite
+*.sqlite3
+
+# Python 分发/打包
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# PyCharm
+.idea/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# pyenv
+.python-version
+
+# ============================================
+# IDE 相关
+# ============================================
+# Visual Studio Code
+.vscode/
+*.code-workspace
+
+# IntelliJ IDEA / Android Studio
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# Visual Studio
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Eclipse
+.classpath
+.project
+.settings/
+
+# NetBeans
+nbproject/private/
+build/
+nbbuild/
+dist/
+nbdist/
+.nb-gradle/
+
+# ============================================
+# 操作系统相关
+# ============================================
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+.Spotlight-V100
+.Trashes
+
+# Linux
+*~
+.directory
+.Trash-*
+
+# ============================================
+# 日志和临时文件
+# ============================================
+*.log
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+*.bak
+*.cache
+
+# ============================================
+# 项目特定
+# ============================================
+# 反编译代码（通常是临时文件）
+reverse-engineering/
+
+# 数据库文件（开发环境）
+server/*.db
+server/*.sqlite
+server/*.sqlite3
+
+# 本地配置文件
+**/local.properties
+**/.env
+**/.env.local
+**/.env.*.local
+
+# ============================================
+# 其他
+# ============================================
+# 压缩文件（通常不需要提交）
+*.zip
+*.tar
+*.tar.gz
+*.rar
+
+# 证书和密钥文件
+*.p12
+*.key
+*.pem
+*.crt
+*.cer
+*.jks
+*.keystore
+
+# 备份文件
+*.backup
+*.old
+
+copy_logos.py
+复制logo.bat
+
