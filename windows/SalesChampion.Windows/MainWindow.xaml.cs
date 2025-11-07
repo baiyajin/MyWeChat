@@ -1021,7 +1021,8 @@ namespace SalesChampion.Windows
         /// </summary>
         private void AddLog(string message, string level = "INFO")
         {
-            Dispatcher.Invoke(() =>
+            // 使用BeginInvoke异步处理，避免阻塞UI线程
+            Dispatcher.BeginInvoke(new Action(() =>
             {
                 try
                 {
@@ -1076,7 +1077,7 @@ namespace SalesChampion.Windows
                     // 如果RichTextBox出错，回退到简单文本
                     Logger.LogError($"添加日志失败: {ex.Message}");
                 }
-            });
+            }), System.Windows.Threading.DispatcherPriority.Background);
         }
 
         /// <summary>
