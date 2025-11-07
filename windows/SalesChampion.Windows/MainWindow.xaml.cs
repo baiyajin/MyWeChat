@@ -238,6 +238,16 @@ namespace SalesChampion.Windows
                 {
                     AddLog("微信已连接，正在获取账号信息...", "INFO");
                     UpdateAccountList();
+                    
+                    // 连接成功后，延迟一段时间主动获取账号信息
+                    // 因为11120/11121回调可能不会立即触发
+                    Task.Delay(2000).ContinueWith(_ =>
+                    {
+                        Dispatcher.Invoke(() =>
+                        {
+                            RequestAccountInfo();
+                        });
+                    });
                 }
             }
             catch (Exception ex)
@@ -551,6 +561,72 @@ namespace SalesChampion.Windows
         }
 
         /// <summary>
+        /// 主动请求账号信息
+        /// 尝试通过同步好友列表来获取自己的账号信息
+        /// </summary>
+        private void RequestAccountInfo()
+        {
+            try
+            {
+                if (_connectionManager == null || !_connectionManager.IsConnected)
+                {
+                    Logger.LogWarning("微信未连接，无法请求账号信息");
+                    return;
+                }
+
+                Logger.LogInfo("开始主动请求账号信息");
+                AddLog("正在获取账号信息...", "INFO");
+                
+                // 方法1: 尝试同步好友列表，好友列表中可能包含自己的信息
+                // 延迟一下，确保Hook已完全建立连接
+                Task.Delay(1000).ContinueWith(_ =>
+                {
+                    Dispatcher.Invoke(() =>
+                    {
+                        Logger.LogInfo("通过同步好友列表获取账号信息");
+                        _contactSyncService?.SyncContacts();
+                    });
+                });
+                
+                // 方法2: 如果好友列表同步后仍然没有账号信息，尝试从服务器获取
+                Task.Delay(5000).ContinueWith(_ =>
+                {
+                    Dispatcher.Invoke(() =>
+                    {
+                        // 检查账号信息是否已更新
+                        int clientId = _connectionManager?.ClientId ?? 0;
+                        AccountInfo? accountInfo = null;
+                        foreach (var acc in _accountList)
+                        {
+                            if (acc.WeChatId == clientId.ToString())
+                            {
+                                accountInfo = acc;
+                                break;
+                            }
+                        }
+                        
+                        // 如果仍然没有昵称和头像，记录警告
+                        if (accountInfo != null && (string.IsNullOrEmpty(accountInfo.NickName) || string.IsNullOrEmpty(accountInfo.Avatar)))
+                        {
+                            Logger.LogWarning($"账号信息不完整: wxid={accountInfo.WeChatId}, nickname={accountInfo.NickName}, avatar={(!string.IsNullOrEmpty(accountInfo.Avatar) ? "有头像" : "无头像")}");
+                            AddLog("账号信息获取不完整，可能11120/11121回调未触发", "WARN");
+                        }
+                        else if (accountInfo != null)
+                        {
+                            Logger.LogInfo($"账号信息已成功获取: wxid={accountInfo.WeChatId}, nickname={accountInfo.NickName}");
+                            AddLog("账号信息获取成功", "SUCCESS");
+                        }
+                    });
+                });
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError($"请求账号信息失败: {ex.Message}", ex);
+                AddLog($"请求账号信息失败: {ex.Message}", "ERROR");
+            }
+        }
+
+        /// <summary>
         /// WebSocket连接状态变化事件处理
         /// </summary>
         private void OnWebSocketConnectionStateChanged(object? sender, bool isConnected)
@@ -582,18 +658,35 @@ namespace SalesChampion.Windows
                     }
 
                     // 尝试修复不完整的JSON（如果消息被截断）
-                    // 如果消息以 "type":1112 结尾，可能是 11120 或 11121 被截断了
-                    if (cleanMessage.EndsWith("\"type\":1112") || cleanMessage.EndsWith("\"type\":11120"))
+                    // 情况1: 如果消息以 "type":1112 结尾，可能是 11120 或 11121 被截断了
+                    if (cleanMessage.EndsWith("\"type\":1112"))
                     {
-                        // 尝试补全JSON
-                        if (cleanMessage.EndsWith("\"type\":1112"))
-                        {
-                            cleanMessage = cleanMessage.Replace("\"type\":1112", "\"type\":11120}");
-                        }
-                        else if (cleanMessage.EndsWith("\"type\":11120"))
+                        Logger.LogWarning("检测到JSON消息被截断（type:1112），尝试修复为11120");
+                        cleanMessage = cleanMessage.Replace("\"type\":1112", "\"type\":11120}");
+                    }
+                    // 情况2: 如果消息以 "type":11120 结尾但没有闭合括号
+                    else if (cleanMessage.EndsWith("\"type\":11120") && !cleanMessage.EndsWith("}"))
+                    {
+                        Logger.LogWarning("检测到JSON消息不完整（缺少闭合括号），尝试修复");
+                        cleanMessage = cleanMessage + "}";
+                    }
+                    // 情况3: 如果消息以 "type":1112 结尾（可能是11120或11121）
+                    else if (cleanMessage.Contains("\"type\":1112") && !cleanMessage.EndsWith("}"))
+                    {
+                        Logger.LogWarning("检测到JSON消息包含截断的type字段，尝试修复");
+                        // 尝试修复为11120
+                        cleanMessage = cleanMessage.Replace("\"type\":1112", "\"type\":11120");
+                        // 如果还没有闭合括号，添加
+                        if (!cleanMessage.EndsWith("}"))
                         {
                             cleanMessage = cleanMessage + "}";
                         }
+                    }
+                    // 情况4: 如果消息看起来不完整（没有闭合括号）
+                    else if (!cleanMessage.EndsWith("}") && cleanMessage.StartsWith("{"))
+                    {
+                        Logger.LogWarning("检测到JSON消息不完整（缺少闭合括号），尝试修复");
+                        cleanMessage = cleanMessage + "}";
                     }
 
                     // 解析消息
@@ -606,26 +699,102 @@ namespace SalesChampion.Windows
                     {
                         Logger.LogWarning($"JSON解析失败，尝试修复: {ex.Message}");
                         Logger.LogWarning($"原始消息: {message}");
+                        Logger.LogWarning($"清理后的消息: {cleanMessage}");
                         
-                        // 尝试提取JSON对象（如果消息包含多个JSON对象）
+                        // 尝试多种修复策略
+                        bool isFixed = false;
+                        
+                        // 策略1: 提取第一个完整的JSON对象
                         int firstBrace = cleanMessage.IndexOf('{');
                         int lastBrace = cleanMessage.LastIndexOf('}');
                         if (firstBrace >= 0 && lastBrace > firstBrace)
                         {
-                            cleanMessage = cleanMessage.Substring(firstBrace, lastBrace - firstBrace + 1);
+                            string extractedJson = cleanMessage.Substring(firstBrace, lastBrace - firstBrace + 1);
                             try
                             {
-                                messageObj = Newtonsoft.Json.JsonConvert.DeserializeObject<dynamic>(cleanMessage) ?? null;
+                                messageObj = Newtonsoft.Json.JsonConvert.DeserializeObject<dynamic>(extractedJson) ?? null;
+                                if (messageObj != null)
+                                {
+                                    Logger.LogInfo("通过提取JSON对象成功解析");
+                                    isFixed = true;
+                                }
                             }
                             catch
                             {
-                                Logger.LogError($"无法解析消息: {cleanMessage}");
-                                return;
+                                // 继续尝试其他策略
                             }
                         }
-                        else
+                        
+                        // 策略2: 如果消息包含 "type":1112，尝试修复为 11120
+                        if (!isFixed && cleanMessage.Contains("\"type\":1112"))
                         {
-                            Logger.LogError($"无法提取有效的JSON: {cleanMessage}");
+                            string fixedJson = cleanMessage.Replace("\"type\":1112", "\"type\":11120");
+                            if (!fixedJson.EndsWith("}"))
+                            {
+                                fixedJson = fixedJson + "}";
+                            }
+                            try
+                            {
+                                messageObj = Newtonsoft.Json.JsonConvert.DeserializeObject<dynamic>(fixedJson) ?? null;
+                                if (messageObj != null)
+                                {
+                                    Logger.LogInfo("通过修复type字段成功解析");
+                                    cleanMessage = fixedJson;
+                                    isFixed = true;
+                                }
+                            }
+                            catch
+                            {
+                                // 继续尝试其他策略
+                            }
+                        }
+                        
+                        // 策略3: 如果消息不完整，尝试补全
+                        if (!isFixed && cleanMessage.StartsWith("{") && !cleanMessage.EndsWith("}"))
+                        {
+                            // 尝试找到最后一个逗号或冒号，然后补全
+                            int lastComma = cleanMessage.LastIndexOf(',');
+                            int lastColon = cleanMessage.LastIndexOf(':');
+                            int lastQuote = cleanMessage.LastIndexOf('"');
+                            
+                            if (lastQuote > 0)
+                            {
+                                // 如果最后是字符串值，尝试补全
+                                string fixedJson = cleanMessage;
+                                if (fixedJson.EndsWith("\""))
+                                {
+                                    fixedJson = fixedJson + "}";
+                                }
+                                else if (fixedJson.EndsWith("\"type\":1112"))
+                                {
+                                    fixedJson = fixedJson.Replace("\"type\":1112", "\"type\":11120}");
+                                }
+                                else
+                                {
+                                    fixedJson = fixedJson + "}";
+                                }
+                                
+                                try
+                                {
+                                    messageObj = Newtonsoft.Json.JsonConvert.DeserializeObject<dynamic>(fixedJson) ?? null;
+                                    if (messageObj != null)
+                                    {
+                                        Logger.LogInfo("通过补全JSON成功解析");
+                                        cleanMessage = fixedJson;
+                                        isFixed = true;
+                                    }
+                                }
+                                catch
+                                {
+                                    // 继续尝试其他策略
+                                }
+                            }
+                        }
+                        
+                        if (!isFixed)
+                        {
+                            Logger.LogError($"无法解析消息，已尝试多种修复策略: {cleanMessage}");
+                            Logger.LogError($"原始消息长度: {message?.Length ?? 0}, 清理后长度: {cleanMessage.Length}");
                             return;
                         }
                     }
@@ -641,11 +810,22 @@ namespace SalesChampion.Windows
                     {
                         int.TryParse(messageObj.type.ToString(), out messageType);
                     }
+                    
+                    // 特殊处理：如果type是1112，可能是11120被截断了
+                    if (messageType == 1112)
+                    {
+                        Logger.LogWarning("检测到消息类型1112，可能是11120被截断，尝试修复");
+                        messageType = 11120;
+                    }
 
+                    // 记录所有消息类型，用于调试
+                    Logger.LogInfo($"收到消息类型: {messageType}, 消息内容: {message}");
+                    
                     // 根据原项目和日志，消息类型 11120 和 11121 都表示登录回调
                     // 11120 可能是初始化消息，11121 是登录成功消息
                     // 从日志看，11120 消息包含账号信息（wxid, nickname, avatar等）
-                    if (messageType == 11120 || messageType == 11121)
+                    // 注意：1112 可能是 11120 被截断的情况
+                    if (messageType == 11120 || messageType == 11121 || messageType == 1112)
                     {
                         // 解析登录信息
                         // 注意：11120消息的data可能直接是对象，不需要再次解析
@@ -687,16 +867,48 @@ namespace SalesChampion.Windows
                                 int.TryParse(loginInfo.pid.ToString(), out clientId);
                             }
 
+                            // 尝试多种方式获取wxid
                             string wxid = loginInfo.wxid?.ToString() ?? "";
+                            if (string.IsNullOrEmpty(wxid))
+                            {
+                                wxid = loginInfo.wxId?.ToString() ?? "";  // 尝试wxId（驼峰命名）
+                            }
+                            if (string.IsNullOrEmpty(wxid))
+                            {
+                                wxid = loginInfo.WxId?.ToString() ?? "";  // 尝试WxId（首字母大写）
+                            }
+                            
+                            // 尝试多种方式获取nickname
                             string nickname = loginInfo.nickname?.ToString() ?? "";
+                            if (string.IsNullOrEmpty(nickname))
+                            {
+                                nickname = loginInfo.nickName?.ToString() ?? "";  // 尝试nickName（驼峰命名）
+                            }
+                            if (string.IsNullOrEmpty(nickname))
+                            {
+                                nickname = loginInfo.NickName?.ToString() ?? "";  // 尝试NickName（首字母大写）
+                            }
+                            
+                            // 尝试多种方式获取avatar
                             string avatar = loginInfo.avatar?.ToString() ?? "";
+                            if (string.IsNullOrEmpty(avatar))
+                            {
+                                avatar = loginInfo.Avatar?.ToString() ?? "";  // 尝试Avatar（首字母大写）
+                            }
+                            
                             string account = loginInfo.account?.ToString() ?? wxid;
+                            if (string.IsNullOrEmpty(account))
+                            {
+                                account = loginInfo.Account?.ToString() ?? wxid;  // 尝试Account（首字母大写）
+                            }
                             
                             // 如果wxid为空，使用clientId作为fallback
                             if (string.IsNullOrEmpty(wxid))
                             {
                                 wxid = clientId.ToString();
                             }
+                            
+                            Logger.LogInfo($"解析登录信息: wxid={wxid}, nickname={nickname}, avatar={(!string.IsNullOrEmpty(avatar) ? "有头像" : "无头像")}, account={account}");
 
                             // 更新账号信息
                             AccountInfo? accountInfo = null;
@@ -822,10 +1034,18 @@ namespace SalesChampion.Windows
                         }
                     }
                     // 也检查是否是直接的账号信息消息（兼容其他格式）
-                    else if (messageObj.nickname != null || messageObj.avatar != null || messageObj.wxid != null)
+                    // 尝试多种字段名（支持驼峰命名和首字母大写）
+                    else if (messageObj.nickname != null || messageObj.avatar != null || messageObj.wxid != null ||
+                             messageObj.nickName != null || messageObj.NickName != null ||
+                             messageObj.Avatar != null || messageObj.wxId != null || messageObj.WxId != null)
                     {
                         int clientId = _connectionManager?.ClientId ?? 0;
-                        string weChatId = messageObj.wxid?.ToString() ?? clientId.ToString();
+                        
+                        // 尝试多种方式获取wxid
+                        string weChatId = messageObj.wxid?.ToString() ?? 
+                                         messageObj.wxId?.ToString() ?? 
+                                         messageObj.WxId?.ToString() ?? 
+                                         clientId.ToString();
                         
                         // 更新账号信息
                         AccountInfo? account = null;
@@ -849,22 +1069,48 @@ namespace SalesChampion.Windows
                             _accountList.Add(account);
                         }
                         
-                        // 更新昵称和头像
+                        // 更新昵称（尝试多种字段名）
                         if (messageObj.nickname != null)
                         {
                             account.NickName = messageObj.nickname.ToString();
                         }
+                        else if (messageObj.nickName != null)
+                        {
+                            account.NickName = messageObj.nickName.ToString();
+                        }
+                        else if (messageObj.NickName != null)
+                        {
+                            account.NickName = messageObj.NickName.ToString();
+                        }
                         
+                        // 更新头像（尝试多种字段名）
                         if (messageObj.avatar != null)
                         {
                             account.Avatar = messageObj.avatar.ToString();
                         }
+                        else if (messageObj.Avatar != null)
+                        {
+                            account.Avatar = messageObj.Avatar.ToString();
+                        }
                         
+                        // 更新wxid（尝试多种字段名）
                         if (messageObj.wxid != null)
                         {
                             account.WeChatId = messageObj.wxid.ToString();
                             account.BoundAccount = messageObj.wxid.ToString();
                         }
+                        else if (messageObj.wxId != null)
+                        {
+                            account.WeChatId = messageObj.wxId.ToString();
+                            account.BoundAccount = messageObj.wxId.ToString();
+                        }
+                        else if (messageObj.WxId != null)
+                        {
+                            account.WeChatId = messageObj.WxId.ToString();
+                            account.BoundAccount = messageObj.WxId.ToString();
+                        }
+                        
+                        Logger.LogInfo($"从消息中更新账号信息: wxid={account.WeChatId}, nickname={account.NickName}, avatar={(!string.IsNullOrEmpty(account.Avatar) ? "有头像" : "无头像")}");
                         
                         // 更新UI显示
                         UpdateAccountInfoDisplay();
