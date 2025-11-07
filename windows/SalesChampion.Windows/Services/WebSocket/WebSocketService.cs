@@ -13,10 +13,10 @@ namespace SalesChampion.Windows.Services.WebSocket
     /// </summary>
     public class WebSocketService
     {
-        private ClientWebSocket _webSocket;
+        private ClientWebSocket? _webSocket;
         private readonly string _serverUrl;
         private bool _isConnected;
-        private CancellationTokenSource _cancellationTokenSource;
+        private CancellationTokenSource? _cancellationTokenSource;
 
         /// <summary>
         /// 连接状态
@@ -26,12 +26,12 @@ namespace SalesChampion.Windows.Services.WebSocket
         /// <summary>
         /// 收到消息事件
         /// </summary>
-        public event EventHandler<string> OnMessageReceived;
+        public event EventHandler<string>? OnMessageReceived;
 
         /// <summary>
         /// 连接状态变化事件
         /// </summary>
-        public event EventHandler<bool> OnConnectionStateChanged;
+        public event EventHandler<bool>? OnConnectionStateChanged;
 
         /// <summary>
         /// 构造函数
@@ -139,6 +139,11 @@ namespace SalesChampion.Windows.Services.WebSocket
 
             try
             {
+                if (_webSocket == null)
+                {
+                    Logger.LogWarning("WebSocket未初始化");
+                    return false;
+                }
                 byte[] buffer = Encoding.UTF8.GetBytes(message);
                 await _webSocket.SendAsync(new ArraySegment<byte>(buffer), WebSocketMessageType.Text, true, CancellationToken.None);
                 Logger.LogInfo($"WebSocket消息已发送: {message}");
@@ -174,10 +179,14 @@ namespace SalesChampion.Windows.Services.WebSocket
         {
             byte[] buffer = new byte[4096];
 
-            while (_isConnected && _webSocket.State == WebSocketState.Open)
+            while (_isConnected && _webSocket?.State == WebSocketState.Open)
             {
                 try
                 {
+                    if (_webSocket == null || _cancellationTokenSource == null)
+                    {
+                        break;
+                    }
                     WebSocketReceiveResult result = await _webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), _cancellationTokenSource.Token);
 
                     if (result.MessageType == WebSocketMessageType.Close)

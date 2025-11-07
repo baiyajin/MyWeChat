@@ -10,8 +10,8 @@ namespace SalesChampion.Windows.Core.Connection
     /// </summary>
     public class WeChatConnectionManager
     {
-        private WeChatHookManager _hookManager;
-        private string _weChatVersion;
+        private WeChatHookManager? _hookManager;
+        private string? _weChatVersion;
         private bool _isConnected;
 
         /// <summary>
@@ -22,7 +22,7 @@ namespace SalesChampion.Windows.Core.Connection
         /// <summary>
         /// 微信版本号
         /// </summary>
-        public string WeChatVersion => _weChatVersion;
+        public string? WeChatVersion => _weChatVersion;
 
         /// <summary>
         /// 客户端ID
@@ -32,12 +32,12 @@ namespace SalesChampion.Windows.Core.Connection
         /// <summary>
         /// 连接状态变化事件
         /// </summary>
-        public event EventHandler<bool> OnConnectionStateChanged;
+        public event EventHandler<bool>? OnConnectionStateChanged;
 
         /// <summary>
         /// Hook消息接收事件
         /// </summary>
-        public event EventHandler<string> OnMessageReceived;
+        public event EventHandler<string>? OnMessageReceived;
 
         /// <summary>
         /// 初始化连接管理器
@@ -65,7 +65,7 @@ namespace SalesChampion.Windows.Core.Connection
 
                 // 尝试标准化版本号（如果找不到精确匹配，会自动选择最接近的版本）
                 Logger.LogInfo("步骤2: 标准化版本号...");
-                string normalizedVersion = WeChatVersionDetector.DetectWeChatVersion();
+                string? normalizedVersion = WeChatVersionDetector.DetectWeChatVersion();
                 Logger.LogInfo($"标准化结果: {normalizedVersion ?? "未找到匹配版本"}");
                 
                 if (string.IsNullOrEmpty(normalizedVersion))
@@ -85,13 +85,13 @@ namespace SalesChampion.Windows.Core.Connection
                 Logger.LogInfo($"最终使用的微信版本: {_weChatVersion}");
 
                 // 检查DLL目录
-                string dllDirectory = WeChatVersionDetector.GetDllDirectoryPath(_weChatVersion);
+                string? dllDirectory = WeChatVersionDetector.GetDllDirectoryPath(_weChatVersion);
                 Logger.LogInfo($"步骤3: 检查DLL目录...");
                 Logger.LogInfo($"DLL目录路径: {dllDirectory ?? "未找到"}");
                 
                 if (string.IsNullOrEmpty(dllDirectory) || !System.IO.Directory.Exists(dllDirectory))
                 {
-                    Logger.LogError($"DLL目录不存在: {dllDirectory}");
+                    Logger.LogError($"DLL目录不存在: {dllDirectory ?? "null"}");
                     return false;
                 }
 
@@ -162,7 +162,7 @@ namespace SalesChampion.Windows.Core.Connection
         /// </summary>
         /// <param name="weChatExePath">微信可执行文件路径</param>
         /// <returns>返回是否成功</returns>
-        public bool Connect(string weChatExePath = null)
+        public bool Connect(string? weChatExePath = null)
         {
             try
             {
@@ -223,7 +223,7 @@ namespace SalesChampion.Windows.Core.Connection
         /// <summary>
         /// 发送命令
         /// </summary>
-        public bool SendCommand(int commandType, object data = null)
+        public bool SendCommand(int commandType, object? data = null)
         {
             if (!IsConnected)
             {
@@ -231,7 +231,7 @@ namespace SalesChampion.Windows.Core.Connection
                 return false;
             }
 
-            return _hookManager.SendCommand(commandType, data);
+            return _hookManager?.SendCommand(commandType, data) ?? false;
         }
     }
 }

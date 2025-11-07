@@ -47,7 +47,7 @@ namespace SalesChampion.Windows.Core.DLLWrapper
 
         #region 重写基类方法
 
-        public override int SetCallback(IntPtr acceptPtr, IntPtr receivePtr, IntPtr closePtr, string contact = null)
+        public override int SetCallback(IntPtr acceptPtr, IntPtr receivePtr, IntPtr closePtr, string? contact = null)
         {
             return SetCB(acceptPtr, receivePtr, closePtr, contact ?? "");
         }

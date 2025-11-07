@@ -9,17 +9,17 @@ namespace SalesChampion.Windows.Models
         /// <summary>
         /// 标签ID
         /// </summary>
-        public string TagId { get; set; }
+        public string TagId { get; set; } = string.Empty;
 
         /// <summary>
         /// 标签名称
         /// </summary>
-        public string TagName { get; set; }
+        public string TagName { get; set; } = string.Empty;
 
         /// <summary>
         /// 微信ID（当前登录账号）
         /// </summary>
-        public string WeChatId { get; set; }
+        public string WeChatId { get; set; } = string.Empty;
     }
 }
 

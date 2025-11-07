@@ -10,7 +10,7 @@ namespace SalesChampion.Windows.UI.ViewModels
     public class MainViewModel : INotifyPropertyChanged
     {
         private bool _isWeChatConnected;
-        private string _weChatVersion;
+        private string _weChatVersion = string.Empty;
         private bool _isAppConnected;
 
         /// <summary>
@@ -61,9 +61,9 @@ namespace SalesChampion.Windows.UI.ViewModels
             }
         }
 
-        public event PropertyChangedEventHandler PropertyChanged;
+        public event PropertyChangedEventHandler? PropertyChanged;
 
-        protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
+        protected virtual void OnPropertyChanged([CallerMemberName] string? propertyName = null)
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }

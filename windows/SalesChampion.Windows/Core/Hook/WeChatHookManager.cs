@@ -17,14 +17,14 @@ namespace SalesChampion.Windows.Core.Hook
     /// </summary>
     public class WeChatHookManager
     {
-        private WeChatHelperWrapperBase _dllWrapper;
+        private WeChatHelperWrapperBase? _dllWrapper;
         
         // 回调函数委托
-        private WeChatHelperWrapperBase.AcceptCallback _acceptCallback;
-        private WeChatHelperWrapperBase.ReceiveCallback _receiveCallback;
-        private WeChatHelperWrapperBase.CloseCallback _closeCallback;
+        private WeChatHelperWrapperBase.AcceptCallback? _acceptCallback;
+        private WeChatHelperWrapperBase.ReceiveCallback? _receiveCallback;
+        private WeChatHelperWrapperBase.CloseCallback? _closeCallback;
         
-        private string _weChatVersion;
+        private string? _weChatVersion;
         private int _clientId;
         private bool _isHooked;
         private readonly object _lockObject = new object();
@@ -42,14 +42,14 @@ namespace SalesChampion.Windows.Core.Hook
         /// <summary>
         /// 微信版本号
         /// </summary>
-        public string WeChatVersion => _weChatVersion;
+        public string? WeChatVersion => _weChatVersion;
 
         /// <summary>
         /// Hook事件
         /// </summary>
-        public event EventHandler<int> OnHooked;
-        public event EventHandler OnUnhooked;
-        public event EventHandler<string> OnMessageReceived;
+        public event EventHandler<int>? OnHooked;
+        public event EventHandler? OnUnhooked;
+        public event EventHandler<string>? OnMessageReceived;
 
         /// <summary>
         /// 初始化Hook管理器
@@ -59,7 +59,7 @@ namespace SalesChampion.Windows.Core.Hook
             try
             {
                 _weChatVersion = weChatVersion;
-                string dllDirectory = WeChatVersionDetector.GetDllDirectoryPath(weChatVersion);
+                string? dllDirectory = WeChatVersionDetector.GetDllDirectoryPath(weChatVersion);
                 
                 if (string.IsNullOrEmpty(dllDirectory) || !Directory.Exists(dllDirectory))
                 {
@@ -69,7 +69,7 @@ namespace SalesChampion.Windows.Core.Hook
 
                 string dllPath = Path.Combine(dllDirectory, "WxHelp.dll");
                 string actualDllDirectory = dllDirectory;
-                string sourceDllPath = null;
+                string? sourceDllPath = null;
                 
                 if (!File.Exists(dllPath))
                 {
@@ -95,7 +95,7 @@ namespace SalesChampion.Windows.Core.Hook
                         Logger.LogError($"复制WxHelp.dll失败: {ex.Message}");
                         // 如果复制失败，尝试使用源路径
                         dllPath = sourceDllPath;
-                        actualDllDirectory = Path.GetDirectoryName(sourceDllPath);
+                        actualDllDirectory = Path.GetDirectoryName(sourceDllPath) ?? string.Empty;
                     }
                 }
                 else
@@ -111,8 +111,8 @@ namespace SalesChampion.Windows.Core.Hook
                 }
 
                 // 设置DLL搜索路径（包含实际找到的DLL目录）
-                string pathEnv = Environment.GetEnvironmentVariable("PATH", EnvironmentVariableTarget.Process);
-                if (!pathEnv.Contains(actualDllDirectory))
+                string? pathEnv = Environment.GetEnvironmentVariable("PATH", EnvironmentVariableTarget.Process);
+                if (pathEnv != null && !pathEnv.Contains(actualDllDirectory))
                 {
                     Environment.SetEnvironmentVariable("PATH", 
                         $"{actualDllDirectory};{dllDirectory};{pathEnv}", 
@@ -124,7 +124,7 @@ namespace SalesChampion.Windows.Core.Hook
                 try
                 {
                     // 获取包含DLL的目录（不是文件路径）
-                    string dllDir = Path.GetDirectoryName(dllPath);
+                    string? dllDir = Path.GetDirectoryName(dllPath);
                     if (!string.IsNullOrEmpty(dllDir))
                     {
                         // 直接调用SetDllDirectory设置DLL搜索路径
@@ -154,7 +154,7 @@ namespace SalesChampion.Windows.Core.Hook
                 
                 // 检查DLL架构是否匹配
                 Logger.LogInfo("步骤5: 检查DLL架构...");
-                string dllArchitecture = GetDllArchitecture(dllPath);
+                string? dllArchitecture = GetDllArchitecture(dllPath);
                 string appArchitecture = IntPtr.Size == 8 ? "64位" : "32位";
                 Logger.LogInfo($"应用程序架构: {appArchitecture}");
                 Logger.LogInfo($"DLL架构: {dllArchitecture ?? "未知"}");
@@ -185,7 +185,7 @@ namespace SalesChampion.Windows.Core.Hook
                 // 某些版本需要contact参数
                 // 3.9.12.45版本需要contact参数（传空字符串）
                 // 4.1.0.34版本不需要contact参数（传null）
-                string contact = _weChatVersion == "3.9.12.45" ? "" : null;
+                string? contact = _weChatVersion == "3.9.12.45" ? "" : null;
                 
                 try
                 {
@@ -214,7 +214,7 @@ namespace SalesChampion.Windows.Core.Hook
         /// </summary>
         /// <param name="weChatExePath">微信可执行文件路径，如果为空则自动查找</param>
         /// <returns>返回是否成功</returns>
-        public bool OpenAndHook(string weChatExePath = null)
+        public bool OpenAndHook(string? weChatExePath = null)
         {
             lock (_lockObject)
             {
@@ -263,9 +263,9 @@ namespace SalesChampion.Windows.Core.Hook
 
                     // 打开微信互斥锁
                     Logger.LogInfo("正在打开微信互斥锁...");
-                    int result = _dllWrapper.OpenWeChatMutex(weChatExePath);
+                    int result = _dllWrapper.OpenWeChatMutex(weChatExePath ?? string.Empty);
                     
-                    Process weChatProcess = null;
+                    Process? weChatProcess = null;
                     
                     if (result == 0)
                     {
@@ -403,7 +403,7 @@ namespace SalesChampion.Windows.Core.Hook
         /// <param name="commandType">命令类型（命令ID）</param>
         /// <param name="data">命令数据（JSON对象）</param>
         /// <returns>返回是否成功</returns>
-        public bool SendCommand(int commandType, object data = null)
+        public bool SendCommand(int commandType, object? data = null)
         {
             if (!_isHooked)
             {
@@ -420,7 +420,7 @@ namespace SalesChampion.Windows.Core.Hook
                 };
 
                 string jsonCommand = Newtonsoft.Json.JsonConvert.SerializeObject(command);
-                bool result = _dllWrapper.SendStringData(_clientId, jsonCommand);
+                bool result = _dllWrapper?.SendStringData(_clientId, jsonCommand) ?? false;
 
                 if (result)
                 {
@@ -496,7 +496,7 @@ namespace SalesChampion.Windows.Core.Hook
         /// <summary>
         /// 获取DLL的架构（32位或64位）
         /// </summary>
-        private string GetDllArchitecture(string dllPath)
+        private string? GetDllArchitecture(string dllPath)
         {
             try
             {
@@ -561,7 +561,7 @@ namespace SalesChampion.Windows.Core.Hook
         /// 查找WxHelp.dll文件
         /// 如果当前版本目录没有，尝试从其他版本目录查找
         /// </summary>
-        private string FindWxHelpDll(string currentDllDirectory)
+        private string? FindWxHelpDll(string currentDllDirectory)
         {
             try
             {
@@ -576,37 +576,41 @@ namespace SalesChampion.Windows.Core.Hook
                 string dllsBasePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "DLLs");
                 if (Directory.Exists(dllsBasePath))
                 {
+                    string[] subDirs = Directory.GetDirectories(dllsBasePath);
+                    
                     // 优先查找相同主版本的目录
-                    string[] versionParts = _weChatVersion.Split('.');
-                    if (versionParts.Length >= 3)
+                    if (!string.IsNullOrEmpty(_weChatVersion))
                     {
-                        string majorVersion = $"{versionParts[0]}.{versionParts[1]}.{versionParts[2]}";
-                        
-                        string[] subDirs = Directory.GetDirectories(dllsBasePath);
-                        foreach (string dir in subDirs)
+                        string[] versionParts = _weChatVersion.Split('.');
+                        if (versionParts.Length >= 3)
                         {
-                            string dirName = Path.GetFileName(dir);
-                            // 优先选择相同主版本的目录
-                            if (dirName.StartsWith(majorVersion))
+                            string majorVersion = $"{versionParts[0]}.{versionParts[1]}.{versionParts[2]}";
+                            
+                            foreach (string dir in subDirs)
                             {
-                                string testPath = Path.Combine(dir, "WxHelp.dll");
-                                if (File.Exists(testPath))
+                                string dirName = Path.GetFileName(dir);
+                                // 优先选择相同主版本的目录
+                                if (dirName.StartsWith(majorVersion))
                                 {
-                                    Logger.LogInfo($"从目录 {dirName} 找到WxHelp.dll");
-                                    return testPath;
+                                    string testPath = Path.Combine(dir, "WxHelp.dll");
+                                    if (File.Exists(testPath))
+                                    {
+                                        Logger.LogInfo($"从目录 {dirName} 找到WxHelp.dll");
+                                        return testPath;
+                                    }
                                 }
                             }
                         }
-                        
-                        // 如果相同主版本没有，尝试其他任何目录
-                        foreach (string dir in subDirs)
+                    }
+                    
+                    // 如果相同主版本没有，尝试其他任何目录
+                    foreach (string dir in subDirs)
+                    {
+                        string testPath = Path.Combine(dir, "WxHelp.dll");
+                        if (File.Exists(testPath))
                         {
-                            string testPath = Path.Combine(dir, "WxHelp.dll");
-                            if (File.Exists(testPath))
-                            {
-                                Logger.LogInfo($"从目录 {Path.GetFileName(dir)} 找到WxHelp.dll");
-                                return testPath;
-                            }
+                            Logger.LogInfo($"从目录 {Path.GetFileName(dir)} 找到WxHelp.dll");
+                            return testPath;
                         }
                     }
                 }
@@ -630,7 +634,7 @@ namespace SalesChampion.Windows.Core.Hook
         /// <summary>
         /// 查找微信可执行文件
         /// </summary>
-        private string FindWeChatExecutable()
+        private string? FindWeChatExecutable()
         {
             try
             {
@@ -642,12 +646,12 @@ namespace SalesChampion.Windows.Core.Hook
                 string registryPath = isNewVersion ? @"SOFTWARE\Tencent\Weixin" : @"SOFTWARE\Tencent\WeChat";
 
                 // 方法1: 从注册表获取安装路径（优先使用 CurrentUser）
-                string installPath = null;
-                using (Microsoft.Win32.RegistryKey key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(registryPath))
+                string? installPath = null;
+                using (Microsoft.Win32.RegistryKey? key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(registryPath))
                 {
                     if (key != null)
                     {
-                        object path = key.GetValue("InstallPath");
+                        object? path = key.GetValue("InstallPath");
                         if (path != null)
                         {
                             installPath = path.ToString();
@@ -658,11 +662,11 @@ namespace SalesChampion.Windows.Core.Hook
                 // 方法2: 如果 CurrentUser 没有，尝试 LocalMachine
                 if (string.IsNullOrEmpty(installPath))
                 {
-                    using (Microsoft.Win32.RegistryKey key = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(registryPath))
+                    using (Microsoft.Win32.RegistryKey? key = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(registryPath))
                     {
                         if (key != null)
                         {
-                            object path = key.GetValue("InstallPath");
+                            object? path = key.GetValue("InstallPath");
                             if (path != null)
                             {
                                 installPath = path.ToString();
@@ -681,11 +685,11 @@ namespace SalesChampion.Windows.Core.Hook
                         {
                             string lastPart = pathParts[pathParts.Length - 1];
                             string wow6432Path = $@"SOFTWARE\WOW6432Node\Tencent\{lastPart}";
-                            using (Microsoft.Win32.RegistryKey key = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(wow6432Path))
+                            using (Microsoft.Win32.RegistryKey? key = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(wow6432Path))
                             {
                                 if (key != null)
                                 {
-                                    object path = key.GetValue("InstallPath");
+                                    object? path = key.GetValue("InstallPath");
                                     if (path != null)
                                     {
                                         installPath = path.ToString();
@@ -757,7 +761,7 @@ namespace SalesChampion.Windows.Core.Hook
         /// <summary>
         /// 查找微信进程
         /// </summary>
-        private Process FindWeChatProcess()
+        private Process? FindWeChatProcess()
         {
             try
             {

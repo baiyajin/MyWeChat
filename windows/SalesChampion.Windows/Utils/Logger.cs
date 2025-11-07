@@ -15,7 +15,7 @@ namespace SalesChampion.Windows.Utils
         /// <summary>
         /// 日志输出事件（用于输出到UI）
         /// </summary>
-        public static event Action<string> OnLogMessage;
+        public static event Action<string>? OnLogMessage;
 
         /// <summary>
         /// 初始化日志目录

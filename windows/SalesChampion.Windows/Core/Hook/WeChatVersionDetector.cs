@@ -30,16 +30,16 @@ namespace SalesChampion.Windows.Core.Hook
         /// 检测微信版本
         /// </summary>
         /// <returns>返回微信版本号，如果未找到返回null</returns>
-        public static string DetectWeChatVersion()
+        public static string? DetectWeChatVersion()
         {
             try
             {
                 // 方法1: 从注册表获取微信版本（最可靠）
-                string version = GetVersionFromRegistry();
+                string? version = GetVersionFromRegistry();
                 if (!string.IsNullOrEmpty(version))
                 {
                     Utils.Logger.LogInfo($"从注册表获取微信版本: {version}");
-                    string normalized = NormalizeVersion(version);
+                    string? normalized = NormalizeVersion(version);
                     if (!string.IsNullOrEmpty(normalized))
                     {
                         return normalized;
@@ -47,17 +47,17 @@ namespace SalesChampion.Windows.Core.Hook
                 }
 
                 // 方法2: 从微信安装目录获取版本
-                string weChatPath = GetWeChatInstallPath();
+                string? weChatPath = GetWeChatInstallPath();
                 if (!string.IsNullOrEmpty(weChatPath))
                 {
                     Utils.Logger.LogInfo($"找到微信安装路径: {weChatPath}");
                     
                     // 方法2.1: 从安装路径的子目录中检测版本（优先）
-                    string versionFromPath = GetVersionFromInstallPath(weChatPath);
+                    string? versionFromPath = GetVersionFromInstallPath(weChatPath);
                     if (!string.IsNullOrEmpty(versionFromPath))
                     {
                         Utils.Logger.LogInfo($"从安装路径子目录获取微信版本: {versionFromPath}");
-                        string normalized = NormalizeVersion(versionFromPath);
+                        string? normalized = NormalizeVersion(versionFromPath);
                         if (!string.IsNullOrEmpty(normalized))
                         {
                             return normalized;
@@ -71,9 +71,9 @@ namespace SalesChampion.Windows.Core.Hook
                         try
                         {
                             FileVersionInfo versionInfo = FileVersionInfo.GetVersionInfo(exePath);
-                            string fileVersion = versionInfo.FileVersion;
+                            string? fileVersion = versionInfo.FileVersion;
                             Utils.Logger.LogInfo($"从WeChat.exe获取文件版本: {fileVersion}");
-                            string normalized = NormalizeVersion(fileVersion);
+                            string? normalized = NormalizeVersion(fileVersion);
                             if (!string.IsNullOrEmpty(normalized))
                             {
                                 return normalized;
@@ -97,7 +97,7 @@ namespace SalesChampion.Windows.Core.Hook
                     if (!string.IsNullOrEmpty(version))
                     {
                         Utils.Logger.LogInfo($"从进程获取微信版本: {version}");
-                        string normalized = NormalizeVersion(version);
+                        string? normalized = NormalizeVersion(version);
                         if (!string.IsNullOrEmpty(normalized))
                         {
                             return normalized;
@@ -123,7 +123,7 @@ namespace SalesChampion.Windows.Core.Hook
         /// 注意：64位应用访问注册表时，SOFTWARE\...访问64位视图，SOFTWARE\WOW6432Node\...访问32位视图
         /// 微信可能注册在CurrentUser或LocalMachine下
         /// </summary>
-        private static string GetVersionFromRegistry()
+        private static string? GetVersionFromRegistry()
         {
             try
             {
@@ -154,7 +154,7 @@ namespace SalesChampion.Windows.Core.Hook
                             string fullPath = $"{root.Name}\\{registryPath}";
                             Utils.Logger.LogInfo($"尝试访问注册表: {fullPath}");
                             
-                            using (RegistryKey key = root.OpenSubKey(registryPath))
+                            using (RegistryKey? key = root.OpenSubKey(registryPath))
                             {
                                 if (key != null)
                                 {
@@ -165,28 +165,28 @@ namespace SalesChampion.Windows.Core.Hook
                                     Utils.Logger.LogInfo($"注册表值数量: {valueNames.Length}");
                                     foreach (string valueName in valueNames)
                                     {
-                                        object value = key.GetValue(valueName);
+                                        object? value = key.GetValue(valueName);
                                         Utils.Logger.LogInfo($"  - {valueName} = {value}");
                                     }
                                     
                                     // 尝试获取Version值
-                                    object versionValue = key.GetValue("Version");
+                                    object? versionValue = key.GetValue("Version");
                                     if (versionValue != null)
                                     {
-                                        string version = versionValue.ToString();
+                                        string? version = versionValue?.ToString();
                                         Utils.Logger.LogInfo($"从注册表获取到版本: {version} (路径: {fullPath})");
                                         return version;
                                     }
                                     
                                     // 如果没有Version值，尝试从InstallPath获取版本
-                                    object installPathValue = key.GetValue("InstallPath");
+                                    object? installPathValue = key.GetValue("InstallPath");
                                     if (installPathValue != null)
                                     {
-                                        string installPath = installPathValue.ToString();
+                                        string? installPath = installPathValue?.ToString();
                                         Utils.Logger.LogInfo($"找到安装路径: {installPath}");
                                         
                                         // 从安装路径的子目录中检测版本
-                                        string versionFromPath = GetVersionFromInstallPath(installPath);
+                                        string? versionFromPath = GetVersionFromInstallPath(installPath);
                                         if (!string.IsNullOrEmpty(versionFromPath))
                                         {
                                             Utils.Logger.LogInfo($"从安装路径获取到版本: {versionFromPath}");
@@ -219,7 +219,7 @@ namespace SalesChampion.Windows.Core.Hook
         /// 从安装路径的子目录中检测版本号
         /// 微信安装目录下通常有版本号命名的子目录，如 [4.1.0.34] 或 4.1.0.34
         /// </summary>
-        private static string GetVersionFromInstallPath(string installPath)
+        private static string? GetVersionFromInstallPath(string? installPath)
         {
             try
             {
@@ -295,7 +295,7 @@ namespace SalesChampion.Windows.Core.Hook
         /// 注意：64位应用访问注册表时，SOFTWARE\...访问64位视图，SOFTWARE\WOW6432Node\...访问32位视图
         /// 微信可能注册在CurrentUser或LocalMachine下
         /// </summary>
-        private static string GetWeChatInstallPath()
+        private static string? GetWeChatInstallPath()
         {
             try
             {
@@ -318,14 +318,14 @@ namespace SalesChampion.Windows.Core.Hook
                     {
                         try
                         {
-                            using (RegistryKey key = root.OpenSubKey(registryPath))
+                            using (RegistryKey? key = root.OpenSubKey(registryPath))
                             {
                                 if (key != null)
                                 {
-                                    object installPath = key.GetValue("InstallPath");
+                                    object? installPath = key.GetValue("InstallPath");
                                     if (installPath != null)
                                     {
-                                        string path = installPath.ToString();
+                                        string? path = installPath?.ToString();
                                         Utils.Logger.LogInfo($"从注册表获取到安装路径: {path} (路径: {root.Name}\\{registryPath})");
                                         return path;
                                     }
@@ -373,7 +373,7 @@ namespace SalesChampion.Windows.Core.Hook
         /// <summary>
         /// 从运行中的进程获取版本
         /// </summary>
-        private static string GetVersionFromRunningProcess()
+        private static string? GetVersionFromRunningProcess()
         {
             try
             {
@@ -384,7 +384,7 @@ namespace SalesChampion.Windows.Core.Hook
                     // 注意：如果架构不匹配（32位应用访问64位进程），MainModule会失败
                     try
                     {
-                        string exePath = processes[0].MainModule?.FileName;
+                        string? exePath = processes[0].MainModule?.FileName;
                         if (!string.IsNullOrEmpty(exePath) && File.Exists(exePath))
                         {
                             FileVersionInfo versionInfo = FileVersionInfo.GetVersionInfo(exePath);
@@ -397,7 +397,7 @@ namespace SalesChampion.Windows.Core.Hook
                         // 尝试从进程的StartInfo获取路径
                         try
                         {
-                            string exePath = processes[0].StartInfo?.FileName;
+                            string? exePath = processes[0].StartInfo?.FileName;
                             if (string.IsNullOrEmpty(exePath))
                             {
                                 // 如果StartInfo没有，尝试从进程名推断路径
@@ -429,7 +429,7 @@ namespace SalesChampion.Windows.Core.Hook
         /// 标准化版本号，匹配支持的版本
         /// 如果找不到精确匹配，会自动选择最接近的版本
         /// </summary>
-        private static string NormalizeVersion(string version)
+        private static string? NormalizeVersion(string? version)
         {
             if (string.IsNullOrEmpty(version))
             {
@@ -439,18 +439,22 @@ namespace SalesChampion.Windows.Core.Hook
             // 方法1: 精确匹配
             foreach (string supportedVersion in SupportedVersions)
             {
-                if (version == supportedVersion || version.StartsWith(supportedVersion + "."))
+                if (version == supportedVersion || (version != null && version.StartsWith(supportedVersion + ".")))
                 {
                     return supportedVersion;
                 }
             }
 
             // 方法2: 提取前三个数字进行匹配（如3.9.12.55匹配到3.9.12.45）
+            if (string.IsNullOrEmpty(version))
+            {
+                return null;
+            }
             string[] parts = version.Split('.');
             if (parts.Length >= 3)
             {
                 string normalized = $"{parts[0]}.{parts[1]}.{parts[2]}";
-                string bestMatch = null;
+                string? bestMatch = null;
                 
                 foreach (string supportedVersion in SupportedVersions)
                 {
@@ -478,7 +482,7 @@ namespace SalesChampion.Windows.Core.Hook
         /// 查找最接近的版本
         /// 例如：3.9.12.55 -> 3.9.12.45
         /// </summary>
-        private static string FindClosestVersion(string version)
+        private static string? FindClosestVersion(string? version)
         {
             if (string.IsNullOrEmpty(version))
             {
@@ -495,7 +499,7 @@ namespace SalesChampion.Windows.Core.Hook
             int minor = int.TryParse(parts[1], out int n) ? n : 0;
             int patch = int.TryParse(parts[2], out int p) ? p : 0;
 
-            string bestMatch = null;
+            string? bestMatch = null;
             int bestScore = int.MaxValue;
 
             foreach (string supportedVersion in SupportedVersions)
@@ -550,7 +554,7 @@ namespace SalesChampion.Windows.Core.Hook
             }
 
             // 尝试查找最接近的版本
-            string closestVersion = FindClosestVersion(version);
+            string? closestVersion = FindClosestVersion(version);
             return !string.IsNullOrEmpty(closestVersion);
         }
 
@@ -558,7 +562,7 @@ namespace SalesChampion.Windows.Core.Hook
         /// 获取版本对应的DLL目录路径
         /// 如果找不到精确匹配，会自动选择最接近的版本
         /// </summary>
-        public static string GetDllDirectoryPath(string version)
+        public static string? GetDllDirectoryPath(string? version)
         {
             if (string.IsNullOrEmpty(version))
             {
@@ -574,7 +578,7 @@ namespace SalesChampion.Windows.Core.Hook
             }
 
             // 如果精确匹配不存在，查找最接近的版本
-            string normalizedVersion = NormalizeVersion(version);
+            string? normalizedVersion = NormalizeVersion(version);
             if (!string.IsNullOrEmpty(normalizedVersion))
             {
                 string normalizedPath = Path.Combine(basePath, normalizedVersion);

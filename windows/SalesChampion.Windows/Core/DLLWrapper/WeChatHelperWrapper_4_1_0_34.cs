@@ -52,7 +52,7 @@ namespace SalesChampion.Windows.Core.DLLWrapper
         /// 设置回调函数
         /// 注意：4.1.0.34版本不需要contact参数
         /// </summary>
-        public override int SetCallback(IntPtr acceptPtr, IntPtr receivePtr, IntPtr closePtr, string contact = null)
+        public override int SetCallback(IntPtr acceptPtr, IntPtr receivePtr, IntPtr closePtr, string? contact = null)
         {
             // 4.1.0.34版本不需要contact参数，忽略它
             return SetCB(acceptPtr, receivePtr, closePtr);

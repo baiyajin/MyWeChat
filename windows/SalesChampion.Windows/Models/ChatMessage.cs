@@ -11,22 +11,22 @@ namespace SalesChampion.Windows.Models
         /// <summary>
         /// 消息ID
         /// </summary>
-        public string MsgId { get; set; }
+        public string MsgId { get; set; } = string.Empty;
 
         /// <summary>
         /// 消息内容
         /// </summary>
-        public string MsgText { get; set; }
+        public string MsgText { get; set; } = string.Empty;
 
         /// <summary>
         /// 接收者微信ID
         /// </summary>
-        public string ReceiveWxId { get; set; }
+        public string ReceiveWxId { get; set; } = string.Empty;
 
         /// <summary>
         /// 发送者微信ID
         /// </summary>
-        public string SendWxId { get; set; }
+        public string SendWxId { get; set; } = string.Empty;
 
         /// <summary>
         /// 发送类型（0-接收，1-发送）

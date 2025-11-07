@@ -48,12 +48,12 @@ namespace SalesChampion.Windows.Services
                 }
 
                 // 解析命令数据
-                dynamic commandData = null;
+                dynamic? commandData = null;
                 if (!string.IsNullOrEmpty(command.CommandData))
                 {
                     try
                     {
-                        commandData = JsonConvert.DeserializeObject(command.CommandData);
+                        commandData = JsonConvert.DeserializeObject(command.CommandData) ?? null;
                     }
                     catch
                     {

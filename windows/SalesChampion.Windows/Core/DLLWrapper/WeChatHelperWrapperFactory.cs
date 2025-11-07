@@ -14,7 +14,7 @@ namespace SalesChampion.Windows.Core.DLLWrapper
         /// </summary>
         /// <param name="version">微信版本号</param>
         /// <returns>返回DLL封装实例</returns>
-        public static WeChatHelperWrapperBase Create(string version)
+        public static WeChatHelperWrapperBase? Create(string? version)
         {
             try
             {

@@ -1,5 +1,6 @@
-package com.example.sales_champion_app
+package com.example.my_wechat_app
 
 import io.flutter.embedding.android.FlutterActivity
 
 class MainActivity : FlutterActivity()
+

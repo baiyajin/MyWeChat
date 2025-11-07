@@ -57,7 +57,7 @@ namespace SalesChampion.Windows.Services
                 }
 
                 // 根据消息类型处理
-                ChatMessage chatMessage = null;
+                ChatMessage? chatMessage = null;
                 
                 if (messageType == MSG_TYPE_TEXT)
                 {
@@ -86,7 +86,7 @@ namespace SalesChampion.Windows.Services
         /// <summary>
         /// 处理文本消息
         /// </summary>
-        private ChatMessage ProcessTextMessage(dynamic chatMessageObj, string weChatId)
+        private ChatMessage? ProcessTextMessage(dynamic chatMessageObj, string weChatId)
         {
             try
             {
