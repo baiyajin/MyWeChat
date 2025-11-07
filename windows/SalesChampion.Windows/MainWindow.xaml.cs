@@ -1068,23 +1068,8 @@ namespace SalesChampion.Windows
                         }
                     }
                     
-                    // 延迟滚动到顶部，避免频繁滚动导致卡顿
-                    // 使用异步方式，不阻塞UI线程
-                    _ = Task.Run(async () =>
-                    {
-                        await Task.Delay(10); // 短暂延迟，批量处理
-                        Dispatcher.Invoke(() =>
-                        {
-                            try
-                            {
-                                LogRichTextBox.ScrollToHome();
-                            }
-                            catch
-                            {
-                                // 忽略滚动错误
-                            }
-                        });
-                    });
+                    // 不自动滚动，避免频繁滚动导致卡顿
+                    // 用户可以通过滚动条手动查看最新日志
                 }
                 catch (Exception ex)
                 {
