@@ -17,6 +17,14 @@ if not exist "windows" (
     echo.
 )
 
+REM 检查并修复符号链接问题
+if exist "windows\flutter\ephemeral\.plugin_symlinks" (
+    echo 检测到符号链接目录，检查是否有问题...
+    REM 如果符号链接有问题，清理 ephemeral 目录
+    call flutter clean >nul 2>&1
+    call flutter pub get >nul 2>&1
+)
+
 echo 正在启动应用...
 echo.
 flutter run -d windows
