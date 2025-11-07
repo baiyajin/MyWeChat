@@ -29,6 +29,14 @@ namespace SalesChampion.Windows
         private ChatMessageSyncService? _chatMessageSyncService;
         private CommandService? _commandService;
         private ObservableCollection<AccountInfo> _accountList;
+        
+        // 日志颜色Brush缓存，避免频繁创建
+        private static readonly Brush ErrorBrush = new SolidColorBrush(Color.FromRgb(220, 53, 69));
+        private static readonly Brush WarnBrush = new SolidColorBrush(Color.FromRgb(255, 193, 7));
+        private static readonly Brush InfoBrush = new SolidColorBrush(Color.FromRgb(0, 123, 255));
+        private static readonly Brush SuccessBrush = new SolidColorBrush(Color.FromRgb(40, 167, 69));
+        private static readonly Brush DefaultBrush = new SolidColorBrush(Color.FromRgb(33, 37, 41));
+        private static readonly Brush TimeBrush = new SolidColorBrush(Color.FromRgb(128, 128, 128));
 
         /// <summary>
         /// 构造函数
@@ -1034,14 +1042,14 @@ namespace SalesChampion.Windows
                         Margin = new Thickness(0)
                     };
                     
-                    // 时间戳（灰色）
+                    // 时间戳（灰色）- 使用缓存的Brush
                     Run timeRun = new Run($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] ")
                     {
-                        Foreground = new SolidColorBrush(Color.FromRgb(128, 128, 128))
+                        Foreground = TimeBrush
                     };
                     paragraph.Inlines.Add(timeRun);
                     
-                    // 根据日志级别设置颜色
+                    // 根据日志级别设置颜色 - 使用缓存的Brush
                     Brush messageBrush = GetLogColor(level);
                     Run messageRun = new Run(message)
                     {
@@ -1059,12 +1067,13 @@ namespace SalesChampion.Windows
                         document.Blocks.Add(paragraph);
                     }
                     
-                    // 限制日志块数量（保留最新500个块）
-                    if (document.Blocks.Count > 500)
+                    // 限制日志块数量（保留最新200个块，减少内存占用和性能开销）
+                    if (document.Blocks.Count > 200)
                     {
-                        while (document.Blocks.Count > 500)
+                        // 批量删除，避免频繁操作
+                        int removeCount = document.Blocks.Count - 200;
+                        for (int i = 0; i < removeCount; i++)
                         {
-                            // 删除最旧的日志（最后面的）
                             document.Blocks.Remove(document.Blocks.LastBlock);
                         }
                     }
@@ -1081,23 +1090,23 @@ namespace SalesChampion.Windows
         }
 
         /// <summary>
-        /// 根据日志级别获取颜色
+        /// 根据日志级别获取颜色（使用缓存的Brush）
         /// </summary>
         private Brush GetLogColor(string level)
         {
             switch (level.ToUpper())
             {
                 case "ERROR":
-                    return new SolidColorBrush(Color.FromRgb(220, 53, 69)); // 红色
+                    return ErrorBrush;
                 case "WARN":
                 case "WARNING":
-                    return new SolidColorBrush(Color.FromRgb(255, 193, 7)); // 黄色/橙色
+                    return WarnBrush;
                 case "INFO":
-                    return new SolidColorBrush(Color.FromRgb(0, 123, 255)); // 蓝色
+                    return InfoBrush;
                 case "SUCCESS":
-                    return new SolidColorBrush(Color.FromRgb(40, 167, 69)); // 绿色
+                    return SuccessBrush;
                 default:
-                    return new SolidColorBrush(Color.FromRgb(33, 37, 41)); // 深灰色/黑色
+                    return DefaultBrush;
             }
         }
 
