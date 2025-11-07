@@ -460,8 +460,11 @@ namespace SalesChampion.Windows.Core.Hook
         {
             try
             {
+                Logger.LogInfo($"OnReceiveCallback被调用: clientId={clientId}, length={length}");
+                
                 if (message == IntPtr.Zero || length <= 0)
                 {
+                    Logger.LogWarning($"OnReceiveCallback: message为空或length无效: message={message}, length={length}");
                     return;
                 }
 
@@ -470,7 +473,16 @@ namespace SalesChampion.Windows.Core.Hook
                 string jsonMessage = Encoding.UTF8.GetString(buffer);
 
                 Logger.LogInfo($"收到微信消息: {jsonMessage}");
-                OnMessageReceived?.Invoke(this, jsonMessage);
+                
+                if (OnMessageReceived != null)
+                {
+                    Logger.LogInfo($"触发OnMessageReceived事件，订阅者数量: {OnMessageReceived.GetInvocationList().Length}");
+                    OnMessageReceived.Invoke(this, jsonMessage);
+                }
+                else
+                {
+                    Logger.LogWarning("OnMessageReceived事件没有订阅者！");
+                }
             }
             catch (Exception ex)
             {

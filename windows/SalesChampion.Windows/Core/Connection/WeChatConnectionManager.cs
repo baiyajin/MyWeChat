@@ -108,18 +108,8 @@ namespace SalesChampion.Windows.Core.Connection
                 // 初始化Hook管理器
                 Logger.LogInfo("步骤4: 初始化Hook管理器...");
                 _hookManager = new WeChatHookManager();
-                if (!_hookManager.Initialize(_weChatVersion))
-                {
-                    Logger.LogError("Hook管理器初始化失败");
-                    Logger.LogError("可能的原因:");
-                    Logger.LogError("  1. WxHelp.dll文件不存在或路径不正确");
-                    Logger.LogError("  2. DLL版本与微信版本不匹配");
-                    Logger.LogError("  3. DLL文件损坏");
-                    return false;
-                }
-
-                Logger.LogInfo("Hook管理器初始化成功");
-
+                
+                // 在初始化之前订阅Hook事件，确保不会丢失消息
                 // 订阅Hook事件
                 _hookManager.OnHooked += (sender, clientId) =>
                 {
@@ -138,8 +128,23 @@ namespace SalesChampion.Windows.Core.Connection
                 // 订阅Hook消息事件，转发到外部
                 _hookManager.OnMessageReceived += (sender, message) =>
                 {
+                    Logger.LogInfo($"连接管理器收到Hook消息: {message}");
                     OnMessageReceived?.Invoke(this, message);
                 };
+                
+                Logger.LogInfo("已订阅Hook管理器的事件");
+                
+                if (!_hookManager.Initialize(_weChatVersion))
+                {
+                    Logger.LogError("Hook管理器初始化失败");
+                    Logger.LogError("可能的原因:");
+                    Logger.LogError("  1. WxHelp.dll文件不存在或路径不正确");
+                    Logger.LogError("  2. DLL版本与微信版本不匹配");
+                    Logger.LogError("  3. DLL文件损坏");
+                    return false;
+                }
+
+                Logger.LogInfo("Hook管理器初始化成功");
 
                 Logger.LogInfo("========== 连接管理器初始化完成 ==========");
                 return true;

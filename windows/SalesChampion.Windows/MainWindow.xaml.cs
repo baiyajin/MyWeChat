@@ -115,6 +115,8 @@ namespace SalesChampion.Windows
                         _connectionManager.OnConnectionStateChanged += OnConnectionStateChanged;
                         _connectionManager.OnMessageReceived += OnWeChatMessageReceived;
                         
+                        Logger.LogInfo("已订阅连接管理器的事件");
+                        
                         if (!_connectionManager.Initialize())
                         {
                             Logger.LogError("连接管理器初始化失败");
