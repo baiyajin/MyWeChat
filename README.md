@@ -211,7 +211,8 @@ Windows端负责Hook微信客户端，同步数据到服务器，并接收App端
 #### 启动应用
 
 **方法1：Visual Studio运行（推荐开发）**
-1. 打开 `windows/SalesChampion.Windows/SalesChampion.Windows.sln`
+1. 打开 `windows/SalesChampion.Windows/SalesChampion.Windows.sln`（解决方案文件）
+   - 推荐使用 `.sln` 文件，也可以打开 `.csproj` 文件
 2. 按 `F5` 运行（或菜单：调试 > 开始调试）
 3. **重要**：程序会自动请求管理员权限（通过 app.manifest 配置），按 F5 时会弹出 UAC 提示，点击"是"即可。Hook注入需要管理员权限。
 
