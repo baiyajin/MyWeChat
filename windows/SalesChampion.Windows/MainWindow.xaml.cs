@@ -1048,17 +1048,26 @@ namespace SalesChampion.Windows
                     };
                     paragraph.Inlines.Add(messageRun);
                     
-                    document.Blocks.Add(paragraph);
+                    // 将新日志插入到最前面（最新日志显示在最上面）
+                    if (document.Blocks.FirstBlock != null)
+                    {
+                        document.Blocks.InsertBefore(document.Blocks.FirstBlock, paragraph);
+                    }
+                    else
+                    {
+                        document.Blocks.Add(paragraph);
+                    }
                     
-                    // 自动滚动到底部
-                    LogRichTextBox.ScrollToEnd();
+                    // 自动滚动到顶部（显示最新日志）
+                    LogRichTextBox.ScrollToHome();
                     
-                    // 限制日志块数量（保留最后500个块）
+                    // 限制日志块数量（保留最新500个块）
                     if (document.Blocks.Count > 500)
                     {
                         while (document.Blocks.Count > 500)
                         {
-                            document.Blocks.Remove(document.Blocks.FirstBlock);
+                            // 删除最旧的日志（最后面的）
+                            document.Blocks.Remove(document.Blocks.LastBlock);
                         }
                     }
                 }
