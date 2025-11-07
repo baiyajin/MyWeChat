@@ -198,8 +198,10 @@ echo [3/4] 诊断文件锁定问题...
 echo.
 echo 复制失败的原因分析：
 echo   1. 目标文件被其他进程占用（最常见）
-echo   2. 微信进程可能正在使用注入的DLL，导致PDB文件被锁定
-echo   3. 程序本身可能还在运行，占用编译输出文件
+echo   2. 微信进程可能正在使用注入的DLL
+echo      导致PDB文件被锁定
+echo   3. 程序本身可能还在运行
+echo      占用编译输出文件
 echo   4. 文件权限问题（需要管理员权限）
 echo.
 echo 正在检查可能占用文件的进程...
@@ -381,9 +383,9 @@ REM 错误捕获：确保能看到错误信息
 set "ERROR_OCCURRED=0"
 
 REM 检查项目目录
-echo [调试] 检查项目目录
-echo [调试] 脚本路径: %~dp0
-echo [调试] 项目目录: %PROJECT_DIR%
+echo [DEBUG] 检查项目目录
+echo [DEBUG] 脚本路径: %~dp0
+echo [DEBUG] 项目目录: %PROJECT_DIR%
 echo.
 
 if not exist "%PROJECT_DIR%" (
@@ -397,7 +399,7 @@ if not exist "%PROJECT_DIR%" (
 )
 
 echo [OK] 项目目录存在
-echo [调试] 正在切换到项目目录...
+echo [DEBUG] 正在切换到项目目录
 cd /d "%PROJECT_DIR%"
 set "CD_ERROR=!errorlevel!"
 if !CD_ERROR! neq 0 (
@@ -485,6 +487,7 @@ for /f "tokens=2" %%p in ('tasklist /FI "IMAGENAME eq %PROCESS_NAME%" /FO LIST 2
 if "!PROCESS_FOUND!"=="0" (
     echo [OK] 程序未运行
     echo [OK] 文件句柄已释放
+    echo [OK] 可以继续编译
     set "PROCESS_CLOSED=1"
 ) else (
     echo 检测到程序正在运行 (PID: !PROCESS_PID!)
@@ -532,6 +535,7 @@ tasklist /FI "IMAGENAME eq %PROCESS_NAME%" 2>NUL | find /I /N "%PROCESS_NAME%">N
 if errorlevel 1 (
     if not defined PROCESS_CLOSED (
         echo [OK] 文件句柄已释放
+        echo [OK] 可以继续编译
         set "PROCESS_CLOSED=1"
     )
 )
@@ -541,8 +545,10 @@ echo [2.3] 诊断文件锁定问题...
 echo.
 echo 复制失败的原因分析：
 echo   1. 目标文件被其他进程占用（最常见）
-echo   2. 微信进程可能正在使用注入的DLL，导致PDB文件被锁定
-echo   3. 程序本身可能还在运行，占用编译输出文件
+echo   2. 微信进程可能正在使用注入的DLL
+echo      导致PDB文件被锁定
+echo   3. 程序本身可能还在运行
+echo      占用编译输出文件
 echo   4. 文件权限问题（需要管理员权限）
 echo.
 echo 正在检查可能占用文件的进程...
@@ -665,6 +671,7 @@ if "!PROCESS_FOUND!"=="0" (
 )
 :process_closed4
 echo [OK] 文件句柄已释放
+echo [OK] 可以继续
 
 echo.
 echo ========================================

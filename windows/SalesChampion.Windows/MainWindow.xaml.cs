@@ -80,7 +80,8 @@ namespace SalesChampion.Windows
                 {
                     try
                     {
-                        Dispatcher.Invoke(() =>
+                        // 使用BeginInvoke异步调用，避免阻塞UI线程
+                        Dispatcher.BeginInvoke(new Action(() =>
                         {
                             // 从消息中提取日志级别
                             string level = "INFO";
@@ -100,7 +101,7 @@ namespace SalesChampion.Windows
                                 message = message.Substring(7).TrimStart();
                             }
                             AddLog(message, level);
-                        });
+                        }), System.Windows.Threading.DispatcherPriority.Normal);
                     }
                     catch
                     {
@@ -329,21 +330,18 @@ namespace SalesChampion.Windows
                 // 从账号列表中查找当前登录的账号
                 // 优先查找有昵称和头像的账号（从WebSocket同步过来的）
                 int clientId = _connectionManager.ClientId;
-                string weChatId = clientId.ToString();
                 
                 Logger.LogInfo($"更新账号信息显示: clientId={clientId}, 账号列表数量={_accountList.Count}");
                 
                 AccountInfo? currentAccount = null;
                 
-                // 首先尝试通过clientId匹配
+                // 优先查找有真正wxid的账号（wxid_开头）
                 foreach (var account in _accountList)
                 {
                     Logger.LogInfo($"检查账号: WeChatId={account.WeChatId}, NickName={account.NickName}, Avatar={(!string.IsNullOrEmpty(account.Avatar) ? "有头像" : "无头像")}");
                     
-                    // 匹配WeChatId或clientId
-                    if (account.WeChatId == weChatId || 
-                        account.WeChatId == clientId.ToString() ||
-                        (!string.IsNullOrEmpty(account.NickName) && !string.IsNullOrEmpty(account.WeChatId) && account.WeChatId.StartsWith("wxid_")))
+                    // 优先匹配有真正wxid的账号（wxid_开头），而不是进程ID
+                    if (!string.IsNullOrEmpty(account.WeChatId) && account.WeChatId.StartsWith("wxid_"))
                     {
                         // 优先选择有昵称和头像的账号
                         if (currentAccount == null || 
@@ -485,6 +483,16 @@ namespace SalesChampion.Windows
                     // 更新账号信息显示
                     UpdateAccountInfoDisplay();
                     
+                    // 连接成功后，立即主动请求账号信息（不等待回调）
+                    Task.Delay(500).ContinueWith(_ =>
+                    {
+                        Dispatcher.Invoke(() =>
+                        {
+                            Logger.LogInfo("连接成功，立即请求账号信息");
+                            RequestAccountInfo();
+                        });
+                    });
+                    
                     // 延迟一下，等待可能的登录回调消息
                     Task.Delay(2000).ContinueWith(_ =>
                     {
@@ -492,6 +500,55 @@ namespace SalesChampion.Windows
                         {
                             Logger.LogInfo("延迟更新账号信息显示");
                             UpdateAccountInfoDisplay();
+                            // 如果仍未获取到账号信息，再次请求
+                            if (_accountList.Count == 0 || string.IsNullOrEmpty(_accountList[0].NickName))
+                            {
+                                Logger.LogInfo("仍未获取到账号信息，再次请求");
+                                RequestAccountInfo();
+                            }
+                        });
+                    });
+                    
+                    // 如果5秒后仍未获取到账号信息，再次请求并开始同步
+                    Task.Delay(5000).ContinueWith(_ =>
+                    {
+                        Dispatcher.Invoke(() =>
+                        {
+                            if (_accountList.Count == 0 || string.IsNullOrEmpty(_accountList[0].NickName))
+                            {
+                                Logger.LogInfo("5秒后仍未获取到账号信息，最后一次请求并开始同步");
+                                RequestAccountInfo();
+                                
+                                // 即使没有账号信息，也尝试开始同步（可能数据在同步过程中获取）
+                                Task.Delay(2000).ContinueWith(__ =>
+                                {
+                                    Dispatcher.Invoke(() =>
+                                    {
+                                        AddLog("开始自动同步数据...", "INFO");
+                                        _tagSyncService?.SyncTags();
+                                        Task.Delay(3000).ContinueWith(___ =>
+                                        {
+                                            Dispatcher.Invoke(() =>
+                                            {
+                                                _contactSyncService?.SyncContacts();
+                                            });
+                                        });
+                                    });
+                                });
+                            }
+                            else
+                            {
+                                // 已获取到账号信息，开始自动同步
+                                AddLog("登录成功，开始自动同步数据...", "INFO");
+                                _tagSyncService?.SyncTags();
+                                Task.Delay(3000).ContinueWith(__ =>
+                                {
+                                    Dispatcher.Invoke(() =>
+                                    {
+                                        _contactSyncService?.SyncContacts();
+                                    });
+                                });
+                            }
                         });
                     });
                 }
@@ -519,38 +576,27 @@ namespace SalesChampion.Windows
                 }
 
                 // 检查是否已存在该账号
+                // 注意：不要使用clientId（进程ID）作为WeChatId，应该等待真正的wxid
                 int clientId = _connectionManager.ClientId;
-                string weChatId = clientId.ToString();
                 
+                // 只查找有真正wxid的账号（wxid_开头），不查找以进程ID作为WeChatId的账号
                 bool exists = false;
                 foreach (var account in _accountList)
                 {
-                    if (account.WeChatId == weChatId)
+                    // 只匹配有真正wxid的账号
+                    if (!string.IsNullOrEmpty(account.WeChatId) && account.WeChatId.StartsWith("wxid_"))
                     {
-                        // 更新现有账号信息
-                        account.Client = $"客户端{clientId}";
-                        account.BoundAccount = weChatId;
                         exists = true;
+                        Logger.LogInfo($"已存在账号: WeChatId={account.WeChatId}");
                         break;
                     }
                 }
 
+                // 如果没有真正的wxid，不创建账号（等待11120/11121回调提供真正的wxid）
                 if (!exists)
                 {
-                    // 添加新账号
-                    var accountInfo = new AccountInfo
-                    {
-                        Client = $"客户端{clientId}",
-                        CompanyName = "", // 暂时为空，后续可从服务器获取
-                        NickName = "", // 暂时为空，后续可从微信获取
-                        Remark = "", // 暂时为空
-                        BoundAccount = weChatId,
-                        WeChatId = weChatId,
-                        Avatar = "" // 暂时为空，后续可从微信获取
-                    };
-                    
-                    _accountList.Add(accountInfo);
-                    AddLog($"账号列表已更新，当前账号数: {_accountList.Count}", "SUCCESS");
+                    Logger.LogInfo("账号列表中暂无真正的wxid，等待11120/11121回调提供账号信息");
+                    // 不创建以进程ID作为WeChatId的账号
                 }
             }
             catch (Exception ex)
@@ -577,28 +623,35 @@ namespace SalesChampion.Windows
                 Logger.LogInfo("开始主动请求账号信息");
                 AddLog("正在获取账号信息...", "INFO");
                 
-                // 方法1: 尝试同步好友列表，好友列表中可能包含自己的信息
-                // 延迟一下，确保Hook已完全建立连接
+                // 方法1: 立即尝试同步好友列表，好友列表中可能包含自己的信息
+                Dispatcher.Invoke(() =>
+                {
+                    Logger.LogInfo("通过同步好友列表获取账号信息");
+                    _contactSyncService?.SyncContacts();
+                });
+                
+                // 方法2: 延迟1秒后再次尝试同步标签和好友列表
                 Task.Delay(1000).ContinueWith(_ =>
                 {
                     Dispatcher.Invoke(() =>
                     {
-                        Logger.LogInfo("通过同步好友列表获取账号信息");
+                        Logger.LogInfo("延迟1秒后再次同步标签和好友列表");
+                        _tagSyncService?.SyncTags();
                         _contactSyncService?.SyncContacts();
                     });
                 });
                 
-                // 方法2: 如果好友列表同步后仍然没有账号信息，尝试从服务器获取
+                // 方法3: 如果5秒后仍然没有账号信息，再次尝试
                 Task.Delay(5000).ContinueWith(_ =>
                 {
                     Dispatcher.Invoke(() =>
                     {
-                        // 检查账号信息是否已更新
-                        int clientId = _connectionManager?.ClientId ?? 0;
+                        // 检查账号信息是否已更新（只查找有真正wxid的账号）
                         AccountInfo? accountInfo = null;
                         foreach (var acc in _accountList)
                         {
-                            if (acc.WeChatId == clientId.ToString())
+                            // 只匹配有真正wxid的账号（wxid_开头），不匹配进程ID
+                            if (!string.IsNullOrEmpty(acc.WeChatId) && acc.WeChatId.StartsWith("wxid_"))
                             {
                                 accountInfo = acc;
                                 break;
@@ -615,6 +668,11 @@ namespace SalesChampion.Windows
                         {
                             Logger.LogInfo($"账号信息已成功获取: wxid={accountInfo.WeChatId}, nickname={accountInfo.NickName}");
                             AddLog("账号信息获取成功", "SUCCESS");
+                        }
+                        else
+                        {
+                            Logger.LogWarning("仍未获取到真正的wxid，等待11120/11121回调");
+                            AddLog("等待微信登录回调提供账号信息...", "WARN");
                         }
                     });
                 });
@@ -656,6 +714,36 @@ namespace SalesChampion.Windows
                         Logger.LogWarning("收到空消息，忽略");
                         return;
                     }
+                    
+                    // 清理无效字符（包括问号、控制字符等），这些字符可能导致JSON解析失败
+                    // 1. 修复URL路径中的问号问题（/e 或 /? 应该是 /0）
+                    // 从截图看，问号出现在avatar URL中，如 /e 或 /? 而不是 /0
+                    // 匹配URL路径末尾的 /e 或 /? 后跟引号、逗号或右括号
+                    cleanMessage = System.Text.RegularExpressions.Regex.Replace(
+                        cleanMessage, 
+                        @"(https?://[^""]+)/([?e])(["",}])", 
+                        match => match.Groups[1].Value + "/0" + match.Groups[3].Value
+                    );
+                    
+                    // 2. 清理控制字符（但保留JSON必需的控制字符）
+                    System.Text.StringBuilder sb = new System.Text.StringBuilder();
+                    foreach (char c in cleanMessage)
+                    {
+                        // 保留可打印字符和JSON必需的控制字符（换行、制表符等）
+                        if (char.IsControl(c) && c != '\n' && c != '\r' && c != '\t')
+                        {
+                            // 跳过其他控制字符
+                            continue;
+                        }
+                        // 如果问号在URL路径末尾（如 /? 应该是 /0），替换为 0
+                        if (c == '?' && sb.Length > 0 && sb[sb.Length - 1] == '/')
+                        {
+                            sb.Append('0');
+                            continue;
+                        }
+                        sb.Append(c);
+                    }
+                    cleanMessage = sb.ToString();
 
                     // 尝试修复不完整的JSON（如果消息被截断）
                     // 情况1: 如果消息以 "type":1112 结尾，可能是 11120 或 11121 被截断了
@@ -902,19 +990,28 @@ namespace SalesChampion.Windows
                                 account = loginInfo.Account?.ToString() ?? wxid;  // 尝试Account（首字母大写）
                             }
                             
-                            // 如果wxid为空，使用clientId作为fallback
+                            // 如果wxid为空，记录警告但不使用clientId作为fallback
+                            // wxid应该是真正的微信ID（如wxid_xxx），而不是进程ID
                             if (string.IsNullOrEmpty(wxid))
                             {
-                                wxid = clientId.ToString();
+                                Logger.LogWarning($"解析登录信息时wxid为空，等待真正的wxid（不使用进程ID {clientId} 作为fallback）");
                             }
                             
-                            Logger.LogInfo($"解析登录信息: wxid={wxid}, nickname={nickname}, avatar={(!string.IsNullOrEmpty(avatar) ? "有头像" : "无头像")}, account={account}");
+                            Logger.LogInfo($"解析登录信息: wxid={(!string.IsNullOrEmpty(wxid) ? wxid : "空")}, nickname={nickname}, avatar={(!string.IsNullOrEmpty(avatar) ? "有头像" : "无头像")}, account={account}");
 
+                            // 如果wxid为空，不创建账号信息（等待真正的wxid）
+                            if (string.IsNullOrEmpty(wxid))
+                            {
+                                Logger.LogWarning("wxid为空，跳过账号信息更新，等待11120/11121回调提供真正的wxid");
+                                return;
+                            }
+                            
                             // 更新账号信息
                             AccountInfo? accountInfo = null;
                             foreach (var acc in _accountList)
                             {
-                                if (acc.WeChatId == wxid || acc.WeChatId == clientId.ToString())
+                                // 只匹配真正的wxid，不匹配clientId
+                                if (acc.WeChatId == wxid || (!string.IsNullOrEmpty(acc.WeChatId) && acc.WeChatId.StartsWith("wxid_") && wxid.StartsWith("wxid_")))
                                 {
                                     accountInfo = acc;
                                     break;
@@ -1162,7 +1259,8 @@ namespace SalesChampion.Windows
         /// </summary>
         private void OnWebSocketMessageReceived(object? sender, string message)
         {
-            Dispatcher.Invoke(() =>
+            // 使用BeginInvoke异步调用，避免阻塞UI线程
+            Dispatcher.BeginInvoke(new Action(() =>
             {
                 try
                 {
@@ -1216,13 +1314,20 @@ namespace SalesChampion.Windows
                                     }
                                 }
                                 
+                                // 如果wxid为空，不创建账号信息（等待真正的wxid）
+                                if (string.IsNullOrEmpty(wxid))
+                                {
+                                    Logger.LogWarning("从好友列表回调中获取的wxid为空，跳过账号信息更新");
+                                    return;
+                                }
+                                
                                 if (accountInfo == null)
                                 {
-                                    // 创建新账号信息
+                                    // 创建新账号信息（只使用真正的wxid，不使用clientId）
                                     accountInfo = new AccountInfo
                                     {
                                         Client = $"客户端{clientId}",
-                                        WeChatId = !string.IsNullOrEmpty(wxid) ? wxid : clientId.ToString(),
+                                        WeChatId = wxid,
                                         BoundAccount = !string.IsNullOrEmpty(account) ? account : wxid
                                     };
                                     _accountList.Add(accountInfo);
@@ -1239,7 +1344,8 @@ namespace SalesChampion.Windows
                                     accountInfo.Avatar = avatar;
                                 }
                                 
-                                if (!string.IsNullOrEmpty(wxid))
+                                // 确保WeChatId是真正的wxid
+                                if (!string.IsNullOrEmpty(wxid) && wxid.StartsWith("wxid_"))
                                 {
                                     accountInfo.WeChatId = wxid;
                                 }
@@ -1267,7 +1373,7 @@ namespace SalesChampion.Windows
                     Logger.LogError($"处理WebSocket消息失败: {ex.Message}", ex);
                     AddLog($"处理消息失败: {ex.Message}", "ERROR");
                 }
-            });
+            }), System.Windows.Threading.DispatcherPriority.Normal);
         }
 
         /// <summary>
@@ -1276,6 +1382,7 @@ namespace SalesChampion.Windows
         private void AddLog(string message, string level = "INFO")
         {
             // 使用BeginInvoke异步处理，避免阻塞UI线程
+            // 使用Normal优先级，确保日志能够及时显示，不会被鼠标交互阻塞
             Dispatcher.BeginInvoke(new Action(() =>
             {
                 try
@@ -1332,7 +1439,7 @@ namespace SalesChampion.Windows
                     // 如果RichTextBox出错，回退到简单文本
                     Logger.LogError($"添加日志失败: {ex.Message}");
                 }
-            }), System.Windows.Threading.DispatcherPriority.Background);
+            }), System.Windows.Threading.DispatcherPriority.Normal);
         }
 
         /// <summary>
@@ -1363,15 +1470,32 @@ namespace SalesChampion.Windows
         {
             try
             {
-                TextRange textRange = new TextRange(
-                    LogRichTextBox.Document.ContentStart,
-                    LogRichTextBox.Document.ContentEnd
-                );
+                FlowDocument document = LogRichTextBox.Document;
+                System.Text.StringBuilder sb = new System.Text.StringBuilder();
                 
-                if (!string.IsNullOrEmpty(textRange.Text))
+                // 遍历所有段落，获取完整文本
+                foreach (Block block in document.Blocks)
                 {
-                    Clipboard.SetText(textRange.Text);
-                    AddLog("日志已复制到剪贴板", "SUCCESS");
+                    if (block is Paragraph paragraph)
+                    {
+                        // 获取段落中的所有文本
+                        TextRange paragraphRange = new TextRange(
+                            paragraph.ContentStart,
+                            paragraph.ContentEnd
+                        );
+                        string paragraphText = paragraphRange.Text;
+                        if (!string.IsNullOrEmpty(paragraphText))
+                        {
+                            sb.AppendLine(paragraphText);
+                        }
+                    }
+                }
+                
+                string allText = sb.ToString();
+                if (!string.IsNullOrEmpty(allText))
+                {
+                    Clipboard.SetText(allText);
+                    AddLog($"日志已复制到剪贴板（共 {document.Blocks.Count} 条）", "SUCCESS");
                 }
                 else
                 {
