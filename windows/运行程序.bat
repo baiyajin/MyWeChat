@@ -1,6 +1,73 @@
 @echo off
-chcp 65001 >nul
+chcp 65001 >nul 2>&1
+setlocal enabledelayedexpansion
 set "PROJECT_DIR=%~dp0SalesChampion.Windows"
+set "EXE_NAME=SalesChampion.Windows.exe"
+set "PROCESS_NAME=SalesChampion.Windows.exe"
+set "WECHAT_PROCESS_NAME=WeChat.exe"
+
+REM 错误处理：确保窗口不会立即关闭
+if errorlevel 1 (
+    echo [错误] 脚本初始化失败
+    pause
+    exit /b 1
+)
+
+goto main_menu
+
+REM 查找可执行文件的函数
+:find_exe
+set "EXE_PATH="
+if exist "bin\x86\Debug\net9.0-windows\%EXE_NAME%" (
+    set "EXE_PATH=bin\x86\Debug\net9.0-windows\%EXE_NAME%"
+) else if exist "bin\Debug\net9.0-windows\%EXE_NAME%" (
+    set "EXE_PATH=bin\Debug\net9.0-windows\%EXE_NAME%"
+) else if exist "bin\Debug\%EXE_NAME%" (
+    set "EXE_PATH=bin\Debug\%EXE_NAME%"
+) else if exist "bin\x64\Debug\net9.0-windows\%EXE_NAME%" (
+    set "EXE_PATH=bin\x64\Debug\net9.0-windows\%EXE_NAME%"
+)
+goto :eof
+
+REM 关闭程序的函数
+:close_process
+set "PROCESS_FOUND=0"
+set "PROCESS_PID="
+for /f "tokens=2" %%p in ('tasklist /FI "IMAGENAME eq %PROCESS_NAME%" /FO LIST 2^>NUL ^| findstr /I "PID:"') do (
+    set "PROCESS_PID=%%p"
+    set "PROCESS_FOUND=1"
+)
+if "!PROCESS_FOUND!"=="0" (
+    echo [OK] 程序未运行
+    goto :eof
+)
+echo 检测到程序正在运行 (PID: !PROCESS_PID!)，正在关闭
+for /L %%i in (1,1,10) do (
+    if defined PROCESS_PID (
+        taskkill /F /PID !PROCESS_PID! >NUL 2>&1
+        tasklist /FI "PID eq !PROCESS_PID!" 2>NUL | find /I /N "!PROCESS_PID!">NUL
+        set "PROCESS_EXISTS=!ERRORLEVEL!"
+        if !PROCESS_EXISTS! neq 0 (
+            echo [OK] 程序已成功关闭
+            set "PROCESS_PID="
+            goto :eof
+        )
+    ) else (
+        tasklist /FI "IMAGENAME eq %PROCESS_NAME%" 2>NUL | find /I /N "%PROCESS_NAME%">NUL
+        set "PROCESS_EXISTS=!ERRORLEVEL!"
+        if !PROCESS_EXISTS! neq 0 (
+            echo [OK] 程序已成功关闭
+            goto :eof
+        )
+    )
+)
+echo [X] 警告: 无法彻底关闭程序
+echo 进程名称: %PROCESS_NAME%
+if defined PROCESS_PID (
+    echo 进程PID: !PROCESS_PID!
+)
+echo 请手动在任务管理器中结束进程 "%PROCESS_NAME%" 后重试
+goto :eof
 
 :main_menu
 cls
@@ -29,7 +96,6 @@ if "%choice%"=="6" goto exit
 
 echo.
 echo 无效的选项，请重新选择
-timeout /t 2 /nobreak >nul
 goto main_menu
 
 :clean
@@ -70,25 +136,117 @@ if %errorlevel% neq 0 (
 )
 
 echo [2/4] 检查并关闭已运行的程序...
-set "PROCESS_CLOSED=0"
-for /L %%i in (1,1,5) do (
-    tasklist /FI "IMAGENAME eq SalesChampion.Windows.exe" 2>NUL | find /I /N "SalesChampion.Windows.exe">NUL
-    if "%ERRORLEVEL%"=="0" (
-        if %%i equ 1 echo 检测到程序正在运行，正在关闭...
-        taskkill /F /IM "SalesChampion.Windows.exe" >NUL 2>&1
-        timeout /t 1 /nobreak >NUL
-    ) else (
-        set "PROCESS_CLOSED=1"
-        goto :build_process_closed
+set "PROCESS_FOUND=0"
+set "PROCESS_PID="
+for /f "tokens=2" %%p in ('tasklist /FI "IMAGENAME eq %PROCESS_NAME%" /FO LIST 2^>NUL ^| findstr /I "PID:"') do (
+    set "PROCESS_PID=%%p"
+    set "PROCESS_FOUND=1"
+)
+if "!PROCESS_FOUND!"=="0" (
+    echo [OK] 程序未运行
+) else (
+    echo 检测到程序正在运行 (PID: !PROCESS_PID!)
+    echo 正在关闭程序...
+    for /L %%i in (1,1,10) do (
+        if defined PROCESS_PID (
+            taskkill /F /PID !PROCESS_PID! >NUL 2>&1
+            tasklist /FI "PID eq !PROCESS_PID!" 2>NUL | find /I /N "!PROCESS_PID!">NUL
+            set "PROCESS_EXISTS=!ERRORLEVEL!"
+            if !PROCESS_EXISTS! neq 0 (
+                echo [OK] 程序已成功关闭
+                set "PROCESS_PID="
+                goto process_closed2
+            )
+        ) else (
+            tasklist /FI "IMAGENAME eq %PROCESS_NAME%" 2>NUL | find /I /N "%PROCESS_NAME%">NUL
+            set "PROCESS_EXISTS=!ERRORLEVEL!"
+            if !PROCESS_EXISTS! neq 0 (
+                echo [OK] 程序已成功关闭
+                goto process_closed2
+            )
+        )
+    )
+    echo [X] 警告: 无法彻底关闭程序
+    echo 进程名称: %PROCESS_NAME%
+    if defined PROCESS_PID (
+        echo 进程PID: !PROCESS_PID!
+    )
+    echo 请手动在任务管理器中结束进程 "%PROCESS_NAME%" 后重试
+)
+:process_closed2
+tasklist /FI "IMAGENAME eq %PROCESS_NAME%" 2>NUL | find /I /N "%PROCESS_NAME%">NUL
+if errorlevel 1 (
+    echo 程序已关闭
+) else (
+    echo 警告: 无法彻底关闭程序，编译可能会失败
+    echo 进程名称: %PROCESS_NAME%
+    for /f "tokens=2" %%p in ('tasklist /FI "IMAGENAME eq %PROCESS_NAME%" /FO LIST 2^>NUL ^| findstr /I "PID:"') do (
+        echo 进程PID: %%p
+    )
+    echo 请手动在任务管理器中结束进程 "%PROCESS_NAME%" 后重试
+    echo.
+    set /p "SKIP_CLOSE=是否跳过此步骤继续编译？(Y/N): "
+    if /i not "!SKIP_CLOSE!"=="Y" (
+        echo.
+        echo [X] 编译已取消，请手动关闭程序后重试
+        pause >nul 2>&1
+        goto main_menu
     )
 )
-:build_process_closed
-if "%PROCESS_CLOSED%"=="1" (
-    echo 程序已关闭
-    timeout /t 2 /nobreak >NUL
+
+echo [3/4] 诊断文件锁定问题...
+echo.
+echo 复制失败的原因分析：
+echo   1. 目标文件被其他进程占用（最常见）
+echo   2. 微信进程可能正在使用注入的DLL，导致PDB文件被锁定
+echo   3. 程序本身可能还在运行，占用编译输出文件
+echo   4. 文件权限问题（需要管理员权限）
+echo.
+echo 正在检查可能占用文件的进程...
+echo.
+
+REM 检查程序进程
+tasklist /FI "IMAGENAME eq %PROCESS_NAME%" 2>NUL | find /I /N "%PROCESS_NAME%">NUL
+if errorlevel 1 (
+    echo [OK] %PROCESS_NAME% 未运行
+) else (
+    echo [X] 检测到进程正在运行
+    echo    进程名称: %PROCESS_NAME%
+    echo    可能占用编译输出文件
+    for /f "tokens=2" %%p in ('tasklist /FI "IMAGENAME eq %PROCESS_NAME%" /FO LIST 2^>NUL ^| findstr /I "PID:"') do (
+        echo    进程PID: %%p
+    )
 )
 
-echo [3/4] 还原NuGet包...
+REM 检查微信进程
+tasklist /FI "IMAGENAME eq %WECHAT_PROCESS_NAME%" 2>NUL | find /I /N "%WECHAT_PROCESS_NAME%">NUL
+if errorlevel 1 (
+    echo [✓] 微信进程未运行
+) else (
+    echo [✗] 微信进程正在运行，可能占用注入的DLL文件
+    for /f "tokens=2" %%p in ('tasklist /FI "IMAGENAME eq %WECHAT_PROCESS_NAME%" /FO LIST 2^>NUL ^| findstr /I "PID:"') do (
+        echo    进程PID: %%p
+    )
+    echo.
+    echo 说明: 如果微信正在使用注入的DLL，相关的PDB文件可能被锁定
+    echo 建议: 关闭微信进程后再编译，或者先关闭程序再关闭微信
+    echo.
+    set /p "CLOSE_WECHAT=是否关闭微信进程？(Y/N): "
+    if /i "!CLOSE_WECHAT!"=="Y" (
+        echo 正在关闭微信进程...
+        taskkill /F /IM "%WECHAT_PROCESS_NAME%" >NUL 2>&1
+        tasklist /FI "IMAGENAME eq %WECHAT_PROCESS_NAME%" 2>NUL | find /I /N "%WECHAT_PROCESS_NAME%">NUL
+        if errorlevel 1 (
+            echo 微信进程已关闭
+        ) else (
+            echo 警告: 无法关闭微信进程，可能需要管理员权限
+        )
+    ) else (
+        echo 跳过关闭微信进程，编译可能会失败
+    )
+)
+
+echo [4/4] 还原NuGet包...
 dotnet restore
 if %errorlevel% neq 0 (
     echo 错误: NuGet包还原失败
@@ -96,7 +254,7 @@ if %errorlevel% neq 0 (
     goto main_menu
 )
 
-echo [4/4] 编译项目...
+echo [5/5] 编译项目...
 dotnet build -c Debug
 if %errorlevel% neq 0 (
     echo 错误: 编译失败
@@ -118,34 +276,44 @@ echo     功能3: 关闭程序
 echo ========================================
 echo.
 set "PROCESS_FOUND=0"
-for /L %%i in (1,1,5) do (
-    tasklist /FI "IMAGENAME eq SalesChampion.Windows.exe" 2>NUL | find /I /N "SalesChampion.Windows.exe">NUL
-    if "%ERRORLEVEL%"=="0" (
-        set "PROCESS_FOUND=1"
-        if %%i equ 1 (
-            echo 检测到程序正在运行，正在关闭...
-        )
-        echo 尝试关闭进程 (第 %%i 次)...
-        taskkill /F /IM "SalesChampion.Windows.exe" >NUL 2>&1
-        if %%i lss 5 timeout /t 1 /nobreak >NUL
-    ) else (
-        if "%PROCESS_FOUND%"=="1" (
-            echo 程序已成功关闭
+set "PROCESS_PID="
+for /f "tokens=2" %%p in ('tasklist /FI "IMAGENAME eq %PROCESS_NAME%" /FO LIST 2^>NUL ^| findstr /I "PID:"') do (
+    set "PROCESS_PID=%%p"
+    set "PROCESS_FOUND=1"
+)
+if "!PROCESS_FOUND!"=="0" (
+    echo [OK] 程序未运行
+) else (
+    echo 检测到程序正在运行 (PID: !PROCESS_PID!)
+    echo 正在关闭程序...
+    for /L %%i in (1,1,10) do (
+        if defined PROCESS_PID (
+            taskkill /F /PID !PROCESS_PID! >NUL 2>&1
+            tasklist /FI "PID eq !PROCESS_PID!" 2>NUL | find /I /N "!PROCESS_PID!">NUL
+            set "PROCESS_EXISTS=!ERRORLEVEL!"
+            if !PROCESS_EXISTS! neq 0 (
+                echo [OK] 程序已成功关闭
+                set "PROCESS_PID="
+                goto process_closed3
+            )
         ) else (
-            echo 程序未运行
+            tasklist /FI "IMAGENAME eq %PROCESS_NAME%" 2>NUL | find /I /N "%PROCESS_NAME%">NUL
+            set "PROCESS_EXISTS=!ERRORLEVEL!"
+            if !PROCESS_EXISTS! neq 0 (
+                echo [OK] 程序已成功关闭
+                goto process_closed3
+            )
         )
-        goto :close_end
     )
+    echo [X] 警告: 无法彻底关闭程序
+    echo 进程名称: %PROCESS_NAME%
+    if defined PROCESS_PID (
+        echo 进程PID: !PROCESS_PID!
+    )
+    echo 请手动在任务管理器中结束进程 "%PROCESS_NAME%" 后重试
 )
-if "%PROCESS_FOUND%"=="1" (
-    echo.
-    echo 警告: 无法彻底关闭程序
-    echo 可能需要管理员权限，或手动在任务管理器中结束进程
-)
-:close_end
+:process_closed3
 echo.
-echo 等待文件句柄释放...
-timeout /t 2 /nobreak >NUL
 echo 完成
 pause
 goto main_menu
@@ -157,18 +325,7 @@ echo     功能4: 运行程序
 echo ========================================
 echo.
 cd /d "%PROJECT_DIR%"
-
-REM 查找exe文件
-set "EXE_PATH="
-if exist "bin\x86\Debug\net9.0-windows\SalesChampion.Windows.exe" (
-    set "EXE_PATH=bin\x86\Debug\net9.0-windows\SalesChampion.Windows.exe"
-) else if exist "bin\Debug\net9.0-windows\SalesChampion.Windows.exe" (
-    set "EXE_PATH=bin\Debug\net9.0-windows\SalesChampion.Windows.exe"
-) else if exist "bin\Debug\SalesChampion.Windows.exe" (
-    set "EXE_PATH=bin\Debug\SalesChampion.Windows.exe"
-) else if exist "bin\x64\Debug\net9.0-windows\SalesChampion.Windows.exe" (
-    set "EXE_PATH=bin\x64\Debug\net9.0-windows\SalesChampion.Windows.exe"
-)
+call :find_exe
 
 if "%EXE_PATH%"=="" (
     echo 错误: 找不到可执行文件！
@@ -202,7 +359,6 @@ echo.
 echo 正在以管理员权限运行程序...
 powershell -Command "Start-Process '%CD%\%EXE_PATH%' -Verb RunAs"
 
-timeout /t 2 /nobreak >nul
 goto main_menu
 
 :all
@@ -212,20 +368,53 @@ echo     功能5: 全部执行 (1-2-3-4)
 echo ========================================
 echo.
 echo 将按顺序执行以下步骤：
-echo   1. 清理编译文件
-echo   2. 编译项目
-echo   3. 关闭程序
-echo   4. 运行程序
+echo.
+echo    步骤1: 清理编译文件
+echo    步骤2: 编译项目
+echo    步骤3: 关闭程序
+echo    步骤4: 运行程序
 echo.
 echo ========================================
-pause
+echo.
 
+REM 错误捕获：确保能看到错误信息
+set "ERROR_OCCURRED=0"
+
+REM 检查项目目录
+echo [调试] 检查项目目录
+echo [调试] 脚本路径: %~dp0
+echo [调试] 项目目录: %PROJECT_DIR%
+echo.
+
+if not exist "%PROJECT_DIR%" (
+    echo [X] 错误: 项目目录不存在: %PROJECT_DIR%
+    echo 请检查脚本路径是否正确
+    echo 当前脚本路径: %~dp0
+    echo.
+    echo 按任意键返回主菜单...
+    pause >nul 2>&1
+    goto main_menu
+)
+
+echo [OK] 项目目录存在
+echo [调试] 正在切换到项目目录...
 cd /d "%PROJECT_DIR%"
+set "CD_ERROR=!errorlevel!"
+if !CD_ERROR! neq 0 (
+    echo [X] 错误: 无法切换到项目目录: %PROJECT_DIR%
+    echo 当前目录: %CD%
+    echo.
+    echo 按任意键返回主菜单...
+    pause >nul 2>&1
+    goto main_menu
+)
+echo [OK] 已切换到项目目录: %CD%
+echo.
 
 REM ========================================
 REM 步骤1: 清理编译文件
 REM ========================================
-cls
+echo.
 echo ========================================
 echo   [步骤1/4] 清理编译文件
 echo ========================================
@@ -236,25 +425,27 @@ echo.
 if exist "bin" (
     echo [1.1] 删除 bin 目录...
     rmdir /s /q "bin" 2>nul
-    if %errorlevel% equ 0 (
-        echo [✓] bin 目录已删除
+    set "RMDIR_ERROR=!errorlevel!"
+    if !RMDIR_ERROR! equ 0 (
+        echo [OK] bin 目录已删除
     ) else (
-        echo [✗] bin 目录删除失败（可能被占用）
+        echo [X] bin 目录删除失败（可能被占用）
     )
 ) else (
-    echo [✓] bin 目录不存在，无需清理
+    echo [OK] bin 目录不存在，无需清理
 )
 
 if exist "obj" (
     echo [1.2] 删除 obj 目录...
     rmdir /s /q "obj" 2>nul
-    if %errorlevel% equ 0 (
-        echo [✓] obj 目录已删除
+    set "RMDIR_ERROR=!errorlevel!"
+    if !RMDIR_ERROR! equ 0 (
+        echo [OK] obj 目录已删除
     ) else (
-        echo [✗] obj 目录删除失败（可能被占用）
+        echo [X] obj 目录删除失败（可能被占用）
     )
 ) else (
-    echo [✓] obj 目录不存在，无需清理
+    echo [OK] obj 目录不存在，无需清理
 )
 
 echo.
@@ -262,13 +453,11 @@ echo ========================================
 echo [步骤1/4] 清理完成！
 echo ========================================
 echo.
-echo 按任意键继续下一步（编译项目）...
-pause >nul 2>&1
 
 REM ========================================
 REM 步骤2: 编译项目
 REM ========================================
-cls
+echo.
 echo ========================================
 echo   [步骤2/4] 编译项目
 echo ========================================
@@ -276,143 +465,231 @@ echo.
 
 echo [2.1] 检查.NET SDK版本...
 dotnet --version
-if %errorlevel% neq 0 (
-    echo [✗] 错误: 未安装.NET SDK，请先安装.NET 9.0 SDK
+set "DOTNET_ERROR=!errorlevel!"
+if !DOTNET_ERROR! neq 0 (
+    echo [X] 错误: 未安装.NET SDK，请先安装.NET 9.0 SDK
     echo 下载地址: https://dotnet.microsoft.com/download/dotnet/9.0
     pause
     goto main_menu
 )
-echo [✓] .NET SDK 已安装
+echo [OK] .NET SDK 已安装
 
 echo.
-echo [2.2] 检查并关闭已运行的程序...
-set "PROCESS_CLOSED=0"
-for /L %%i in (1,1,5) do (
-    tasklist /FI "IMAGENAME eq SalesChampion.Windows.exe" 2>NUL | find /I /N "SalesChampion.Windows.exe">NUL
-    if "%ERRORLEVEL%"=="0" (
-        if %%i equ 1 (
-            echo 检测到程序正在运行，正在关闭...
+echo [2.2] 检查并关闭已运行的程序
+set "PROCESS_FOUND=0"
+set "PROCESS_PID="
+for /f "tokens=2" %%p in ('tasklist /FI "IMAGENAME eq %PROCESS_NAME%" /FO LIST 2^>NUL ^| findstr /I "PID:"') do (
+    set "PROCESS_PID=%%p"
+    set "PROCESS_FOUND=1"
+)
+if "!PROCESS_FOUND!"=="0" (
+    echo [OK] 程序未运行
+    echo [OK] 文件句柄已释放
+    set "PROCESS_CLOSED=1"
+) else (
+    echo 检测到程序正在运行 (PID: !PROCESS_PID!)
+    echo 正在关闭程序...
+    for /L %%i in (1,1,10) do (
+        if defined PROCESS_PID (
+            taskkill /F /PID !PROCESS_PID! >NUL 2>&1
+            tasklist /FI "PID eq !PROCESS_PID!" 2>NUL | find /I /N "!PROCESS_PID!">NUL
+            set "PROCESS_EXISTS=!ERRORLEVEL!"
+            if !PROCESS_EXISTS! neq 0 (
+                echo [OK] 程序已成功关闭
+                set "PROCESS_PID="
+                goto process_closed_all
+            )
+        ) else (
+            tasklist /FI "IMAGENAME eq %PROCESS_NAME%" 2>NUL | find /I /N "%PROCESS_NAME%">NUL
+            set "PROCESS_EXISTS=!ERRORLEVEL!"
+            if !PROCESS_EXISTS! neq 0 (
+                echo [OK] 程序已成功关闭
+                goto process_closed_all
+            )
         )
-        echo 尝试关闭进程 (第 %%i 次)...
-        taskkill /F /IM "SalesChampion.Windows.exe" >NUL 2>&1
-        timeout /t 1 /nobreak >NUL
-    ) else (
-        echo [✓] 程序已关闭
+    )
+    echo [X] 警告: 无法彻底关闭程序
+    echo 进程名称: %PROCESS_NAME%
+    if defined PROCESS_PID (
+        echo 进程PID: !PROCESS_PID!
+    )
+    echo 请手动在任务管理器中结束进程 "%PROCESS_NAME%" 后重试
+    echo.
+    set /p "SKIP_CLOSE=是否跳过此步骤继续编译？(Y/N): "
+    if /i "!SKIP_CLOSE!"=="Y" (
+        echo [*] 跳过进程关闭，继续编译...
         set "PROCESS_CLOSED=1"
-        goto :all_build_process_closed
+    ) else (
+        echo.
+        echo [X] 编译已取消，请手动关闭程序后重试
+        pause >nul 2>&1
+        goto main_menu
+    )
+    goto process_closed_all
+)
+:process_closed_all
+tasklist /FI "IMAGENAME eq %PROCESS_NAME%" 2>NUL | find /I /N "%PROCESS_NAME%">NUL
+if errorlevel 1 (
+    if not defined PROCESS_CLOSED (
+        echo [OK] 文件句柄已释放
+        set "PROCESS_CLOSED=1"
     )
 )
-:all_build_process_closed
-if "%PROCESS_CLOSED%"=="1" (
-    echo 等待文件句柄释放...
-    timeout /t 2 /nobreak >NUL
+
+echo.
+echo [2.3] 诊断文件锁定问题...
+echo.
+echo 复制失败的原因分析：
+echo   1. 目标文件被其他进程占用（最常见）
+echo   2. 微信进程可能正在使用注入的DLL，导致PDB文件被锁定
+echo   3. 程序本身可能还在运行，占用编译输出文件
+echo   4. 文件权限问题（需要管理员权限）
+echo.
+echo 正在检查可能占用文件的进程...
+echo.
+
+REM 检查程序进程
+tasklist /FI "IMAGENAME eq %PROCESS_NAME%" 2>NUL | find /I /N "%PROCESS_NAME%">NUL
+if errorlevel 1 (
+    echo [OK] %PROCESS_NAME% 未运行
 ) else (
-    echo [✗] 警告: 无法彻底关闭程序，编译可能会失败
+    echo [X] 检测到进程正在运行
+    echo    进程名称: %PROCESS_NAME%
+    echo    可能占用编译输出文件
+    for /f "tokens=2" %%p in ('tasklist /FI "IMAGENAME eq %PROCESS_NAME%" /FO LIST 2^>NUL ^| findstr /I "PID:"') do (
+        echo    进程PID: %%p
+    )
+)
+
+REM 检查微信进程
+tasklist /FI "IMAGENAME eq %WECHAT_PROCESS_NAME%" 2>NUL | find /I /N "%WECHAT_PROCESS_NAME%">NUL
+if errorlevel 1 (
+    echo [✓] 微信进程未运行
+) else (
+    echo [✗] 微信进程正在运行，可能占用注入的DLL文件
+    for /f "tokens=2" %%p in ('tasklist /FI "IMAGENAME eq %WECHAT_PROCESS_NAME%" /FO LIST 2^>NUL ^| findstr /I "PID:"') do (
+        echo    进程PID: %%p
+    )
+    echo.
+    echo 说明: 如果微信正在使用注入的DLL，相关的PDB文件可能被锁定
+    echo 建议: 关闭微信进程后再编译，或者先关闭程序再关闭微信
+    echo.
+    set /p "CLOSE_WECHAT=是否关闭微信进程？(Y/N): "
+    if /i "!CLOSE_WECHAT!"=="Y" (
+        echo 正在关闭微信进程...
+        taskkill /F /IM "%WECHAT_PROCESS_NAME%" >NUL 2>&1
+        tasklist /FI "IMAGENAME eq %WECHAT_PROCESS_NAME%" 2>NUL | find /I /N "%WECHAT_PROCESS_NAME%">NUL
+        if errorlevel 1 (
+            echo [✓] 微信进程已关闭
+        ) else (
+            echo [*] 警告: 无法关闭微信进程，可能需要管理员权限
+        )
+    ) else (
+        echo [*] 跳过关闭微信进程，编译可能会失败
+    )
 )
 
 echo.
-echo [2.3] 还原NuGet包...
+echo [2.4] 还原NuGet包...
 dotnet restore
-if %errorlevel% neq 0 (
-    echo [✗] 错误: NuGet包还原失败
+set "RESTORE_ERROR=!errorlevel!"
+if !RESTORE_ERROR! neq 0 (
+    echo [X] 错误: NuGet包还原失败
     pause
     goto main_menu
 )
-echo [✓] NuGet包还原成功
+echo [OK] NuGet包还原成功
 
 echo.
-echo [2.4] 编译项目...
+echo [2.5] 编译项目...
 dotnet build -c Debug
-if %errorlevel% neq 0 (
-    echo [✗] 错误: 编译失败
+set "BUILD_ERROR=!errorlevel!"
+if !BUILD_ERROR! neq 0 (
+    echo [X] 错误: 编译失败
     pause
     goto main_menu
 )
-echo [✓] 编译成功！
+echo [OK] 编译成功！
 
 echo.
 echo ========================================
 echo [步骤2/4] 编译完成！
 echo ========================================
 echo.
-echo 按任意键继续下一步（关闭程序）...
-pause >nul 2>&1
 
 REM ========================================
 REM 步骤3: 关闭程序
 REM ========================================
-cls
+echo.
 echo ========================================
 echo   [步骤3/4] 关闭程序
 echo ========================================
 echo.
 
 set "PROCESS_FOUND=0"
-for /L %%i in (1,1,5) do (
-    tasklist /FI "IMAGENAME eq SalesChampion.Windows.exe" 2>NUL | find /I /N "SalesChampion.Windows.exe">NUL
-    if "%ERRORLEVEL%"=="0" (
-        set "PROCESS_FOUND=1"
-        if %%i equ 1 (
-            echo [3.1] 检测到程序正在运行，正在关闭...
-        )
-        echo 尝试关闭进程 (第 %%i 次)...
-        taskkill /F /IM "SalesChampion.Windows.exe" >NUL 2>&1
-        if %%i lss 5 timeout /t 1 /nobreak >NUL
-    ) else (
-        if "%PROCESS_FOUND%"=="1" (
-            echo [✓] 程序已成功关闭
+set "PROCESS_PID="
+for /f "tokens=2" %%p in ('tasklist /FI "IMAGENAME eq %PROCESS_NAME%" /FO LIST 2^>NUL ^| findstr /I "PID:"') do (
+    set "PROCESS_PID=%%p"
+    set "PROCESS_FOUND=1"
+)
+if "!PROCESS_FOUND!"=="0" (
+    echo [OK] 程序未运行
+) else (
+    echo 检测到程序正在运行 (PID: !PROCESS_PID!)
+    echo 正在关闭程序...
+    for /L %%i in (1,1,10) do (
+        if defined PROCESS_PID (
+            taskkill /F /PID !PROCESS_PID! >NUL 2>&1
+            tasklist /FI "PID eq !PROCESS_PID!" 2>NUL | find /I /N "!PROCESS_PID!">NUL
+            set "PROCESS_EXISTS=!ERRORLEVEL!"
+            if !PROCESS_EXISTS! neq 0 (
+                echo [OK] 程序已成功关闭
+                set "PROCESS_PID="
+                goto process_closed4
+            )
         ) else (
-            echo [✓] 程序未运行
+            tasklist /FI "IMAGENAME eq %PROCESS_NAME%" 2>NUL | find /I /N "%PROCESS_NAME%">NUL
+            set "PROCESS_EXISTS=!ERRORLEVEL!"
+            if !PROCESS_EXISTS! neq 0 (
+                echo [OK] 程序已成功关闭
+                goto process_closed4
+            )
         )
-        goto :all_close_end
     )
+    echo [X] 警告: 无法彻底关闭程序
+    echo 进程名称: %PROCESS_NAME%
+    if defined PROCESS_PID (
+        echo 进程PID: !PROCESS_PID!
+    )
+    echo 请手动在任务管理器中结束进程 "%PROCESS_NAME%" 后重试
 )
-if "%PROCESS_FOUND%"=="1" (
-    echo [✗] 警告: 无法彻底关闭程序
-    echo 可能需要管理员权限，或手动在任务管理器中结束进程
-)
-:all_close_end
-echo.
-echo 等待文件句柄释放...
-timeout /t 2 /nobreak >NUL
-echo [✓] 文件句柄已释放
+:process_closed4
+echo [OK] 文件句柄已释放
 
 echo.
 echo ========================================
 echo [步骤3/4] 关闭完成！
 echo ========================================
 echo.
-echo 按任意键继续下一步（运行程序）...
-pause >nul 2>&1
 
 REM ========================================
 REM 步骤4: 运行程序
 REM ========================================
-cls
+echo.
 echo ========================================
 echo   [步骤4/4] 运行程序
 echo ========================================
 echo.
 
 echo [4.1] 查找可执行文件...
-set "EXE_PATH="
-if exist "bin\x86\Debug\net9.0-windows\SalesChampion.Windows.exe" (
-    set "EXE_PATH=bin\x86\Debug\net9.0-windows\SalesChampion.Windows.exe"
-    echo [✓] 找到: %EXE_PATH%
-) else if exist "bin\Debug\net9.0-windows\SalesChampion.Windows.exe" (
-    set "EXE_PATH=bin\Debug\net9.0-windows\SalesChampion.Windows.exe"
-    echo [✓] 找到: %EXE_PATH%
-) else if exist "bin\Debug\SalesChampion.Windows.exe" (
-    set "EXE_PATH=bin\Debug\SalesChampion.Windows.exe"
-    echo [✓] 找到: %EXE_PATH%
-) else if exist "bin\x64\Debug\net9.0-windows\SalesChampion.Windows.exe" (
-    set "EXE_PATH=bin\x64\Debug\net9.0-windows\SalesChampion.Windows.exe"
-    echo [✓] 找到: %EXE_PATH%
-) else (
+call :find_exe
+
+if "%EXE_PATH%"=="" (
     echo [✗] 错误: 找不到可执行文件！
     pause
     goto main_menu
 )
+echo [✓] 找到: %EXE_PATH%
 
 echo.
 echo [4.2] 检查 .NET Desktop Runtime...
@@ -423,10 +700,11 @@ echo.
 
 echo [4.3] 正在以管理员权限运行程序...
 powershell -Command "Start-Process '%CD%\%EXE_PATH%' -Verb RunAs"
-if %errorlevel% equ 0 (
-    echo [✓] 程序已启动
+set "START_ERROR=!errorlevel!"
+if !START_ERROR! equ 0 (
+    echo [OK] 程序已启动
 ) else (
-    echo [✗] 程序启动失败，可能需要管理员权限
+    echo [X] 程序启动失败，可能需要管理员权限
 )
 
 echo.
@@ -444,11 +722,14 @@ echo   [✓] 步骤2: 编译项目
 echo   [✓] 步骤3: 关闭程序
 echo   [✓] 步骤4: 运行程序
 echo.
-pause
+echo 按任意键返回主菜单...
+pause >nul 2>&1
 goto main_menu
 
 :exit
 cls
 echo 感谢使用！
-timeout /t 1 /nobreak >nul
+echo.
+echo 按任意键退出...
+pause >nul 2>&1
 exit /b 0
