@@ -257,9 +257,46 @@ if %errorlevel% neq 0 (
 )
 
 echo [5/5] 编译项目...
+echo.
+echo 注意: 如果编译失败，可能是文件被锁定
+echo 建议: 关闭Visual Studio或其他可能锁定文件的程序
+echo.
+echo [5.1] 强制删除可能被锁定的PDB文件...
+if exist "bin\x86\Debug\net9.0-windows\SalesChampion.Windows.pdb" (
+    del /f /q "bin\x86\Debug\net9.0-windows\SalesChampion.Windows.pdb" >nul 2>&1
+    if exist "bin\x86\Debug\net9.0-windows\SalesChampion.Windows.pdb" (
+        echo [X] 警告: 无法删除bin目录中的PDB文件，可能被其他进程占用
+        echo 建议: 关闭Visual Studio或其他可能锁定文件的程序
+    ) else (
+        echo [OK] bin目录中的PDB文件已删除
+    )
+)
+if exist "obj\x86\Debug\net9.0-windows\SalesChampion.Windows.pdb" (
+    del /f /q "obj\x86\Debug\net9.0-windows\SalesChampion.Windows.pdb" >nul 2>&1
+    if exist "obj\x86\Debug\net9.0-windows\SalesChampion.Windows.pdb" (
+        echo [X] 警告: 无法删除obj目录中的PDB文件
+    ) else (
+        echo [OK] obj目录中的PDB文件已删除
+    )
+)
+echo.
 dotnet build -c Debug
 if %errorlevel% neq 0 (
-    echo 错误: 编译失败
+    echo.
+    echo [X] 错误: 编译失败
+    echo.
+    echo 可能的原因:
+    echo   1. PDB文件被锁定（最常见）
+    echo   2. Visual Studio或其他调试器正在附加
+    echo   3. 程序进程可能还在运行
+    echo   4. 微信进程可能正在使用注入的DLL
+    echo.
+    echo 解决方法:
+    echo   1. 关闭Visual Studio或其他IDE
+    echo   2. 关闭所有SalesChampion.Windows.exe进程
+    echo   3. 关闭微信进程（如果正在使用注入的DLL）
+    echo   4. 重新运行编译
+    echo.
     pause
     goto main_menu
 )
@@ -608,10 +645,44 @@ echo [OK] NuGet包还原成功
 
 echo.
 echo [2.5] 编译项目...
+echo.
+echo [2.5.1] 强制删除可能被锁定的PDB文件...
+if exist "bin\x86\Debug\net9.0-windows\SalesChampion.Windows.pdb" (
+    del /f /q "bin\x86\Debug\net9.0-windows\SalesChampion.Windows.pdb" >nul 2>&1
+    if exist "bin\x86\Debug\net9.0-windows\SalesChampion.Windows.pdb" (
+        echo [X] 警告: 无法删除bin目录中的PDB文件，可能被其他进程占用
+        echo 建议: 关闭Visual Studio或其他可能锁定文件的程序
+    ) else (
+        echo [OK] bin目录中的PDB文件已删除
+    )
+)
+if exist "obj\x86\Debug\net9.0-windows\SalesChampion.Windows.pdb" (
+    del /f /q "obj\x86\Debug\net9.0-windows\SalesChampion.Windows.pdb" >nul 2>&1
+    if exist "obj\x86\Debug\net9.0-windows\SalesChampion.Windows.pdb" (
+        echo [X] 警告: 无法删除obj目录中的PDB文件
+    ) else (
+        echo [OK] obj目录中的PDB文件已删除
+    )
+)
+echo.
 dotnet build -c Debug
 set "BUILD_ERROR=!errorlevel!"
 if !BUILD_ERROR! neq 0 (
+    echo.
     echo [X] 错误: 编译失败
+    echo.
+    echo 可能的原因:
+    echo   1. PDB文件被锁定（最常见）
+    echo   2. Visual Studio或其他调试器正在附加
+    echo   3. 程序进程可能还在运行
+    echo   4. 微信进程可能正在使用注入的DLL
+    echo.
+    echo 解决方法:
+    echo   1. 关闭Visual Studio或其他IDE
+    echo   2. 关闭所有SalesChampion.Windows.exe进程
+    echo   3. 关闭微信进程（如果正在使用注入的DLL）
+    echo   4. 重新运行编译
+    echo.
     pause
     goto main_menu
 )
