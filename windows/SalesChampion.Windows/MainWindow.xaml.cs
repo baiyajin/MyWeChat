@@ -308,22 +308,45 @@ namespace SalesChampion.Windows
                 }
 
                 // 从账号列表中查找当前登录的账号
+                // 优先查找有昵称和头像的账号（从WebSocket同步过来的）
                 int clientId = _connectionManager.ClientId;
                 string weChatId = clientId.ToString();
                 
                 AccountInfo? currentAccount = null;
+                
+                // 首先尝试通过clientId匹配
                 foreach (var account in _accountList)
                 {
-                    if (account.WeChatId == weChatId)
+                    // 匹配WeChatId或clientId
+                    if (account.WeChatId == weChatId || 
+                        account.WeChatId == clientId.ToString() ||
+                        (!string.IsNullOrEmpty(account.NickName) && !string.IsNullOrEmpty(account.WeChatId) && account.WeChatId.StartsWith("wxid_")))
                     {
-                        currentAccount = account;
-                        break;
+                        // 优先选择有昵称和头像的账号
+                        if (currentAccount == null || 
+                            (!string.IsNullOrEmpty(account.NickName) && !string.IsNullOrEmpty(account.Avatar)))
+                        {
+                            currentAccount = account;
+                        }
+                    }
+                }
+                
+                // 如果没找到，尝试查找任何有昵称的账号（可能是从WebSocket同步的）
+                if (currentAccount == null)
+                {
+                    foreach (var account in _accountList)
+                    {
+                        if (!string.IsNullOrEmpty(account.NickName))
+                        {
+                            currentAccount = account;
+                            break;
+                        }
                     }
                 }
 
                 if (currentAccount != null)
                 {
-                    // 更新昵称
+                    // 更新连接状态区域的头像和昵称
                     AccountNickName.Text = string.IsNullOrEmpty(currentAccount.NickName) 
                         ? "微信用户" 
                         : currentAccount.NickName;
@@ -331,42 +354,79 @@ namespace SalesChampion.Windows
                     // 更新微信ID
                     AccountWeChatId.Text = $"微信ID: {currentAccount.WeChatId}";
                     
-                    // 更新头像
-                    if (!string.IsNullOrEmpty(currentAccount.Avatar))
-                    {
-                        try
-                        {
-                            BitmapImage bitmap = new BitmapImage();
-                            bitmap.BeginInit();
-                            bitmap.UriSource = new Uri(currentAccount.Avatar, UriKind.Absolute);
-                            bitmap.CacheOption = BitmapCacheOption.OnLoad;
-                            bitmap.EndInit();
-                            AccountAvatar.Source = bitmap;
-                        }
-                        catch (Exception ex)
-                        {
-                            Logger.LogWarning($"加载头像失败: {ex.Message}");
-                            // 使用默认头像
-                            AccountAvatar.Source = new BitmapImage(new Uri("pack://application:,,,/Resources/favicon.ico"));
-                        }
-                    }
-                    else
-                    {
-                        // 使用默认头像
-                        AccountAvatar.Source = new BitmapImage(new Uri("pack://application:,,,/Resources/favicon.ico"));
-                    }
+                    // 更新连接状态区域的头像
+                    UpdateAvatarImage(AccountAvatar, currentAccount.Avatar);
+                    
+                    // 更新按钮上方的头像和昵称
+                    TopNickName.Text = string.IsNullOrEmpty(currentAccount.NickName) 
+                        ? "微信用户" 
+                        : currentAccount.NickName;
+                    
+                    TopWeChatId.Text = !string.IsNullOrEmpty(currentAccount.BoundAccount) 
+                        ? currentAccount.BoundAccount 
+                        : currentAccount.WeChatId;
+                    
+                    UpdateAvatarImage(TopAvatar, currentAccount.Avatar);
+                    
+                    // 显示头像面板
+                    AvatarPanel.Visibility = Visibility.Visible;
                 }
                 else
                 {
                     // 没有找到账号信息，显示默认信息
                     AccountNickName.Text = "微信用户";
                     AccountWeChatId.Text = $"微信ID: {weChatId}";
-                    AccountAvatar.Source = new BitmapImage(new Uri("pack://application:,,,/Resources/favicon.ico"));
+                    UpdateAvatarImage(AccountAvatar, null);
+                    
+                    TopNickName.Text = "微信用户";
+                    TopWeChatId.Text = weChatId;
+                    UpdateAvatarImage(TopAvatar, null);
+                    
+                    // 隐藏头像面板
+                    AvatarPanel.Visibility = Visibility.Collapsed;
                 }
             }
             catch (Exception ex)
             {
                 Logger.LogError($"更新账号信息显示失败: {ex.Message}", ex);
+            }
+        }
+
+        /// <summary>
+        /// 更新头像图片
+        /// </summary>
+        private void UpdateAvatarImage(Image imageControl, string? avatarUrl)
+        {
+            try
+            {
+                if (!string.IsNullOrEmpty(avatarUrl))
+                {
+                    try
+                    {
+                        BitmapImage bitmap = new BitmapImage();
+                        bitmap.BeginInit();
+                        bitmap.UriSource = new Uri(avatarUrl, UriKind.Absolute);
+                        bitmap.CacheOption = BitmapCacheOption.OnLoad;
+                        bitmap.EndInit();
+                        imageControl.Source = bitmap;
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.LogWarning($"加载头像失败: {ex.Message}");
+                        // 使用默认头像
+                        imageControl.Source = new BitmapImage(new Uri("pack://application:,,,/Resources/favicon.ico"));
+                    }
+                }
+                else
+                {
+                    // 使用默认头像
+                    imageControl.Source = new BitmapImage(new Uri("pack://application:,,,/Resources/favicon.ico"));
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError($"更新头像失败: {ex.Message}", ex);
+                imageControl.Source = new BitmapImage(new Uri("pack://application:,,,/Resources/favicon.ico"));
             }
         }
 
@@ -811,12 +871,15 @@ namespace SalesChampion.Windows
         {
             Dispatcher.Invoke(() =>
             {
-                AddLog($"收到消息: {message}", "INFO");
-                
                 try
                 {
+                    Logger.LogInfo($"收到WebSocket消息: {message}");
+                    AddLog($"收到WebSocket消息: {message}", "INFO");
+                    
                     var messageObj = Newtonsoft.Json.JsonConvert.DeserializeObject<dynamic>(message);
                     string messageType = messageObj?.type?.ToString() ?? "";
+                    
+                    Logger.LogInfo($"消息类型: {messageType}");
                     
                     if (messageType == "command")
                     {
@@ -824,6 +887,86 @@ namespace SalesChampion.Windows
                         string commandJson = Newtonsoft.Json.JsonConvert.SerializeObject(messageObj);
                         bool result = _commandService?.ProcessCommand(commandJson) ?? false;
                         AddLog($"命令执行结果: {(result ? "成功" : "失败")}", result ? "SUCCESS" : "ERROR");
+                    }
+                    else if (messageType == "sync_my_info")
+                    {
+                        // 处理我的信息同步
+                        Logger.LogInfo("处理我的信息同步");
+                        try
+                        {
+                            dynamic? data = messageObj?.data;
+                            if (data != null)
+                            {
+                                Logger.LogInfo($"收到我的信息同步: {Newtonsoft.Json.JsonConvert.SerializeObject(data)}");
+                                
+                                string wxid = data.wxid?.ToString() ?? "";
+                                string nickname = data.nickname?.ToString() ?? "";
+                                string avatar = data.avatar?.ToString() ?? "";
+                                string account = data.account?.ToString() ?? "";
+                                int clientId = 0;
+                                
+                                if (data.clientId != null)
+                                {
+                                    int.TryParse(data.clientId.ToString(), out clientId);
+                                }
+                                
+                                // 更新账号信息
+                                AccountInfo? accountInfo = null;
+                                foreach (var acc in _accountList)
+                                {
+                                    if (acc.WeChatId == wxid || 
+                                        acc.WeChatId == clientId.ToString() ||
+                                        (!string.IsNullOrEmpty(wxid) && acc.WeChatId == wxid))
+                                    {
+                                        accountInfo = acc;
+                                        break;
+                                    }
+                                }
+                                
+                                if (accountInfo == null)
+                                {
+                                    // 创建新账号信息
+                                    accountInfo = new AccountInfo
+                                    {
+                                        Client = $"客户端{clientId}",
+                                        WeChatId = !string.IsNullOrEmpty(wxid) ? wxid : clientId.ToString(),
+                                        BoundAccount = !string.IsNullOrEmpty(account) ? account : wxid
+                                    };
+                                    _accountList.Add(accountInfo);
+                                }
+                                
+                                // 更新账号信息
+                                if (!string.IsNullOrEmpty(nickname))
+                                {
+                                    accountInfo.NickName = nickname;
+                                }
+                                
+                                if (!string.IsNullOrEmpty(avatar))
+                                {
+                                    accountInfo.Avatar = avatar;
+                                }
+                                
+                                if (!string.IsNullOrEmpty(wxid))
+                                {
+                                    accountInfo.WeChatId = wxid;
+                                }
+                                
+                                if (!string.IsNullOrEmpty(account))
+                                {
+                                    accountInfo.BoundAccount = account;
+                                }
+                                
+                                // 更新UI显示
+                                UpdateAccountInfoDisplay();
+                                
+                                Logger.LogInfo($"账号信息已更新: wxid={accountInfo.WeChatId}, nickname={accountInfo.NickName}");
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Logger.LogError($"处理我的信息同步失败: {ex.Message}", ex);
+                            AddLog($"处理我的信息同步失败: {ex.Message}", "ERROR");
+                        }
                     }
                 }
                 catch (Exception ex)
