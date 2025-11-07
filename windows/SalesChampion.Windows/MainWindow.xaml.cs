@@ -1058,9 +1058,6 @@ namespace SalesChampion.Windows
                         document.Blocks.Add(paragraph);
                     }
                     
-                    // 自动滚动到顶部（显示最新日志）
-                    LogRichTextBox.ScrollToHome();
-                    
                     // 限制日志块数量（保留最新500个块）
                     if (document.Blocks.Count > 500)
                     {
@@ -1070,6 +1067,24 @@ namespace SalesChampion.Windows
                             document.Blocks.Remove(document.Blocks.LastBlock);
                         }
                     }
+                    
+                    // 延迟滚动到顶部，避免频繁滚动导致卡顿
+                    // 使用异步方式，不阻塞UI线程
+                    _ = Task.Run(async () =>
+                    {
+                        await Task.Delay(10); // 短暂延迟，批量处理
+                        Dispatcher.Invoke(() =>
+                        {
+                            try
+                            {
+                                LogRichTextBox.ScrollToHome();
+                            }
+                            catch
+                            {
+                                // 忽略滚动错误
+                            }
+                        });
+                    });
                 }
                 catch (Exception ex)
                 {
