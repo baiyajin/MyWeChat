@@ -659,17 +659,17 @@ namespace SalesChampion.Windows
 
                     // 尝试修复不完整的JSON（如果消息被截断）
                     // 情况1: 如果消息以 "type":1112 结尾，可能是 11120 或 11121 被截断了
-                    if (cleanMessage.EndsWith("\"type\":1112"))
-                    {
+                        if (cleanMessage.EndsWith("\"type\":1112"))
+                        {
                         Logger.LogWarning("检测到JSON消息被截断（type:1112），尝试修复为11120");
-                        cleanMessage = cleanMessage.Replace("\"type\":1112", "\"type\":11120}");
-                    }
+                            cleanMessage = cleanMessage.Replace("\"type\":1112", "\"type\":11120}");
+                        }
                     // 情况2: 如果消息以 "type":11120 结尾但没有闭合括号
                     else if (cleanMessage.EndsWith("\"type\":11120") && !cleanMessage.EndsWith("}"))
-                    {
+                        {
                         Logger.LogWarning("检测到JSON消息不完整（缺少闭合括号），尝试修复");
-                        cleanMessage = cleanMessage + "}";
-                    }
+                            cleanMessage = cleanMessage + "}";
+                        }
                     // 情况3: 如果消息以 "type":1112 结尾（可能是11120或11121）
                     else if (cleanMessage.Contains("\"type\":1112") && !cleanMessage.EndsWith("}"))
                     {
@@ -768,9 +768,9 @@ namespace SalesChampion.Windows
                                 else if (fixedJson.EndsWith("\"type\":1112"))
                                 {
                                     fixedJson = fixedJson.Replace("\"type\":1112", "\"type\":11120}");
-                                }
-                                else
-                                {
+                        }
+                        else
+                        {
                                     fixedJson = fixedJson + "}";
                                 }
                                 
@@ -820,7 +820,7 @@ namespace SalesChampion.Windows
 
                     // 记录所有消息类型，用于调试
                     Logger.LogInfo($"收到消息类型: {messageType}, 消息内容: {message}");
-                    
+
                     // 根据原项目和日志，消息类型 11120 和 11121 都表示登录回调
                     // 11120 可能是初始化消息，11121 是登录成功消息
                     // 从日志看，11120 消息包含账号信息（wxid, nickname, avatar等）
