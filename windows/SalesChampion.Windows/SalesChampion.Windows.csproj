@@ -39,7 +39,11 @@
     <Copy SourceFiles="@(DllFiles)" 
           DestinationFolder="$(OutDir)DLLs\%(RecursiveDir)" 
           SkipUnchangedFiles="true"
-          ContinueOnError="true" />
+          ContinueOnError="true">
+      <Output TaskParameter="CopiedFiles" ItemName="CopiedDllFiles" />
+    </Copy>
+    <!-- 记录复制结果 -->
+    <Message Text="已复制 DLL 文件: @(CopiedDllFiles)" Importance="normal" />
   </Target>
 
 </Project>
