@@ -548,73 +548,72 @@ namespace SalesChampion.Windows
                                 wxid = clientId.ToString();
                             }
 
-                                // 更新账号信息
-                                AccountInfo accountInfo = null;
-                                foreach (var acc in _accountList)
+                            // 更新账号信息
+                            AccountInfo accountInfo = null;
+                            foreach (var acc in _accountList)
+                            {
+                                if (acc.WeChatId == wxid || acc.WeChatId == clientId.ToString())
                                 {
-                                    if (acc.WeChatId == wxid || acc.WeChatId == clientId.ToString())
-                                    {
-                                        accountInfo = acc;
-                                        break;
-                                    }
+                                    accountInfo = acc;
+                                    break;
                                 }
+                            }
 
-                                if (accountInfo == null)
+                            if (accountInfo == null)
+                            {
+                                accountInfo = new AccountInfo
                                 {
-                                    accountInfo = new AccountInfo
-                                    {
-                                        Client = $"客户端{clientId}",
-                                        WeChatId = wxid,
-                                        BoundAccount = account
-                                    };
-                                    _accountList.Add(accountInfo);
-                                }
+                                    Client = $"客户端{clientId}",
+                                    WeChatId = wxid,
+                                    BoundAccount = account
+                                };
+                                _accountList.Add(accountInfo);
+                            }
 
-                                // 更新账号信息
-                                accountInfo.Client = $"客户端{clientId}";
-                                accountInfo.WeChatId = wxid;
-                                accountInfo.BoundAccount = account;
-                                
-                                if (!string.IsNullOrEmpty(nickname))
-                                {
-                                    accountInfo.NickName = nickname;
-                                }
-                                
-                                if (!string.IsNullOrEmpty(avatar))
-                                {
-                                    accountInfo.Avatar = avatar;
-                                }
+                            // 更新账号信息
+                            accountInfo.Client = $"客户端{clientId}";
+                            accountInfo.WeChatId = wxid;
+                            accountInfo.BoundAccount = account;
+                            
+                            if (!string.IsNullOrEmpty(nickname))
+                            {
+                                accountInfo.NickName = nickname;
+                            }
+                            
+                            if (!string.IsNullOrEmpty(avatar))
+                            {
+                                accountInfo.Avatar = avatar;
+                            }
 
-                                AddLog($"收到登录回调: wxid={wxid}, nickname={nickname}", "SUCCESS");
-                                
-                                // 更新UI显示
-                                UpdateAccountInfoDisplay();
-                                
-                                // 实时同步我的信息到服务器
-                                SyncMyInfoToServer(wxid, nickname, avatar, account);
-                                
-                                // 根据原项目，登录成功后自动触发同步
-                                // 延迟1.5秒后开始同步标签和好友列表
-                                Task.Delay(1500).ContinueWith(_ =>
+                            AddLog($"收到登录回调: wxid={wxid}, nickname={nickname}", "SUCCESS");
+                            
+                            // 更新UI显示
+                            UpdateAccountInfoDisplay();
+                            
+                            // 实时同步我的信息到服务器
+                            SyncMyInfoToServer(wxid, nickname, avatar, account);
+                            
+                            // 根据原项目，登录成功后自动触发同步
+                            // 延迟1.5秒后开始同步标签和好友列表
+                            Task.Delay(1500).ContinueWith(_ =>
+                            {
+                                Dispatcher.Invoke(() =>
                                 {
-                                    Dispatcher.Invoke(() =>
+                                    AddLog("登录成功，开始自动同步数据...", "INFO");
+                                    
+                                    // 先同步标签
+                                    _tagSyncService?.SyncTags();
+                                    
+                                    // 延迟3秒后同步好友列表
+                                    Task.Delay(3000).ContinueWith(__ =>
                                     {
-                                        AddLog("登录成功，开始自动同步数据...", "INFO");
-                                        
-                                        // 先同步标签
-                                        _tagSyncService?.SyncTags();
-                                        
-                                        // 延迟3秒后同步好友列表
-                                        Task.Delay(3000).ContinueWith(__ =>
+                                        Dispatcher.Invoke(() =>
                                         {
-                                            Dispatcher.Invoke(() =>
-                                            {
-                                                _contactSyncService?.SyncContacts();
-                                            });
+                                            _contactSyncService?.SyncContacts();
                                         });
                                     });
                                 });
-                            }
+                            });
                         }
                     }
                     // 消息类型 11126 表示好友列表回调
