@@ -35,7 +35,11 @@
     <ItemGroup>
       <DllFiles Include="$(ProjectDir)DLLs\**\*.*" />
     </ItemGroup>
-    <Copy SourceFiles="@(DllFiles)" DestinationFolder="$(OutDir)DLLs\%(RecursiveDir)" SkipUnchangedFiles="true" />
+    <!-- 复制DLL文件，如果目标文件被锁定（如被微信进程加载），则跳过该文件继续构建 -->
+    <Copy SourceFiles="@(DllFiles)" 
+          DestinationFolder="$(OutDir)DLLs\%(RecursiveDir)" 
+          SkipUnchangedFiles="true"
+          ContinueOnError="true" />
   </Target>
 
 </Project>
