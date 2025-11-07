@@ -13,14 +13,15 @@ namespace SalesChampion.Windows.Core.DLLWrapper
         protected readonly string _version;
 
         // 回调函数委托定义
-        // 注意：原项目的委托定义没有UnmanagedFunctionPointer属性，使用默认调用约定
-        // 原项目定义：public delegate void Dele_cb_Accept(int clientId);
-        // 当使用Marshal.GetFunctionPointerForDelegate时，如果没有UnmanagedFunctionPointer属性，
-        // 会使用默认的调用约定（通常是StdCall），这与DllImport的默认Winapi（StdCall）匹配
+        // 注意：必须使用UnmanagedFunctionPointer属性，明确指定调用约定为StdCall
+        // 这样可以确保与DLL的调用约定匹配，避免栈溢出错误
+        [UnmanagedFunctionPointer(CallingConvention.StdCall)]
         public delegate void AcceptCallback(int clientId);
 
+        [UnmanagedFunctionPointer(CallingConvention.StdCall)]
         public delegate void ReceiveCallback(int clientId, IntPtr message, int length);
 
+        [UnmanagedFunctionPointer(CallingConvention.StdCall)]
         public delegate void CloseCallback(int clientId);
 
         /// <summary>
@@ -34,7 +35,7 @@ namespace SalesChampion.Windows.Core.DLLWrapper
         /// <summary>
         /// 设置回调函数
         /// </summary>
-        public abstract int SetCallback(IntPtr acceptPtr, IntPtr receivePtr, IntPtr closePtr, string contact = null);
+        public abstract int SetCallback(IntPtr acceptPtr, IntPtr receivePtr, IntPtr closePtr, string? contact = null);
 
         /// <summary>
         /// 打开微信互斥锁
