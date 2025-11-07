@@ -304,6 +304,7 @@ namespace SalesChampion.Windows
             {
                 if (_connectionManager == null || !_connectionManager.IsConnected)
                 {
+                    Logger.LogWarning("连接管理器未初始化或未连接，无法更新账号信息显示");
                     return;
                 }
 
@@ -312,11 +313,15 @@ namespace SalesChampion.Windows
                 int clientId = _connectionManager.ClientId;
                 string weChatId = clientId.ToString();
                 
+                Logger.LogInfo($"更新账号信息显示: clientId={clientId}, 账号列表数量={_accountList.Count}");
+                
                 AccountInfo? currentAccount = null;
                 
                 // 首先尝试通过clientId匹配
                 foreach (var account in _accountList)
                 {
+                    Logger.LogInfo($"检查账号: WeChatId={account.WeChatId}, NickName={account.NickName}, Avatar={(!string.IsNullOrEmpty(account.Avatar) ? "有头像" : "无头像")}");
+                    
                     // 匹配WeChatId或clientId
                     if (account.WeChatId == weChatId || 
                         account.WeChatId == clientId.ToString() ||
@@ -327,6 +332,7 @@ namespace SalesChampion.Windows
                             (!string.IsNullOrEmpty(account.NickName) && !string.IsNullOrEmpty(account.Avatar)))
                         {
                             currentAccount = account;
+                            Logger.LogInfo($"找到匹配账号: WeChatId={account.WeChatId}, NickName={account.NickName}");
                         }
                     }
                 }
@@ -339,6 +345,7 @@ namespace SalesChampion.Windows
                         if (!string.IsNullOrEmpty(account.NickName))
                         {
                             currentAccount = account;
+                            Logger.LogInfo($"找到有昵称的账号: WeChatId={account.WeChatId}, NickName={account.NickName}");
                             break;
                         }
                     }
@@ -346,6 +353,8 @@ namespace SalesChampion.Windows
 
                 if (currentAccount != null)
                 {
+                    Logger.LogInfo($"更新账号信息显示: NickName={currentAccount.NickName}, Avatar={(!string.IsNullOrEmpty(currentAccount.Avatar) ? "有头像" : "无头像")}");
+                    
                     // 更新连接状态区域的头像和昵称
                     AccountNickName.Text = string.IsNullOrEmpty(currentAccount.NickName) 
                         ? "微信用户" 
@@ -370,6 +379,8 @@ namespace SalesChampion.Windows
                     
                     // 显示头像面板
                     AvatarPanel.Visibility = Visibility.Visible;
+                    
+                    Logger.LogInfo("账号信息显示已更新，头像面板已显示");
                 }
                 else
                 {
@@ -451,14 +462,28 @@ namespace SalesChampion.Windows
                 // 连接状态变化时，更新账号列表
                 if (isConnected)
                 {
+                    Logger.LogInfo("微信连接状态变化：已连接");
                     UpdateAccountList();
                     // 更新账号信息显示
                     UpdateAccountInfoDisplay();
+                    
+                    // 延迟一下，等待可能的登录回调消息
+                    Task.Delay(2000).ContinueWith(_ =>
+                    {
+                        Dispatcher.Invoke(() =>
+                        {
+                            Logger.LogInfo("延迟更新账号信息显示");
+                            UpdateAccountInfoDisplay();
+                        });
+                    });
                 }
                 else
                 {
+                    Logger.LogInfo("微信连接状态变化：已断开");
                     // 断开连接时，清空账号列表
                     _accountList.Clear();
+                    // 隐藏头像面板
+                    AvatarPanel.Visibility = Visibility.Collapsed;
                 }
             });
         }
@@ -537,10 +562,14 @@ namespace SalesChampion.Windows
             {
                 try
                 {
+                    Logger.LogInfo($"收到微信消息: {message}");
+                    AddLog($"收到微信消息: {message}", "INFO");
+                    
                     // 清理消息：移除可能的额外字符和空白
                     string cleanMessage = message?.Trim() ?? string.Empty;
                     if (string.IsNullOrEmpty(cleanMessage))
                     {
+                        Logger.LogWarning("收到空消息，忽略");
                         return;
                     }
 
@@ -698,6 +727,7 @@ namespace SalesChampion.Windows
                                 accountInfo.Avatar = avatar;
                             }
 
+                            Logger.LogInfo($"收到登录回调: wxid={wxid}, nickname={nickname}, avatar={avatar}");
                             AddLog($"收到登录回调: wxid={wxid}, nickname={nickname}", "SUCCESS");
                             
                             // 更新UI显示
@@ -705,6 +735,15 @@ namespace SalesChampion.Windows
                             
                             // 实时同步我的信息到服务器
                             SyncMyInfoToServer(wxid, nickname, avatar, account);
+                            
+                            // 再次更新UI显示，确保头像显示
+                            Task.Delay(500).ContinueWith(_ =>
+                            {
+                                Dispatcher.Invoke(() =>
+                                {
+                                    UpdateAccountInfoDisplay();
+                                });
+                            });
                             
                             // 根据原项目，登录成功后自动触发同步
                             // 延迟1.5秒后开始同步标签和好友列表
