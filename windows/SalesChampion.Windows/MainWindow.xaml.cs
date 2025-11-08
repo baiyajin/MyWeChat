@@ -1848,20 +1848,21 @@ namespace SalesChampion.Windows
                                     }
                                     
                                     // 确保WeChatId是真正的wxid（不是进程ID）
-                                if (IsRealWeChatId(wxid))
-                                {
-                                    accountInfo.WeChatId = wxid;
+                                    if (IsRealWeChatId(wxid))
+                                    {
+                                        accountInfo.WeChatId = wxid;
+                                    }
+                                    
+                                    if (!string.IsNullOrEmpty(account))
+                                    {
+                                        accountInfo.BoundAccount = account;
+                                    }
+                                    
+                                    // 更新UI显示
+                                    UpdateAccountInfoDisplay();
+                                    
+                                    Logger.LogInfo($"账号信息已更新: wxid={accountInfo.WeChatId}, nickname={accountInfo.NickName}");
                                 }
-                                
-                                if (!string.IsNullOrEmpty(account))
-                                {
-                                    accountInfo.BoundAccount = account;
-                                }
-                                
-                                // 更新UI显示
-                                UpdateAccountInfoDisplay();
-                                
-                                Logger.LogInfo($"账号信息已更新: wxid={accountInfo.WeChatId}, nickname={accountInfo.NickName}");
                             }
                         }
                         catch (Exception ex)
