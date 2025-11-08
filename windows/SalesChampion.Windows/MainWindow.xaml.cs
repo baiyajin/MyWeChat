@@ -316,6 +316,9 @@ namespace SalesChampion.Windows
         {
             try
             {
+                // 输出定时器运行日志，让用户知道程序正在运行
+                Logger.LogInfo("[定时器] 正在检测微信进程...");
+                
                 // 检查微信进程是否运行
                 bool weChatRunning = IsWeChatProcessRunning();
                 
@@ -357,6 +360,16 @@ namespace SalesChampion.Windows
                     
                     // 停止账号信息获取定时器
                     StopAccountInfoFetchTimer();
+                }
+                else if (!weChatRunning)
+                {
+                    // 微信进程未运行，输出日志让用户知道定时器正在工作
+                    Logger.LogInfo("[定时器] 微信进程未运行，继续检测...");
+                }
+                else if (_isWeChatConnected)
+                {
+                    // 微信已连接，输出日志让用户知道定时器正在工作
+                    Logger.LogInfo("[定时器] 微信已连接，继续监控...");
                 }
             }
             catch (Exception ex)
@@ -455,8 +468,12 @@ namespace SalesChampion.Windows
             {
                 if (_connectionManager == null || !_connectionManager.IsConnected)
                 {
+                    Logger.LogInfo("[定时器] 微信未连接，跳过账号信息检查");
                     return;
                 }
+
+                // 输出定时器运行日志，让用户知道程序正在运行
+                Logger.LogInfo("[定时器] 正在检查账号信息...");
 
                 // 检查是否已有完整的账号信息（从账号列表中检查 account、nickname 等字段）
                 bool hasAccountInfo = false;
@@ -472,6 +489,7 @@ namespace SalesChampion.Windows
                         if (hasAccount && hasNickname)
                         {
                             hasAccountInfo = true;
+                            Logger.LogInfo($"[定时器] 已检测到完整账号信息: account={acc.BoundAccount ?? acc.WeChatId}, nickname={acc.NickName}");
                             break;
                         }
                     }
@@ -482,12 +500,13 @@ namespace SalesChampion.Windows
                 if (!hasAccountInfo)
                 {
                     // 还没有账号信息，继续等待 11120/11121 回调消息
-                    Logger.LogInfo("定时检查账号信息（等待11120/11121回调消息）...");
+                    Logger.LogInfo("[定时器] 尚未收到账号信息，继续等待11120/11121回调消息...");
                     // 不主动请求，只检查
                 }
                 else
                 {
                     // 已有账号信息，更新显示并停止定时器
+                    Logger.LogInfo("[定时器] 账号信息已完整，准备停止定时器");
                     UpdateAccountInfoDisplay();
                     StopTimersAfterAccountInfoReceived();
                 }
