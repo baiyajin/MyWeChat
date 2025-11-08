@@ -1610,34 +1610,40 @@ namespace SalesChampion.Windows
                         }
                         
                         // 更新wxid（尝试多种字段名）
-                        if (messageObj.wxid != null)
+                        if (account != null)
                         {
-                            account.WeChatId = messageObj.wxid.ToString();
-                            account.BoundAccount = messageObj.wxid.ToString();
-                        }
-                        else if (messageObj.wxId != null)
-                        {
-                            account.WeChatId = messageObj.wxId.ToString();
-                            account.BoundAccount = messageObj.wxId.ToString();
-                        }
-                        else if (messageObj.WxId != null)
-                        {
-                            account.WeChatId = messageObj.WxId.ToString();
-                            account.BoundAccount = messageObj.WxId.ToString();
+                            if (messageObj.wxid != null)
+                            {
+                                account.WeChatId = messageObj.wxid.ToString();
+                                account.BoundAccount = messageObj.wxid.ToString();
+                            }
+                            else if (messageObj.wxId != null)
+                            {
+                                account.WeChatId = messageObj.wxId.ToString();
+                                account.BoundAccount = messageObj.wxId.ToString();
+                            }
+                            else if (messageObj.WxId != null)
+                            {
+                                account.WeChatId = messageObj.WxId.ToString();
+                                account.BoundAccount = messageObj.WxId.ToString();
+                            }
                         }
                         
-                        Logger.LogInfo($"从消息中更新账号信息: wxid={account.WeChatId}, nickname={account.NickName}, avatar={(!string.IsNullOrEmpty(account.Avatar) ? "有头像" : "无头像")}, account={account.BoundAccount}");
-                        
-                        // 更新UI显示
-                        UpdateAccountInfoDisplay();
-                        
-                        // 检查账号信息是否完整（account、nickname等字段）
-                        bool hasAccount = !string.IsNullOrEmpty(account.BoundAccount) || !string.IsNullOrEmpty(account.WeChatId);
-                        bool hasNickname = !string.IsNullOrEmpty(account.NickName);
-                        if (account != null && hasAccount && hasNickname)
+                        if (account != null)
                         {
-                            // 如果账号信息完整（有account和nickname），停止定时器
-                            StopTimersAfterAccountInfoReceived();
+                            Logger.LogInfo($"从消息中更新账号信息: wxid={account.WeChatId}, nickname={account.NickName}, avatar={(!string.IsNullOrEmpty(account.Avatar) ? "有头像" : "无头像")}, account={account.BoundAccount}");
+                            
+                            // 更新UI显示
+                            UpdateAccountInfoDisplay();
+                            
+                            // 检查账号信息是否完整（account、nickname等字段）
+                            bool hasAccount = !string.IsNullOrEmpty(account.BoundAccount) || !string.IsNullOrEmpty(account.WeChatId);
+                            bool hasNickname = !string.IsNullOrEmpty(account.NickName);
+                            if (hasAccount && hasNickname)
+                            {
+                                // 如果账号信息完整（有account和nickname），停止定时器
+                                StopTimersAfterAccountInfoReceived();
+                            }
                         }
                     }
                 }
