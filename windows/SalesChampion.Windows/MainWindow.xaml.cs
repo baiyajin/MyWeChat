@@ -1383,12 +1383,14 @@ namespace SalesChampion.Windows
                                 {
                                     fixedJson = fixedJson + "}";
                                 }
+                                // 注意：type:1112 是正确的类型，不需要修复
+                                // 如果消息以 "type":1112 结尾，只需要补全闭合括号
                                 else if (fixedJson.EndsWith("\"type\":1112"))
                                 {
-                                    fixedJson = fixedJson.Replace("\"type\":1112", "\"type\":11120}");
-                        }
-                        else
-                        {
+                                    fixedJson = fixedJson + "}";
+                                }
+                                else
+                                {
                                     fixedJson = fixedJson + "}";
                                 }
                                 
