@@ -327,73 +327,64 @@ class _ProfileTabState extends State<ProfileTab> with SingleTickerProviderStateM
     return SizedBox(
       width: width,
       height: height,
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: status ? Colors.green[50] : Colors.grey[100],
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: status ? Colors.green : Colors.grey[300]!,
-            width: 2,
-          ),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // 图标和状态指示
-            Stack(
-              alignment: Alignment.center,
-              children: [
-                Icon(
-                  icon,
-                  size: 32,
-                  color: status ? Colors.green[700] : Colors.grey[600],
-                ),
-                Positioned(
-                  right: 0,
-                  top: 0,
-                  child: Container(
-                    width: 12,
-                    height: 12,
-                    decoration: BoxDecoration(
-                      color: status ? Colors.green : Colors.red,
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: Colors.white,
-                        width: 2,
-                      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // 图标和状态指示
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              Icon(
+                icon,
+                size: 32,
+                color: status ? Colors.green[700] : Colors.grey[600],
+              ),
+              Positioned(
+                right: 0,
+                top: 0,
+                child: Container(
+                  width: 12,
+                  height: 12,
+                  decoration: BoxDecoration(
+                    color: status ? Colors.green : Colors.red,
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: Colors.white,
+                      width: 2,
                     ),
                   ),
                 ),
-              ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          // 标题
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              color: status ? Colors.green[700] : Colors.grey[700],
             ),
-            const SizedBox(height: 8),
-            // 标题
-            Text(
-              title,
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 4),
+          // 详情
+          Expanded(
+            child: Text(
+              detail,
               style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                color: status ? Colors.green[700] : Colors.grey[700],
+                fontSize: 11,
+                color: Colors.grey[600],
               ),
               textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
-            const SizedBox(height: 4),
-            // 详情
-            Expanded(
-              child: Text(
-                detail,
-                style: TextStyle(
-                  fontSize: 11,
-                  color: Colors.grey[600],
-                ),
-                textAlign: TextAlign.center,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
