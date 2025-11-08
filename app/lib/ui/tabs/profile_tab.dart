@@ -216,6 +216,8 @@ class _ProfileTabState extends State<ProfileTab> with SingleTickerProviderStateM
     const double iconSize = 32.0;
     const double iconCenterY = iconSize / 2; // 图标中心Y坐标（相对于节点顶部）
     const double horizontalPadding = 20.0; // 减小水平间距，让节点更靠近
+    const double iconRadius = iconSize / 2; // 图标半径
+    const double connectionOffset = iconRadius + 4.0; // 连接线偏移量，在图标边缘外4像素
     
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -237,6 +239,27 @@ class _ProfileTabState extends State<ProfileTab> with SingleTickerProviderStateM
         final appIconX = rightX;
         final appIconY = diagramHeight - nodeHeight + iconCenterY;
         
+        // 计算连接点位置（在图标边缘，而不是中心）
+        // 服务器到Windows的连接点
+        final serverToWindowsDx = windowsIconX - serverIconX;
+        final serverToWindowsDy = windowsIconY - serverIconY;
+        final serverToWindowsDistance = math.sqrt(serverToWindowsDx * serverToWindowsDx + serverToWindowsDy * serverToWindowsDy);
+        final serverToWindowsRatio = connectionOffset / serverToWindowsDistance;
+        final serverToWindowsStartX = serverIconX + serverToWindowsDx * serverToWindowsRatio;
+        final serverToWindowsStartY = serverIconY + serverToWindowsDy * serverToWindowsRatio;
+        final serverToWindowsEndX = windowsIconX - serverToWindowsDx * serverToWindowsRatio;
+        final serverToWindowsEndY = windowsIconY - serverToWindowsDy * serverToWindowsRatio;
+        
+        // 服务器到App的连接点
+        final serverToAppDx = appIconX - serverIconX;
+        final serverToAppDy = appIconY - serverIconY;
+        final serverToAppDistance = math.sqrt(serverToAppDx * serverToAppDx + serverToAppDy * serverToAppDy);
+        final serverToAppRatio = connectionOffset / serverToAppDistance;
+        final serverToAppStartX = serverIconX + serverToAppDx * serverToAppRatio;
+        final serverToAppStartY = serverIconY + serverToAppDy * serverToAppRatio;
+        final serverToAppEndX = appIconX - serverToAppDx * serverToAppRatio;
+        final serverToAppEndY = appIconY - serverToAppDy * serverToAppRatio;
+        
         return SizedBox(
           width: double.infinity,
           height: diagramHeight,
@@ -249,10 +272,10 @@ class _ProfileTabState extends State<ProfileTab> with SingleTickerProviderStateM
                   builder: (context, child) {
                     return CustomPaint(
                       painter: _ConnectionLinePainter(
-                        startX: serverIconX,
-                        startY: serverIconY,
-                        endX: windowsIconX,
-                        endY: windowsIconY,
+                        startX: serverToWindowsStartX,
+                        startY: serverToWindowsStartY,
+                        endX: serverToWindowsEndX,
+                        endY: serverToWindowsEndY,
                         isConnected: windowsConnected,
                         animationValue: _animation.value,
                       ),
@@ -268,10 +291,10 @@ class _ProfileTabState extends State<ProfileTab> with SingleTickerProviderStateM
                   builder: (context, child) {
                     return CustomPaint(
                       painter: _ConnectionLinePainter(
-                        startX: serverIconX,
-                        startY: serverIconY,
-                        endX: appIconX,
-                        endY: appIconY,
+                        startX: serverToAppStartX,
+                        startY: serverToAppStartY,
+                        endX: serverToAppEndX,
+                        endY: serverToAppEndY,
                         isConnected: appConnected,
                         animationValue: _animation.value,
                       ),
