@@ -151,7 +151,8 @@
                         <Path Name="ClosingProgressPath" 
                               Stroke="#07C160" 
                               StrokeThickness="8"
-                              StrokeLinecap="Round"
+                              StrokeStartLineCap="Round"
+                              StrokeEndLineCap="Round"
                               HorizontalAlignment="Center"
                               VerticalAlignment="Center">
                             <Path.Data>
