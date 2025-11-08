@@ -869,6 +869,18 @@ namespace SalesChampion.Windows
                 if (_connectionManager == null || !_connectionManager.IsConnected)
                 {
                     Logger.LogWarning("连接管理器未初始化或未连接，无法更新账号信息显示");
+                    // 显示等待状态
+                    Dispatcher.Invoke(() =>
+                    {
+                        if (AccountNickNameText != null)
+                        {
+                            AccountNickNameText.Text = "等待连接...";
+                        }
+                        if (AccountWeChatIdText != null)
+                        {
+                            AccountWeChatIdText.Text = "";
+                        }
+                    });
                     return;
                 }
 
@@ -922,13 +934,48 @@ namespace SalesChampion.Windows
                 {
                     Logger.LogInfo($"更新账号信息显示: NickName={currentAccount.NickName}, Avatar={(!string.IsNullOrEmpty(currentAccount.Avatar) ? "有头像" : "无头像")}");
                     
-                    // UI元素已移除，不再更新显示
-                    // 账号信息已存储在_accountList中，可以通过日志查看
+                    // 更新UI显示
+                    Dispatcher.Invoke(() =>
+                    {
+                        // 更新昵称
+                        if (AccountNickNameText != null)
+                        {
+                            AccountNickNameText.Text = !string.IsNullOrEmpty(currentAccount.NickName) 
+                                ? currentAccount.NickName 
+                                : "未知昵称";
+                        }
+                    
+                    // 更新微信ID
+                        if (AccountWeChatIdText != null)
+                        {
+                            string displayId = !string.IsNullOrEmpty(currentAccount.BoundAccount) 
+                        ? currentAccount.BoundAccount 
+                                : (!string.IsNullOrEmpty(currentAccount.WeChatId) ? currentAccount.WeChatId : "");
+                            AccountWeChatIdText.Text = !string.IsNullOrEmpty(displayId) ? $"微信号: {displayId}" : "";
+                        }
+                        
+                        // 更新头像
+                        if (AccountAvatarImage != null)
+                        {
+                            UpdateAvatarImage(AccountAvatarImage, currentAccount.Avatar);
+                        }
+                    });
                 }
                 else
                 {
                     // 没有找到账号信息
                     Logger.LogInfo("未找到账号信息");
+                    Dispatcher.Invoke(() =>
+                    {
+                        if (AccountNickNameText != null)
+                        {
+                            AccountNickNameText.Text = "等待获取账号信息...";
+                        }
+                        if (AccountWeChatIdText != null)
+                        {
+                            AccountWeChatIdText.Text = "";
+                        }
+                    });
                 }
             }
             catch (Exception ex)
@@ -1388,9 +1435,9 @@ namespace SalesChampion.Windows
                                 else if (fixedJson.EndsWith("\"type\":1112"))
                                 {
                                     fixedJson = fixedJson + "}";
-                                }
-                                else
-                                {
+                        }
+                        else
+                        {
                                     fixedJson = fixedJson + "}";
                                 }
                                 
