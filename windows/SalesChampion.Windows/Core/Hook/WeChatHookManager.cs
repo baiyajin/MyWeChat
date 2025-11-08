@@ -297,9 +297,9 @@ namespace SalesChampion.Windows.Core.Hook
                             Logger.LogInfo($"微信启动命令已执行，等待微信启动...");
                             
                             // 等待微信启动（最多等待10秒）
-                            int waitCount = 0;
-                            int maxWaitCount = 100; // 10秒 = 100 * 100ms
-                            while (waitCount < maxWaitCount)
+                            int startWaitCount = 0;
+                            int startMaxWaitCount = 100; // 10秒 = 100 * 100ms
+                            while (startWaitCount < startMaxWaitCount)
                             {
                                 Thread.Sleep(100);
                                 existingWeChatProcess = FindWeChatProcess();
@@ -308,7 +308,7 @@ namespace SalesChampion.Windows.Core.Hook
                                     Logger.LogInfo($"微信已启动，进程ID: {existingWeChatProcess.Id}");
                                     break;
                                 }
-                                waitCount++;
+                                startWaitCount++;
                             }
                             
                             if (existingWeChatProcess == null)
@@ -419,6 +419,14 @@ namespace SalesChampion.Windows.Core.Hook
                     {
                         Logger.LogWarning("使用之前找到的微信进程");
                         weChatProcess = existingWeChatProcess;
+                    }
+
+                    // 确保找到了微信进程
+                    if (weChatProcess == null)
+                    {
+                        string errorMsg = "未找到运行中的微信进程，无法继续Hook";
+                        Logger.LogError(errorMsg);
+                        throw new InvalidOperationException(errorMsg);
                     }
 
                     Logger.LogInfo($"找到微信进程，PID: {weChatProcess.Id}, 进程名: {weChatProcess.ProcessName}");
