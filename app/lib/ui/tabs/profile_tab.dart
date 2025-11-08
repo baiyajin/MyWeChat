@@ -120,66 +120,15 @@ class _ProfileTabState extends State<ProfileTab> {
               
               const SizedBox(height: 10),
               
-              // 功能入口区域 - 模仿微信的功能列表
+              // 功能入口区域 - 只保留收藏
               Container(
                 color: Colors.white,
-                child: Column(
-                  children: [
-                    _buildMenuItem(
-                      icon: Icons.payment,
-                      title: '支付',
-                      onTap: () {
-                        // TODO: 实现支付功能
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('支付功能开发中...')),
-                        );
-                      },
-                    ),
-                    _buildDivider(),
-                    _buildMenuItem(
-                      icon: Icons.collections,
-                      title: '收藏',
-                      onTap: () {
-                        // TODO: 实现收藏功能
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('收藏功能开发中...')),
-                        );
-                      },
-                    ),
-                    _buildDivider(),
-                    _buildMenuItem(
-                      icon: Icons.photo_library,
-                      title: '相册',
-                      onTap: () {
-                        // TODO: 实现相册功能
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('相册功能开发中...')),
-                        );
-                      },
-                    ),
-                    _buildDivider(),
-                    _buildMenuItem(
-                      icon: Icons.credit_card,
-                      title: '卡包',
-                      onTap: () {
-                        // TODO: 实现卡包功能
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('卡包功能开发中...')),
-                        );
-                      },
-                    ),
-                    _buildDivider(),
-                    _buildMenuItem(
-                      icon: Icons.emoji_emotions,
-                      title: '表情',
-                      onTap: () {
-                        // TODO: 实现表情功能
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('表情功能开发中...')),
-                        );
-                      },
-                    ),
-                  ],
+                child: _buildMenuItem(
+                  icon: Icons.collections,
+                  title: '收藏',
+                  onTap: () {
+                    Navigator.pushNamed(context, '/collections');
+                  },
                 ),
               ),
               
@@ -192,7 +141,7 @@ class _ProfileTabState extends State<ProfileTab> {
                   icon: Icons.settings,
                   title: '设置',
                   onTap: () {
-                    _showSettingsDialog(context, apiService, wsService);
+                    Navigator.pushNamed(context, '/settings');
                   },
                 ),
               ),
@@ -206,7 +155,7 @@ class _ProfileTabState extends State<ProfileTab> {
                   icon: Icons.info_outline,
                   title: '关于',
                   onTap: () {
-                    _showAboutDialog(context);
+                    Navigator.pushNamed(context, '/about');
                   },
                 ),
               ),
