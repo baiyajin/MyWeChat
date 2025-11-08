@@ -477,11 +477,13 @@ namespace SalesChampion.Windows
                     }
                 }
 
+                // 只检查是否已收到账号信息，不主动请求
+                // 账号信息应该通过微信发送的 11120/11121 回调消息获取
                 if (!hasAccountInfo)
                 {
-                    // 没有账号信息，尝试获取
-                    Logger.LogInfo("定时获取账号信息...");
-                    RequestAccountInfo();
+                    // 还没有账号信息，继续等待 11120/11121 回调消息
+                    Logger.LogInfo("定时检查账号信息（等待11120/11121回调消息）...");
+                    // 不主动请求，只检查
                 }
                 else
                 {
@@ -666,15 +668,9 @@ namespace SalesChampion.Windows
                     AddLog("微信已连接，正在获取账号信息...", "INFO");
                     UpdateAccountList();
                     
-                    // 连接成功后，延迟一段时间主动获取账号信息
-                    // 因为11120/11121回调可能不会立即触发
-                    Task.Delay(2000).ContinueWith(_ =>
-                    {
-                        Dispatcher.Invoke(() =>
-                        {
-                            RequestAccountInfo();
-                        });
-                    });
+                    // 连接成功后，等待微信发送的 11120/11121 回调消息
+                    // 不主动请求，只等待回调消息
+                    Logger.LogInfo("连接成功，等待微信发送11120/11121回调消息...");
                 }
             }
             catch (Exception ex)
@@ -979,32 +975,59 @@ namespace SalesChampion.Windows
         }
 
         /// <summary>
-        /// 主动请求账号信息
-        /// 只获取账号信息，不自动同步其他数据（好友、朋友圈、标签等）
+        /// 检查账号信息
+        /// 不主动请求，只等待微信发送的 11120/11121 回调消息
+        /// 好友、标签、朋友圈等数据由 app 端触发
         /// </summary>
-        private void RequestAccountInfo()
+        private void CheckAccountInfo()
         {
             try
             {
                 if (_connectionManager == null || !_connectionManager.IsConnected)
                 {
-                    Logger.LogWarning("微信未连接，无法请求账号信息");
+                    Logger.LogWarning("微信未连接，无法检查账号信息");
                     return;
                 }
 
-                Logger.LogInfo("开始主动请求账号信息");
+                // 只检查是否已收到账号信息，不主动请求
+                // 账号信息应该通过微信发送的 11120/11121 回调消息获取
+                // 这些消息中包含 account、avatar、nickname 等字段
+                Logger.LogInfo("检查是否已收到账号信息（等待11120/11121回调消息）");
                 
-                // 只通过同步好友列表来获取自己的账号信息（好友列表中包含自己的信息）
-                // 不自动同步其他数据，其他数据通过 app 端点击时，通过服务端请求
-                Dispatcher.Invoke(() =>
+                // 检查账号列表中是否已有完整的账号信息
+                bool hasAccountInfo = false;
+                if (_accountList != null)
                 {
-                    Logger.LogInfo("通过同步好友列表获取账号信息（仅获取账号信息，不自动同步其他数据）");
-                    _contactSyncService?.SyncContacts();
-                });
+                    foreach (var acc in _accountList)
+                    {
+                        // 检查关键字段：account、nickname
+                        bool hasAccount = !string.IsNullOrEmpty(acc.BoundAccount) || !string.IsNullOrEmpty(acc.WeChatId);
+                        bool hasNickname = !string.IsNullOrEmpty(acc.NickName);
+                        
+                        if (hasAccount && hasNickname)
+                        {
+                            hasAccountInfo = true;
+                            Logger.LogInfo($"已检测到完整账号信息: account={acc.BoundAccount ?? acc.WeChatId}, nickname={acc.NickName}");
+                            break;
+                        }
+                    }
+                }
+                
+                if (hasAccountInfo)
+                {
+                    // 已有账号信息，更新显示并停止定时器
+                    UpdateAccountInfoDisplay();
+                    StopTimersAfterAccountInfoReceived();
+                }
+                else
+                {
+                    // 还没有账号信息，继续等待 11120/11121 回调消息
+                    Logger.LogInfo("尚未收到账号信息，继续等待11120/11121回调消息...");
+                }
             }
             catch (Exception ex)
             {
-                Logger.LogError($"请求账号信息失败: {ex.Message}", ex);
+                Logger.LogError($"检查账号信息失败: {ex.Message}", ex);
             }
         }
 
