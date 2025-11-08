@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -13,13 +14,22 @@ class ProfileTab extends StatefulWidget {
   State<ProfileTab> createState() => _ProfileTabState();
 }
 
-class _ProfileTabState extends State<ProfileTab> {
+class _ProfileTabState extends State<ProfileTab> with SingleTickerProviderStateMixin {
   Timer? _statusTimer;
   Map<String, dynamic>? _systemStatus;
+  late AnimationController _animationController;
+  late Animation<double> _animation;
 
   @override
   void initState() {
     super.initState();
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    )..repeat();
+    _animation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.linear),
+    );
     _startStatusTimer();
     _refreshStatus();
   }
@@ -27,6 +37,7 @@ class _ProfileTabState extends State<ProfileTab> {
   @override
   void dispose() {
     _statusTimer?.cancel();
+    _animationController.dispose();
     super.dispose();
   }
 
@@ -163,8 +174,7 @@ class _ProfileTabState extends State<ProfileTab> {
               const SizedBox(height: 10),
               
               // 系统状态区域 - 展示三端关系和状态
-              Container(
-                color: Colors.white,
+              Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -178,7 +188,7 @@ class _ProfileTabState extends State<ProfileTab> {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    // 三端关系图
+                    // 三端关系图（三角布局）
                     _buildSystemStatusDiagram(),
                   ],
                 ),
@@ -190,7 +200,7 @@ class _ProfileTabState extends State<ProfileTab> {
     );
   }
   
-  /// 构建系统状态关系图
+  /// 构建系统状态关系图（三角布局）
   Widget _buildSystemStatusDiagram() {
     final serverRunning = _systemStatus?['server']?['status'] == 'running';
     final windowsConnected = _systemStatus?['windows']?['status'] == 'connected';
@@ -199,71 +209,109 @@ class _ProfileTabState extends State<ProfileTab> {
     final appCount = _systemStatus?['app']?['connected_count'] ?? 0;
     final serverVersion = _systemStatus?['server']?['version'] ?? '未知';
     
-    return Column(
-      children: [
-        // 服务器（中心）
-        _buildStatusNode(
-          icon: Icons.dns,
-          title: '服务器',
-          status: serverRunning,
-          detail: serverVersion,
-          isCenter: true,
-        ),
-        const SizedBox(height: 12),
+    // 节点大小（统一）
+    const double nodeSize = 100.0;
+    const double nodeHeight = 120.0;
+    const double diagramHeight = 280.0;
+    
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final screenWidth = constraints.maxWidth;
+        final centerX = screenWidth / 2;
+        final leftX = nodeSize / 2 + 16; // 左边距
+        final rightX = screenWidth - nodeSize / 2 - 16; // 右边距
         
-        // 连接线
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            Expanded(
-              child: Container(
-                height: 2,
-                color: windowsConnected ? Colors.green : Colors.grey[300],
+        return SizedBox(
+          width: double.infinity,
+          height: diagramHeight,
+          child: Stack(
+            children: [
+              // 连接线：服务器 -> Windows端
+              Positioned.fill(
+                child: AnimatedBuilder(
+                  animation: _animation,
+                  builder: (context, child) {
+                    return CustomPaint(
+                      painter: _ConnectionLinePainter(
+                        startX: centerX,
+                        startY: nodeHeight,
+                        endX: leftX,
+                        endY: diagramHeight - nodeHeight,
+                        isConnected: windowsConnected,
+                        animationValue: _animation.value,
+                      ),
+                    );
+                  },
+                ),
               ),
-            ),
-            Container(
-              width: 8,
-              height: 8,
-              decoration: BoxDecoration(
-                color: windowsConnected && appConnected ? Colors.green : Colors.grey[300],
-                shape: BoxShape.circle,
+              
+              // 连接线：服务器 -> App端
+              Positioned.fill(
+                child: AnimatedBuilder(
+                  animation: _animation,
+                  builder: (context, child) {
+                    return CustomPaint(
+                      painter: _ConnectionLinePainter(
+                        startX: centerX,
+                        startY: nodeHeight,
+                        endX: rightX,
+                        endY: diagramHeight - nodeHeight,
+                        isConnected: appConnected,
+                        animationValue: _animation.value,
+                      ),
+                    );
+                  },
+                ),
               ),
-            ),
-            Expanded(
-              child: Container(
-                height: 2,
-                color: appConnected ? Colors.green : Colors.grey[300],
+              
+              // 服务器节点（上方）
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: Center(
+                  child: _buildStatusNode(
+                    icon: Icons.dns,
+                    title: '服务器',
+                    status: serverRunning,
+                    detail: serverVersion,
+                    width: nodeSize,
+                    height: nodeHeight,
+                  ),
+                ),
               ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        
-        // Windows端和App端（两侧）
-        Row(
-          children: [
-            Expanded(
-              child: _buildStatusNode(
-                icon: Icons.computer,
-                title: 'Windows端',
-                status: windowsConnected,
-                detail: windowsConnected ? '$windowsCount 个连接' : '未连接',
-                isCenter: false,
+              
+              // Windows端节点（左下）
+              Positioned(
+                bottom: 0,
+                left: 16,
+                child: _buildStatusNode(
+                  icon: Icons.computer,
+                  title: 'Windows端',
+                  status: windowsConnected,
+                  detail: windowsConnected ? '$windowsCount 个连接' : '未连接',
+                  width: nodeSize,
+                  height: nodeHeight,
+                ),
               ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: _buildStatusNode(
-                icon: Icons.phone_android,
-                title: 'App端',
-                status: appConnected,
-                detail: appConnected ? '$appCount 个连接' : '未连接',
-                isCenter: false,
+              
+              // App端节点（右下）
+              Positioned(
+                bottom: 0,
+                right: 16,
+                child: _buildStatusNode(
+                  icon: Icons.phone_android,
+                  title: 'App端',
+                  status: appConnected,
+                  detail: appConnected ? '$appCount 个连接' : '未连接',
+                  width: nodeSize,
+                  height: nodeHeight,
+                ),
               ),
-            ),
-          ],
-        ),
-      ],
+            ],
+          ),
+        );
+      },
     );
   }
   
@@ -273,68 +321,79 @@ class _ProfileTabState extends State<ProfileTab> {
     required String title,
     required bool status,
     required String detail,
-    required bool isCenter,
+    required double width,
+    required double height,
   }) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: status ? Colors.green[50] : Colors.grey[100],
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: status ? Colors.green : Colors.grey[300]!,
-          width: 2,
+    return SizedBox(
+      width: width,
+      height: height,
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: status ? Colors.green[50] : Colors.grey[100],
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: status ? Colors.green : Colors.grey[300]!,
+            width: 2,
+          ),
         ),
-      ),
-      child: Column(
-        children: [
-          // 图标和状态指示
-          Stack(
-            alignment: Alignment.center,
-            children: [
-              Icon(
-                icon,
-                size: isCenter ? 40 : 32,
-                color: status ? Colors.green[700] : Colors.grey[600],
-              ),
-              Positioned(
-                right: 0,
-                top: 0,
-                child: Container(
-                  width: 12,
-                  height: 12,
-                  decoration: BoxDecoration(
-                    color: status ? Colors.green : Colors.red,
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: Colors.white,
-                      width: 2,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // 图标和状态指示
+            Stack(
+              alignment: Alignment.center,
+              children: [
+                Icon(
+                  icon,
+                  size: 32,
+                  color: status ? Colors.green[700] : Colors.grey[600],
+                ),
+                Positioned(
+                  right: 0,
+                  top: 0,
+                  child: Container(
+                    width: 12,
+                    height: 12,
+                    decoration: BoxDecoration(
+                      color: status ? Colors.green : Colors.red,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: Colors.white,
+                        width: 2,
+                      ),
                     ),
                   ),
                 ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            // 标题
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: status ? Colors.green[700] : Colors.grey[700],
               ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          // 标题
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: isCenter ? 16 : 14,
-              fontWeight: FontWeight.bold,
-              color: status ? Colors.green[700] : Colors.grey[700],
+              textAlign: TextAlign.center,
             ),
-          ),
-          const SizedBox(height: 4),
-          // 详情
-          Text(
-            detail,
-            style: TextStyle(
-              fontSize: 12,
-              color: Colors.grey[600],
+            const SizedBox(height: 4),
+            // 详情
+            Expanded(
+              child: Text(
+                detail,
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Colors.grey[600],
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
-            textAlign: TextAlign.center,
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -445,5 +504,83 @@ class _ProfileTabState extends State<ProfileTab> {
       indent: 56, // 与图标对齐
       color: Colors.grey[200],
     );
+  }
+}
+
+/// 连接线绘制器
+class _ConnectionLinePainter extends CustomPainter {
+  final double startX;
+  final double startY;
+  final double endX;
+  final double endY;
+  final bool isConnected;
+  final double animationValue;
+  
+  _ConnectionLinePainter({
+    required this.startX,
+    required this.startY,
+    required this.endX,
+    required this.endY,
+    required this.isConnected,
+    required this.animationValue,
+  });
+  
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = isConnected ? Colors.green : Colors.red
+      ..strokeWidth = 2.0
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+    
+    // 绘制主连接线
+    canvas.drawLine(
+      Offset(startX, startY),
+      Offset(endX, endY),
+      paint,
+    );
+    
+    // 绘制动画效果（流动的光点）
+    if (isConnected) {
+      // 计算光点位置
+      final dx = endX - startX;
+      final dy = endY - startY;
+      final distance = math.sqrt(dx * dx + dy * dy);
+      final animatedDistance = distance * animationValue;
+      final ratio = animatedDistance / distance;
+      
+      final animatedX = startX + dx * ratio;
+      final animatedY = startY + dy * ratio;
+      
+      // 绘制光晕效果（外层）
+      final glowPaint = Paint()
+        ..color = Colors.green.withOpacity(0.3)
+        ..style = PaintingStyle.fill;
+      canvas.drawCircle(
+        Offset(animatedX, animatedY),
+        8.0,
+        glowPaint,
+      );
+      
+      // 绘制流动的光点（内层）
+      final animatedPaint = Paint()
+        ..color = Colors.green
+        ..style = PaintingStyle.fill;
+      canvas.drawCircle(
+        Offset(animatedX, animatedY),
+        4.0,
+        animatedPaint,
+      );
+    }
+  }
+  
+  @override
+  bool shouldRepaint(_ConnectionLinePainter oldDelegate) {
+    return oldDelegate.isConnected != isConnected ||
+        oldDelegate.animationValue != animationValue ||
+        oldDelegate.startX != startX ||
+        oldDelegate.startY != startY ||
+        oldDelegate.endX != endX ||
+        oldDelegate.endY != endY;
   }
 }
