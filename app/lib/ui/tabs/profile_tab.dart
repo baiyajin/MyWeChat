@@ -159,9 +159,182 @@ class _ProfileTabState extends State<ProfileTab> {
                   },
                 ),
               ),
+              
+              const SizedBox(height: 10),
+              
+              // 系统状态区域 - 展示三端关系和状态
+              Container(
+                color: Colors.white,
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      '系统状态',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    // 三端关系图
+                    _buildSystemStatusDiagram(),
+                  ],
+                ),
+              ),
             ],
           );
         },
+      ),
+    );
+  }
+  
+  /// 构建系统状态关系图
+  Widget _buildSystemStatusDiagram() {
+    final serverRunning = _systemStatus?['server']?['status'] == 'running';
+    final windowsConnected = _systemStatus?['windows']?['status'] == 'connected';
+    final appConnected = _systemStatus?['app']?['status'] == 'connected';
+    final windowsCount = _systemStatus?['windows']?['connected_count'] ?? 0;
+    final appCount = _systemStatus?['app']?['connected_count'] ?? 0;
+    final serverVersion = _systemStatus?['server']?['version'] ?? '未知';
+    
+    return Column(
+      children: [
+        // 服务器（中心）
+        _buildStatusNode(
+          icon: Icons.dns,
+          title: '服务器',
+          status: serverRunning,
+          detail: serverVersion,
+          isCenter: true,
+        ),
+        const SizedBox(height: 12),
+        
+        // 连接线
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            Expanded(
+              child: Container(
+                height: 2,
+                color: windowsConnected ? Colors.green : Colors.grey[300],
+              ),
+            ),
+            Container(
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(
+                color: windowsConnected && appConnected ? Colors.green : Colors.grey[300],
+                shape: BoxShape.circle,
+              ),
+            ),
+            Expanded(
+              child: Container(
+                height: 2,
+                color: appConnected ? Colors.green : Colors.grey[300],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        
+        // Windows端和App端（两侧）
+        Row(
+          children: [
+            Expanded(
+              child: _buildStatusNode(
+                icon: Icons.computer,
+                title: 'Windows端',
+                status: windowsConnected,
+                detail: windowsConnected ? '$windowsCount 个连接' : '未连接',
+                isCenter: false,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: _buildStatusNode(
+                icon: Icons.phone_android,
+                title: 'App端',
+                status: appConnected,
+                detail: appConnected ? '$appCount 个连接' : '未连接',
+                isCenter: false,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+  
+  /// 构建状态节点
+  Widget _buildStatusNode({
+    required IconData icon,
+    required String title,
+    required bool status,
+    required String detail,
+    required bool isCenter,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: status ? Colors.green[50] : Colors.grey[100],
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: status ? Colors.green : Colors.grey[300]!,
+          width: 2,
+        ),
+      ),
+      child: Column(
+        children: [
+          // 图标和状态指示
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              Icon(
+                icon,
+                size: isCenter ? 40 : 32,
+                color: status ? Colors.green[700] : Colors.grey[600],
+              ),
+              Positioned(
+                right: 0,
+                top: 0,
+                child: Container(
+                  width: 12,
+                  height: 12,
+                  decoration: BoxDecoration(
+                    color: status ? Colors.green : Colors.red,
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: Colors.white,
+                      width: 2,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          // 标题
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: isCenter ? 16 : 14,
+              fontWeight: FontWeight.bold,
+              color: status ? Colors.green[700] : Colors.grey[700],
+            ),
+          ),
+          const SizedBox(height: 4),
+          // 详情
+          Text(
+            detail,
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.grey[600],
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
       ),
     );
   }

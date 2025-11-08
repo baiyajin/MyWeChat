@@ -13,37 +13,6 @@ class SettingsPage extends StatefulWidget {
 }
 
 class _SettingsPageState extends State<SettingsPage> {
-  Timer? _statusTimer;
-  Map<String, dynamic>? _systemStatus;
-
-  @override
-  void initState() {
-    super.initState();
-    _startStatusTimer();
-    _refreshStatus();
-  }
-
-  @override
-  void dispose() {
-    _statusTimer?.cancel();
-    super.dispose();
-  }
-
-  void _startStatusTimer() {
-    _statusTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
-      _refreshStatus();
-    });
-  }
-
-  Future<void> _refreshStatus() async {
-    final apiService = Provider.of<ApiService>(context, listen: false);
-    final status = await apiService.getStatus();
-    if (mounted) {
-      setState(() {
-        _systemStatus = status;
-      });
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -116,90 +85,10 @@ class _SettingsPageState extends State<SettingsPage> {
                   ],
                 ),
               ),
-              
-              const SizedBox(height: 10),
-              
-              // 系统状态区域
-              Container(
-                color: Colors.white,
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      '系统状态',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    _buildStatusItem(
-                      '服务器',
-                      _systemStatus?['server']?['status'] == 'running',
-                      _systemStatus?['server']?['version'] ?? '未知',
-                    ),
-                    const SizedBox(height: 12),
-                    _buildStatusItem(
-                      'Windows端',
-                      _systemStatus?['windows']?['status'] == 'connected',
-                      _systemStatus?['windows']?['connected_count'] != null
-                          ? '连接数: ${_systemStatus?['windows']?['connected_count']}'
-                          : '未连接',
-                    ),
-                    const SizedBox(height: 12),
-                    _buildStatusItem(
-                      'App端',
-                      _systemStatus?['app']?['status'] == 'connected',
-                      _systemStatus?['app']?['connected_count'] != null
-                          ? '连接数: ${_systemStatus?['app']?['connected_count']}'
-                          : '未连接',
-                    ),
-                  ],
-                ),
-              ),
             ],
           );
         },
       ),
-    );
-  }
-
-  /// 构建状态项
-  Widget _buildStatusItem(String title, bool isConnected, String detail) {
-    return Row(
-      children: [
-        Icon(
-          isConnected ? Icons.check_circle : Icons.cancel,
-          color: isConnected ? Colors.green : Colors.red,
-          size: 24,
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                  color: Colors.black87,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                detail,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey[600],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
     );
   }
 
@@ -246,9 +135,6 @@ class _SettingsPageState extends State<SettingsPage> {
                 
                 // 重新连接WebSocket
                 await wsService.connect(wsUrl);
-                
-                // 刷新状态
-                _refreshStatus();
                 
                 if (context.mounted) {
                   Navigator.pop(context);
