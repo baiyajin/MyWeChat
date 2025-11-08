@@ -45,10 +45,14 @@ echo 检测到程序正在运行 (PID: !PROCESS_PID!)，正在关闭
 for /L %%i in (1,1,10) do (
     if defined PROCESS_PID (
         taskkill /F /PID !PROCESS_PID! >NUL 2>&1
+        timeout /t 1 /nobreak >nul 2>&1
         tasklist /FI "PID eq !PROCESS_PID!" 2>NUL | find /I /N "!PROCESS_PID!">NUL
         set "PROCESS_EXISTS=!ERRORLEVEL!"
         if !PROCESS_EXISTS! neq 0 (
             echo [OK] 程序已成功关闭
+            echo [等待] 等待文件句柄释放（3秒）...
+            timeout /t 3 /nobreak >nul 2>&1
+            echo [OK] 文件句柄已释放
             set "PROCESS_PID="
             goto :eof
         )
@@ -57,6 +61,9 @@ for /L %%i in (1,1,10) do (
         set "PROCESS_EXISTS=!ERRORLEVEL!"
         if !PROCESS_EXISTS! neq 0 (
             echo [OK] 程序已成功关闭
+            echo [等待] 等待文件句柄释放（3秒）...
+            timeout /t 3 /nobreak >nul 2>&1
+            echo [OK] 文件句柄已释放
             goto :eof
         )
     )
@@ -150,6 +157,7 @@ if "!PROCESS_FOUND!"=="0" (
     for /L %%i in (1,1,10) do (
         if defined PROCESS_PID (
             taskkill /F /PID !PROCESS_PID! >NUL 2>&1
+            timeout /t 1 /nobreak >nul 2>&1
             tasklist /FI "PID eq !PROCESS_PID!" 2>NUL | find /I /N "!PROCESS_PID!">NUL
             set "PROCESS_EXISTS=!ERRORLEVEL!"
             if !PROCESS_EXISTS! neq 0 (
@@ -176,9 +184,12 @@ if "!PROCESS_FOUND!"=="0" (
 :process_closed2
 tasklist /FI "IMAGENAME eq %PROCESS_NAME%" 2>NUL | find /I /N "%PROCESS_NAME%">NUL
 if errorlevel 1 (
-    echo 程序已关闭
+    echo [OK] 程序已关闭
+    echo [等待] 等待文件句柄释放（3秒）...
+    timeout /t 3 /nobreak >nul 2>&1
+    echo [OK] 文件句柄已释放，可以继续编译
 ) else (
-    echo 警告: 无法彻底关闭程序，编译可能会失败
+    echo [X] 警告: 无法彻底关闭程序，编译可能会失败
     echo 进程名称: %PROCESS_NAME%
     for /f "tokens=2" %%p in ('tasklist /FI "IMAGENAME eq %PROCESS_NAME%" /FO LIST 2^>NUL ^| findstr /I "PID:"') do (
         echo 进程PID: %%p
@@ -532,6 +543,7 @@ if "!PROCESS_FOUND!"=="0" (
     for /L %%i in (1,1,10) do (
         if defined PROCESS_PID (
             taskkill /F /PID !PROCESS_PID! >NUL 2>&1
+            timeout /t 1 /nobreak >nul 2>&1
             tasklist /FI "PID eq !PROCESS_PID!" 2>NUL | find /I /N "!PROCESS_PID!">NUL
             set "PROCESS_EXISTS=!ERRORLEVEL!"
             if !PROCESS_EXISTS! neq 0 (
@@ -571,8 +583,10 @@ if "!PROCESS_FOUND!"=="0" (
 tasklist /FI "IMAGENAME eq %PROCESS_NAME%" 2>NUL | find /I /N "%PROCESS_NAME%">NUL
 if errorlevel 1 (
     if not defined PROCESS_CLOSED (
-        echo [OK] 文件句柄已释放
-        echo [OK] 可以继续编译
+        echo [OK] 程序已关闭
+        echo [等待] 等待文件句柄释放（3秒）...
+        timeout /t 3 /nobreak >nul 2>&1
+        echo [OK] 文件句柄已释放，可以继续编译
         set "PROCESS_CLOSED=1"
     )
 )
@@ -647,11 +661,13 @@ echo.
 echo [2.5] 编译项目...
 echo.
 echo [2.5.1] 强制删除可能被锁定的PDB文件...
+set "PDB_DELETED=0"
 if exist "bin\x86\Debug\net9.0-windows\SalesChampion.Windows.pdb" (
     del /f /q "bin\x86\Debug\net9.0-windows\SalesChampion.Windows.pdb" >nul 2>&1
     if exist "bin\x86\Debug\net9.0-windows\SalesChampion.Windows.pdb" (
         echo [X] 警告: 无法删除bin目录中的PDB文件，可能被其他进程占用
         echo 建议: 关闭Visual Studio或其他可能锁定文件的程序
+        set "PDB_DELETED=1"
     ) else (
         echo [OK] bin目录中的PDB文件已删除
     )
@@ -660,12 +676,24 @@ if exist "obj\x86\Debug\net9.0-windows\SalesChampion.Windows.pdb" (
     del /f /q "obj\x86\Debug\net9.0-windows\SalesChampion.Windows.pdb" >nul 2>&1
     if exist "obj\x86\Debug\net9.0-windows\SalesChampion.Windows.pdb" (
         echo [X] 警告: 无法删除obj目录中的PDB文件
+        set "PDB_DELETED=1"
     ) else (
         echo [OK] obj目录中的PDB文件已删除
     )
 )
+
+REM 如果PDB文件无法删除，等待一段时间让文件句柄释放
+if !PDB_DELETED! equ 1 (
+    echo.
+    echo [2.5.2] 等待文件句柄释放（2秒）...
+    timeout /t 2 /nobreak >nul 2>&1
+    echo [OK] 等待完成
+)
+
 echo.
-dotnet build -c Debug
+echo [2.5.3] 开始编译项目...
+REM 使用 --no-incremental 选项强制完全重新编译，避免文件锁定问题
+dotnet build -c Debug --no-incremental
 set "BUILD_ERROR=!errorlevel!"
 if !BUILD_ERROR! neq 0 (
     echo.
@@ -677,14 +705,41 @@ if !BUILD_ERROR! neq 0 (
     echo   3. 程序进程可能还在运行
     echo   4. 微信进程可能正在使用注入的DLL
     echo.
-    echo 解决方法:
-    echo   1. 关闭Visual Studio或其他IDE
-    echo   2. 关闭所有SalesChampion.Windows.exe进程
-    echo   3. 关闭微信进程（如果正在使用注入的DLL）
-    echo   4. 重新运行编译
+    echo 尝试自动修复...
     echo.
-    pause
-    goto main_menu
+    
+    REM 再次尝试删除PDB文件
+    echo [修复] 再次尝试删除PDB文件...
+    if exist "bin\x86\Debug\net9.0-windows\SalesChampion.Windows.pdb" (
+        del /f /q "bin\x86\Debug\net9.0-windows\SalesChampion.Windows.pdb" >nul 2>&1
+    )
+    if exist "obj\x86\Debug\net9.0-windows\SalesChampion.Windows.pdb" (
+        del /f /q "obj\x86\Debug\net9.0-windows\SalesChampion.Windows.pdb" >nul 2>&1
+    )
+    
+    REM 等待3秒后重试
+    echo [修复] 等待3秒后重试编译...
+    timeout /t 3 /nobreak >nul 2>&1
+    
+    echo [修复] 重试编译...
+    dotnet build -c Debug --no-incremental
+    set "BUILD_ERROR=!errorlevel!"
+    
+    if !BUILD_ERROR! neq 0 (
+        echo.
+        echo [X] 错误: 重试编译仍然失败
+        echo.
+        echo 解决方法:
+        echo   1. 关闭Visual Studio或其他IDE
+        echo   2. 关闭所有SalesChampion.Windows.exe进程
+        echo   3. 关闭微信进程（如果正在使用注入的DLL）
+        echo   4. 重新运行编译
+        echo.
+        pause
+        goto main_menu
+    ) else (
+        echo [OK] 重试编译成功！
+    )
 )
 echo [OK] 编译成功！
 
@@ -717,6 +772,7 @@ if "!PROCESS_FOUND!"=="0" (
     for /L %%i in (1,1,10) do (
         if defined PROCESS_PID (
             taskkill /F /PID !PROCESS_PID! >NUL 2>&1
+            timeout /t 1 /nobreak >nul 2>&1
             tasklist /FI "PID eq !PROCESS_PID!" 2>NUL | find /I /N "!PROCESS_PID!">NUL
             set "PROCESS_EXISTS=!ERRORLEVEL!"
             if !PROCESS_EXISTS! neq 0 (
@@ -741,8 +797,10 @@ if "!PROCESS_FOUND!"=="0" (
     echo 请手动在任务管理器中结束进程 "%PROCESS_NAME%" 后重试
 )
 :process_closed4
-echo [OK] 文件句柄已释放
-echo [OK] 可以继续
+echo [OK] 程序已关闭
+echo [等待] 等待文件句柄释放（3秒）...
+timeout /t 3 /nobreak >nul 2>&1
+echo [OK] 文件句柄已释放，可以继续
 
 echo.
 echo ========================================
