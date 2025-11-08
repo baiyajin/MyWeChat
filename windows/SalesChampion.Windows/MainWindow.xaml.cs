@@ -2202,7 +2202,7 @@ namespace SalesChampion.Windows
                         // 先尝试使用SetText，如果失败则使用DataObject
                         Clipboard.SetText(allText);
                     }
-                    catch (Exception clipEx)
+                    catch
                     {
                         // 如果SetText失败，使用DataObject作为备用方案
                         try
@@ -2211,7 +2211,7 @@ namespace SalesChampion.Windows
                             dataObject.SetData(DataFormats.Text, allText);
                             Clipboard.SetDataObject(dataObject, true);
                         }
-                        catch (Exception dataEx)
+                        catch
                         {
                             // 如果还是失败，尝试清空剪贴板后重试
                             try
