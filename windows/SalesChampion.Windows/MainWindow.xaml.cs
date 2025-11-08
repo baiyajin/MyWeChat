@@ -11,7 +11,6 @@ using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
-using System.Windows.Shapes;
 using System.Windows.Threading;
 using SalesChampion.Windows.Core.Connection;
 using SalesChampion.Windows.Models;
@@ -1646,11 +1645,11 @@ namespace SalesChampion.Windows
                         // 更新头像（尝试多种字段名）
                         if (account != null && messageObj.avatar != null)
                         {
-                            account.Avatar = messageObj.avatar?.ToString() ?? string.Empty;
+                            account!.Avatar = messageObj.avatar?.ToString() ?? string.Empty;
                         }
                         else if (account != null && messageObj.Avatar != null)
                         {
-                            account.Avatar = messageObj.Avatar?.ToString() ?? string.Empty;
+                            account!.Avatar = messageObj.Avatar?.ToString() ?? string.Empty;
                         }
                         
                         // 更新wxid（尝试多种字段名）
