@@ -93,7 +93,6 @@ namespace SalesChampion.Windows
         {
             InitializeComponent();
             _accountList = new ObservableCollection<AccountInfo>();
-            AccountGrid.ItemsSource = _accountList;
             
             // 初始化日志文件路径：MyWeChat/windows.log
             try
