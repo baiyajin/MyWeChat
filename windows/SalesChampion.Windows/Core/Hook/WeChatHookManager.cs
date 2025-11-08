@@ -27,6 +27,7 @@ namespace SalesChampion.Windows.Core.Hook
         private string? _weChatVersion;
         private int _clientId;
         private bool _isHooked;
+        private int _weChatProcessId; // 保存微信进程ID，用于检查进程是否还在运行
         private readonly object _lockObject = new object();
 
         /// <summary>
@@ -328,6 +329,9 @@ namespace SalesChampion.Windows.Core.Hook
 
                     Logger.LogInfo($"找到微信进程，PID: {weChatProcess.Id}, 进程名: {weChatProcess.ProcessName}");
 
+                    // 保存微信进程ID，用于后续检查进程是否还在运行
+                    _weChatProcessId = weChatProcess.Id;
+
                     // 注入到微信进程
                     Logger.LogInfo($"正在注入到微信进程 (PID: {weChatProcess.Id})...");
                     result = _dllWrapper.InjectWeChatProcess(weChatProcess.Id);
@@ -375,6 +379,11 @@ namespace SalesChampion.Windows.Core.Hook
                             // 先尝试使用进程ID，如果后续命令发送失败，再处理
                             Logger.LogWarning($"尝试使用进程ID作为clientId: {result}");
                             _clientId = result;
+                            // 确保进程ID已保存（如果之前没有保存）
+                            if (_weChatProcessId == 0)
+                            {
+                                _weChatProcessId = weChatProcess.Id;
+                            }
                             _isHooked = true;
                             
                             Logger.LogInfo($"Hook成功（使用进程ID作为clientId），ClientId: {_clientId}, 微信版本: {_weChatVersion}");
@@ -469,6 +478,7 @@ namespace SalesChampion.Windows.Core.Hook
                     // 3. 清理状态
                     _isHooked = false;
                     _clientId = 0;
+                    _weChatProcessId = 0;
                     
                     Logger.LogInfo("Hook连接状态已清理");
                     Logger.LogInfo("========== Hook连接已关闭 ==========");
@@ -485,6 +495,7 @@ namespace SalesChampion.Windows.Core.Hook
                     // 即使出错，也要清理状态
                     _isHooked = false;
                     _clientId = 0;
+                    _weChatProcessId = 0;
                     OnUnhooked?.Invoke(this, EventArgs.Empty);
                 }
             }
@@ -516,6 +527,53 @@ namespace SalesChampion.Windows.Core.Hook
                 return false;
             }
 
+            // 检查微信进程是否还在运行
+            if (_weChatProcessId > 0)
+            {
+                try
+                {
+                    Process? weChatProcess = Process.GetProcessById(_weChatProcessId);
+                    if (weChatProcess == null || weChatProcess.HasExited)
+                    {
+                        Logger.LogWarning($"微信进程已退出（PID: {_weChatProcessId}），无法发送命令");
+                        _isHooked = false;
+                        _clientId = 0;
+                        _weChatProcessId = 0;
+                        OnUnhooked?.Invoke(this, EventArgs.Empty);
+                        return false;
+                    }
+                }
+                catch (ArgumentException)
+                {
+                    // 进程不存在
+                    Logger.LogWarning($"微信进程不存在（PID: {_weChatProcessId}），无法发送命令");
+                    _isHooked = false;
+                    _clientId = 0;
+                    _weChatProcessId = 0;
+                    OnUnhooked?.Invoke(this, EventArgs.Empty);
+                    return false;
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogWarning($"检查微信进程状态时出错: {ex.Message}，继续尝试发送命令");
+                }
+            }
+            else
+            {
+                // 如果没有保存进程ID，尝试通过进程名查找
+                Process? weChatProcess = FindWeChatProcess();
+                if (weChatProcess == null)
+                {
+                    Logger.LogWarning("未找到运行中的微信进程，无法发送命令");
+                    _isHooked = false;
+                    _clientId = 0;
+                    OnUnhooked?.Invoke(this, EventArgs.Empty);
+                    return false;
+                }
+                // 更新进程ID
+                _weChatProcessId = weChatProcess.Id;
+            }
+
             try
             {
                 var command = new
@@ -525,7 +583,7 @@ namespace SalesChampion.Windows.Core.Hook
                 };
 
                 string jsonCommand = Newtonsoft.Json.JsonConvert.SerializeObject(command);
-                Logger.LogInfo($"准备发送命令: 类型={commandType}, clientId={_clientId}, 命令内容={jsonCommand}");
+                Logger.LogInfo($"准备发送命令: 类型={commandType}, clientId={_clientId}, 微信进程ID={_weChatProcessId}, 命令内容={jsonCommand}");
                 
                 bool result = _dllWrapper.SendStringData(_clientId, jsonCommand);
 
@@ -535,8 +593,8 @@ namespace SalesChampion.Windows.Core.Hook
                 }
                 else
                 {
-                    Logger.LogError($"发送命令失败，类型: {commandType}, clientId: {_clientId}, Hook状态: {_isHooked}");
-                    Logger.LogError($"可能原因: 1. DLL的SendData方法返回false 2. 微信进程未响应 3. 命令格式不正确");
+                    Logger.LogError($"发送命令失败，类型: {commandType}, clientId: {_clientId}, Hook状态: {_isHooked}, 微信进程ID: {_weChatProcessId}");
+                    Logger.LogError($"可能原因: 1. DLL的SendData方法返回false 2. 微信进程未响应 3. 命令格式不正确 4. 微信进程可能已退出");
                 }
 
                 return result;
@@ -612,6 +670,7 @@ namespace SalesChampion.Windows.Core.Hook
             Logger.LogInfo($"微信连接已关闭，ClientId: {clientId}");
             _isHooked = false;
             _clientId = 0;
+            _weChatProcessId = 0;
             OnUnhooked?.Invoke(this, EventArgs.Empty);
         }
 
