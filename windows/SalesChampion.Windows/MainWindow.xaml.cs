@@ -1612,11 +1612,11 @@ namespace SalesChampion.Windows
                         // 更新头像（尝试多种字段名）
                         if (account != null && messageObj.avatar != null)
                         {
-                            account.Avatar = messageObj.avatar.ToString();
+                            account.Avatar = messageObj.avatar?.ToString() ?? string.Empty;
                         }
                         else if (account != null && messageObj.Avatar != null)
                         {
-                            account.Avatar = messageObj.Avatar.ToString();
+                            account.Avatar = messageObj.Avatar?.ToString() ?? string.Empty;
                         }
                         
                         // 更新wxid（尝试多种字段名）
