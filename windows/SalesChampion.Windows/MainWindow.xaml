@@ -7,86 +7,10 @@
         Background="#F5F5F5"
         Loaded="MainWindow_Loaded">
     <Grid>
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
-            <RowDefinition Height="Auto"/>
-        </Grid.RowDefinitions>
-
-        <!-- 标题栏 -->
-        <Border Grid.Row="0" Background="#07C160" Padding="15,10">
-            <TextBlock Text="MyWeChat" FontSize="18" FontWeight="Bold" Foreground="White"/>
-        </Border>
-
         <!-- 主内容区 -->
-        <Grid Grid.Row="1" Margin="20">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="200"/>
-                <ColumnDefinition Width="*"/>
-            </Grid.ColumnDefinitions>
-
-            <!-- 左侧功能区 -->
-            <StackPanel Grid.Column="0" Margin="0,0,20,0">
-                <!-- 连接状态 -->
-                <Border Background="White" Padding="15" Margin="0,0,0,15" CornerRadius="5">
-                    <StackPanel>
-                        <TextBlock Text="连接状态" FontWeight="Bold" Margin="0,0,0,10"/>
-                        
-                        <!-- 微信账号信息（登录后显示） -->
-                        <StackPanel Name="AccountInfoPanel" Orientation="Horizontal" Margin="0,0,0,10" Visibility="Collapsed">
-                            <Border Width="40" Height="40" Margin="0,0,10,0" CornerRadius="20" 
-                                    Background="#E0E0E0" BorderBrush="#CCCCCC" BorderThickness="1">
-                                <Image Name="AccountAvatar" Stretch="UniformToFill">
-                                    <Image.Clip>
-                                        <EllipseGeometry Center="20,20" RadiusX="20" RadiusY="20"/>
-                                    </Image.Clip>
-                                </Image>
-                            </Border>
-                            <StackPanel VerticalAlignment="Center">
-                                <TextBlock Name="AccountNickName" Text="未知" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,2"/>
-                                <TextBlock Name="AccountWeChatId" Text="" FontSize="11" Foreground="#666666"/>
-                            </StackPanel>
-                        </StackPanel>
-                        
-                        <!-- 未连接状态 -->
-                        <StackPanel Name="NotConnectedPanel">
-                            <TextBlock Name="StatusText" Text="微信: 未连接" Margin="0,0,0,5"/>
-                            <TextBlock Name="VersionText" Text="版本: 未知" Margin="0,0,0,5"/>
-                        </StackPanel>
-                    </StackPanel>
-                </Border>
-
-                <!-- 微信账号头像（登录后显示在按钮上方） -->
-                <Border Background="White" Padding="15" Margin="0,0,0,15" CornerRadius="5" Visibility="Collapsed" Name="AvatarPanel">
-                    <StackPanel HorizontalAlignment="Center">
-                        <Border Width="60" Height="60" Margin="0,0,0,10" CornerRadius="30" 
-                                Background="#E0E0E0" BorderBrush="#CCCCCC" BorderThickness="2">
-                            <Image Name="TopAvatar" Stretch="UniformToFill">
-                                <Image.Clip>
-                                    <EllipseGeometry Center="30,30" RadiusX="30" RadiusY="30"/>
-                                </Image.Clip>
-                            </Image>
-                        </Border>
-                        <TextBlock Name="TopNickName" Text="微信用户" FontSize="14" FontWeight="SemiBold" 
-                                   HorizontalAlignment="Center" TextAlignment="Center"/>
-                        <TextBlock Name="TopWeChatId" Text="" FontSize="11" Foreground="#666666" 
-                                   HorizontalAlignment="Center" TextAlignment="Center" Margin="0,2,0,0"/>
-                    </StackPanel>
-                </Border>
-
-                <!-- 操作按钮已移除，改为自动检测微信进程 -->
-                
-                <!-- Logo和版本信息 -->
-                <StackPanel Margin="0,20,0,0" HorizontalAlignment="Center">
-                    <Image Name="LogoImage" Source="Resources/favicon.ico" Width="64" Height="64" 
-                           Opacity="0.6" Margin="0,0,0,10"/>
-                    <TextBlock Name="AppVersionText" Text="版本号: 1.0.0" 
-                               HorizontalAlignment="Center" FontSize="12" Foreground="#666666"/>
-                </StackPanel>
-            </StackPanel>
-
+        <Grid Margin="20">
             <!-- 右侧内容区 -->
-            <Grid Grid.Column="1">
+            <Grid>
                 <!-- App命令执行日志 -->
                 <Border Background="White" Padding="15" CornerRadius="5">
                     <Grid>
@@ -119,7 +43,7 @@
         </Grid>
         
         <!-- 关闭进度遮罩层 - 使用Canvas确保在最上层 -->
-        <Canvas Grid.RowSpan="3" 
+        <Canvas 
                 Name="ClosingOverlayCanvas"
                 Visibility="Collapsed"
                 Background="#80000000"

@@ -838,28 +838,11 @@ namespace SalesChampion.Windows
                 // 获取微信版本（即使未连接，如果已检测到版本也显示）
                 string weChatVersion = _connectionManager?.WeChatVersion ?? "未知";
                 
-                // 更新连接状态
+                // 更新连接状态（UI元素已移除，不再更新）
+                // 如果有账号信息，更新显示
                 if (_connectionManager != null && _connectionManager.IsConnected)
                 {
-                    // 显示账号信息面板，隐藏未连接面板
-                    AccountInfoPanel.Visibility = Visibility.Visible;
-                    NotConnectedPanel.Visibility = Visibility.Collapsed;
-                    
-                    // 更新版本信息（显示在账号信息下方）
-                    VersionText.Text = $"版本: {weChatVersion}";
-                    
-                    // 如果有账号信息，更新显示
                     UpdateAccountInfoDisplay();
-                }
-                else
-                {
-                    // 隐藏账号信息面板，显示未连接面板
-                    AccountInfoPanel.Visibility = Visibility.Collapsed;
-                    NotConnectedPanel.Visibility = Visibility.Visible;
-                    
-                    StatusText.Text = "微信: 未连接";
-                    // 即使未连接，如果已经检测到版本，也显示版本号
-                    VersionText.Text = $"版本: {weChatVersion}";
                 }
                 
                 // 更新左侧Logo下方的版本号
@@ -937,46 +920,13 @@ namespace SalesChampion.Windows
                 {
                     Logger.LogInfo($"更新账号信息显示: NickName={currentAccount.NickName}, Avatar={(!string.IsNullOrEmpty(currentAccount.Avatar) ? "有头像" : "无头像")}");
                     
-                    // 更新连接状态区域的头像和昵称
-                    AccountNickName.Text = string.IsNullOrEmpty(currentAccount.NickName) 
-                        ? "微信用户" 
-                        : currentAccount.NickName;
-                    
-                    // 更新微信ID
-                    AccountWeChatId.Text = $"微信ID: {currentAccount.WeChatId}";
-                    
-                    // 更新连接状态区域的头像
-                    UpdateAvatarImage(AccountAvatar, currentAccount.Avatar);
-                    
-                    // 更新按钮上方的头像和昵称
-                    TopNickName.Text = string.IsNullOrEmpty(currentAccount.NickName) 
-                        ? "微信用户" 
-                        : currentAccount.NickName;
-                    
-                    TopWeChatId.Text = !string.IsNullOrEmpty(currentAccount.BoundAccount) 
-                        ? currentAccount.BoundAccount 
-                        : currentAccount.WeChatId;
-                    
-                    UpdateAvatarImage(TopAvatar, currentAccount.Avatar);
-                    
-                    // 显示头像面板
-                    AvatarPanel.Visibility = Visibility.Visible;
-                    
-                    Logger.LogInfo("账号信息显示已更新，头像面板已显示");
+                    // UI元素已移除，不再更新显示
+                    // 账号信息已存储在_accountList中，可以通过日志查看
                 }
                 else
                 {
-                    // 没有找到账号信息，显示默认信息
-                    AccountNickName.Text = "微信用户";
-                    AccountWeChatId.Text = "微信ID: 未知";
-                    UpdateAvatarImage(AccountAvatar, null);
-                    
-                    TopNickName.Text = "微信用户";
-                    TopWeChatId.Text = "未知";
-                    UpdateAvatarImage(TopAvatar, null);
-                    
-                    // 隐藏头像面板
-                    AvatarPanel.Visibility = Visibility.Collapsed;
+                    // 没有找到账号信息
+                    Logger.LogInfo("未找到账号信息");
                 }
             }
             catch (Exception ex)
@@ -1052,8 +1002,7 @@ namespace SalesChampion.Windows
                     Logger.LogInfo("微信连接状态变化：已断开");
                     // 断开连接时，清空账号列表
                     _accountList?.Clear();
-                    // 隐藏头像面板
-                    AvatarPanel.Visibility = Visibility.Collapsed;
+                    // UI元素已移除，不再更新显示
                 }
             });
         }
