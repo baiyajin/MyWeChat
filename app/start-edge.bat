@@ -23,20 +23,9 @@ echo.
 
 echo 正在启动应用
 echo.
-echo ========================================
-echo   Flutter Web 应用启动提示
-echo ========================================
-echo.
-echo   应用将自动在 Edge 浏览器中打开
-echo   启动后，访问链接会在控制台和浏览器地址栏中显示
-echo.
-echo   提示: 请查看下方控制台输出中的访问链接
-echo.
-echo ========================================
-echo.
 
-REM 启动Edge浏览器
-flutter run -d edge
+REM 启动Edge浏览器（静默模式，减少输出）
+flutter run -d edge 2>&1 | findstr /V /C:"Flutter assets" /C:"Resolving dependencies" /C:"Downloading packages" /C:"Got dependencies" /C:"packages have newer versions" /C:"Try `flutter pub" /C:"Launching" /C:"Waiting for connection" /C:"This app is linked" /C:"Debug service listening" /C:"Flutter run key commands" /C:"r Hot reload" /C:"R Hot restart" /C:"h List all" /C:"d Detach" /C:"c Clear" /C:"q Quit" /C:"A Dart VM Service" /C:"Starting application" /C:"The Flutter DevTools"
 
 if %ERRORLEVEL% NEQ 0 (
     echo.
