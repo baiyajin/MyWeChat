@@ -213,13 +213,28 @@ class _ProfileTabState extends State<ProfileTab> with SingleTickerProviderStateM
     const double nodeSize = 100.0;
     const double nodeHeight = 120.0;
     const double diagramHeight = 280.0;
+    const double iconSize = 32.0;
+    const double iconCenterY = iconSize / 2; // 图标中心Y坐标（相对于节点顶部）
     
     return LayoutBuilder(
       builder: (context, constraints) {
         final screenWidth = constraints.maxWidth;
         final centerX = screenWidth / 2;
-        final leftX = nodeSize / 2 + 16; // 左边距
-        final rightX = screenWidth - nodeSize / 2 - 16; // 右边距
+        final leftX = nodeSize / 2 + 16; // Windows节点中心X
+        final rightX = screenWidth - nodeSize / 2 - 16; // App节点中心X
+        
+        // 计算图标中心位置
+        // 服务器图标中心（顶部节点）
+        final serverIconX = centerX;
+        final serverIconY = iconCenterY;
+        
+        // Windows图标中心（左下节点）
+        final windowsIconX = leftX;
+        final windowsIconY = diagramHeight - nodeHeight + iconCenterY;
+        
+        // App图标中心（右下节点）
+        final appIconX = rightX;
+        final appIconY = diagramHeight - nodeHeight + iconCenterY;
         
         return SizedBox(
           width: double.infinity,
@@ -233,10 +248,10 @@ class _ProfileTabState extends State<ProfileTab> with SingleTickerProviderStateM
                   builder: (context, child) {
                     return CustomPaint(
                       painter: _ConnectionLinePainter(
-                        startX: centerX,
-                        startY: nodeHeight,
-                        endX: leftX,
-                        endY: diagramHeight - nodeHeight,
+                        startX: serverIconX,
+                        startY: serverIconY,
+                        endX: windowsIconX,
+                        endY: windowsIconY,
                         isConnected: windowsConnected,
                         animationValue: _animation.value,
                       ),
@@ -252,10 +267,10 @@ class _ProfileTabState extends State<ProfileTab> with SingleTickerProviderStateM
                   builder: (context, child) {
                     return CustomPaint(
                       painter: _ConnectionLinePainter(
-                        startX: centerX,
-                        startY: nodeHeight,
-                        endX: rightX,
-                        endY: diagramHeight - nodeHeight,
+                        startX: serverIconX,
+                        startY: serverIconY,
+                        endX: appIconX,
+                        endY: appIconY,
                         isConnected: appConnected,
                         animationValue: _animation.value,
                       ),
