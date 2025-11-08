@@ -131,6 +131,20 @@ namespace SalesChampion.Windows
                 
                 _logFilePath = Path.Combine(myWeChatDir, "windows.log");
                 Logger.LogInfo($"日志文件路径: {_logFilePath}");
+                
+                // 每次启动时清空日志文件（覆盖模式）
+                try
+                {
+                    if (File.Exists(_logFilePath))
+                    {
+                        File.Delete(_logFilePath);
+                        Logger.LogInfo("已清空旧日志文件");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogWarning($"清空日志文件失败: {ex.Message}");
+                }
             }
             catch (Exception ex)
             {
@@ -2158,41 +2172,65 @@ namespace SalesChampion.Windows
             {
                 FlowDocument document = LogRichTextBox.Document;
                 
-                // 使用更可靠的方法：直接获取整个Document的文本范围
-                TextRange fullRange = new TextRange(
-                    document.ContentStart,
-                    document.ContentEnd
-                );
+                // 使用StringBuilder构建文本，避免内存问题
+                System.Text.StringBuilder sb = new System.Text.StringBuilder();
                 
-                string allText = fullRange.Text;
-                
-                // 如果直接获取失败，尝试遍历所有段落
-                if (string.IsNullOrEmpty(allText) || allText.Trim().Length == 0)
+                // 遍历所有段落，按顺序构建文本
+                foreach (Block block in document.Blocks)
                 {
-                    System.Text.StringBuilder sb = new System.Text.StringBuilder();
-                    foreach (Block block in document.Blocks)
+                    if (block is Paragraph paragraph)
                     {
-                        if (block is Paragraph paragraph)
+                        TextRange paragraphRange = new TextRange(
+                            paragraph.ContentStart,
+                            paragraph.ContentEnd
+                        );
+                        string paragraphText = paragraphRange.Text;
+                        if (!string.IsNullOrEmpty(paragraphText))
                         {
-                            TextRange paragraphRange = new TextRange(
-                                paragraph.ContentStart,
-                                paragraph.ContentEnd
-                            );
-                            string paragraphText = paragraphRange.Text;
-                            if (!string.IsNullOrEmpty(paragraphText))
-                            {
-                                sb.AppendLine(paragraphText);
-                            }
+                            sb.AppendLine(paragraphText.TrimEnd());
                         }
                     }
-                    allText = sb.ToString();
                 }
+                
+                string allText = sb.ToString();
                 
                 if (!string.IsNullOrEmpty(allText) && allText.Trim().Length > 0)
                 {
-                    Clipboard.SetText(allText);
+                    // 使用DataObject设置文本，支持大量内容
+                    try
+                    {
+                        // 先尝试使用SetText，如果失败则使用DataObject
+                        Clipboard.SetText(allText);
+                    }
+                    catch (Exception clipEx)
+                    {
+                        // 如果SetText失败，使用DataObject作为备用方案
+                        try
+                        {
+                            var dataObject = new DataObject();
+                            dataObject.SetData(DataFormats.Text, allText);
+                            Clipboard.SetDataObject(dataObject, true);
+                        }
+                        catch (Exception dataEx)
+                        {
+                            // 如果还是失败，尝试清空剪贴板后重试
+                            try
+                            {
+                                Clipboard.Clear();
+                                var dataObject = new DataObject();
+                                dataObject.SetData(DataFormats.Text, allText);
+                                Clipboard.SetDataObject(dataObject, true);
+                            }
+                            catch (Exception finalEx)
+                            {
+                                throw new Exception($"复制失败: {finalEx.Message}", finalEx);
+                            }
+                        }
+                    }
+                    
                     int lineCount = allText.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).Length;
-                    AddLog($"日志已复制到剪贴板（共 {lineCount} 行，{document.Blocks.Count} 个段落）", "SUCCESS");
+                    int charCount = allText.Length;
+                    AddLog($"日志已复制到剪贴板（共 {lineCount} 行，{charCount} 个字符）", "SUCCESS");
                 }
                 else
                 {
