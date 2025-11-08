@@ -87,27 +87,8 @@
 
             <!-- 右侧内容区 -->
             <Grid Grid.Column="1">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="*"/>
-                </Grid.RowDefinitions>
-
-                <!-- 账号列表表格 -->
-                <Border Grid.Row="0" Background="White" Padding="15" Margin="0,0,0,15" CornerRadius="5">
-                    <DataGrid Name="AccountGrid" AutoGenerateColumns="False" HeadersVisibility="Column" 
-                              IsReadOnly="True" SelectionMode="Single">
-                        <DataGrid.Columns>
-                            <DataGridTextColumn Header="客户端" Binding="{Binding Client}" Width="100"/>
-                            <DataGridTextColumn Header="公司名称" Binding="{Binding CompanyName}" Width="150"/>
-                            <DataGridTextColumn Header="昵称" Binding="{Binding NickName}" Width="150"/>
-                            <DataGridTextColumn Header="备注" Binding="{Binding Remark}" Width="150"/>
-                            <DataGridTextColumn Header="当前绑定账号" Binding="{Binding BoundAccount}" Width="*"/>
-                        </DataGrid.Columns>
-                    </DataGrid>
-                </Border>
-
                 <!-- App命令执行日志 -->
-                <Border Grid.Row="1" Background="White" Padding="15" CornerRadius="5">
+                <Border Background="White" Padding="15" CornerRadius="5">
                     <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
