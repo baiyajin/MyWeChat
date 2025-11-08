@@ -27,11 +27,14 @@
                                     Margin="5,0,0,0" Padding="5,2" Background="#999999" Foreground="White" 
                                     BorderThickness="0" Cursor="Hand" FontSize="12" VerticalAlignment="Center"/>
                         </StackPanel>
-                        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
+                        <ScrollViewer Grid.Row="1" 
+                                     VerticalScrollBarVisibility="Auto" 
+                                     HorizontalScrollBarVisibility="Visible">
                             <RichTextBox Name="LogRichTextBox" IsReadOnly="True" 
                                          FontFamily="Consolas" FontSize="11" Background="#F8F8F8"
-                                         BorderThickness="1" BorderBrush="#CCCCCC" VerticalScrollBarVisibility="Auto"
-                                         HorizontalScrollBarVisibility="Auto">
+                                         BorderThickness="1" BorderBrush="#CCCCCC" 
+                                         VerticalScrollBarVisibility="Disabled"
+                                         HorizontalScrollBarVisibility="Disabled">
                                 <FlowDocument PageWidth="999999">
                                     <Paragraph Margin="0"/>
                                 </FlowDocument>
