@@ -189,8 +189,16 @@ namespace SalesChampion.Windows.Core.Hook
                 
                 try
                 {
-                    _dllWrapper.SetCallback(acceptPtr, receivePtr, closePtr, contact);
-                    Logger.LogInfo("回调函数设置成功");
+                    int setCallbackResult = _dllWrapper.SetCallback(acceptPtr, receivePtr, closePtr, contact);
+                    Logger.LogInfo($"回调函数设置结果: {setCallbackResult} (0表示成功，非0表示失败)");
+                    if (setCallbackResult != 0)
+                    {
+                        Logger.LogWarning($"回调函数设置返回非0值: {setCallbackResult}，可能存在问题");
+                    }
+                    else
+                    {
+                        Logger.LogInfo("回调函数设置成功");
+                    }
                 }
                 catch (BadImageFormatException ex)
                 {
@@ -337,8 +345,57 @@ namespace SalesChampion.Windows.Core.Hook
                     // 返回值 >= 0 表示成功，可能是进程ID或成功标志（0）
                     Logger.LogInfo($"注入微信进程成功，返回值: {result}");
 
+                    // 注意：注入成功后，必须等待OnAcceptCallback被调用，才能确定真正的clientId
+                    // OnAcceptCallback中的clientId才是DLL内部使用的正确ID
+                    // 如果使用错误的clientId发送命令，可能导致命令发送失败或被风控
+                    
+                    // 等待OnAcceptCallback被调用，最多等待5秒（如果微信已登录，回调可能已经发送，需要更长时间）
+                    int waitCount = 0;
+                    int maxWaitCount = 50; // 5秒 = 50 * 100ms
+                    while (_clientId == 0 && waitCount < maxWaitCount)
+                    {
+                        System.Threading.Thread.Sleep(100);
+                        waitCount++;
+                    }
+                    
+                    // 检查是否收到了OnAcceptCallback
+                    if (_clientId == 0)
+                    {
+                        // 如果OnAcceptCallback没有被调用，检查InjectWeChatPid的返回值
+                        // 某些版本的DLL可能直接返回clientId（进程ID）
+                        if (result > 0 && result == weChatProcess.Id)
+                        {
+                            // 如果返回值等于进程ID，可能是DLL直接返回了clientId
+                            // 或者微信在程序启动前就已经登录，OnAcceptCallback已经在程序启动前被调用过了
+                            Logger.LogWarning($"OnAcceptCallback在5秒内未被调用，但InjectWeChatPid返回了进程ID: {result}");
+                            Logger.LogWarning($"可能原因: 1. 微信在程序启动前就已经登录，回调已发送 2. DLL直接返回进程ID作为clientId");
+                            
+                            // 尝试使用进程ID作为clientId（某些版本的DLL可能直接返回进程ID）
+                            // 但需要谨慎，因为之前成功时clientId=1，不是进程ID
+                            // 先尝试使用进程ID，如果后续命令发送失败，再处理
+                            Logger.LogWarning($"尝试使用进程ID作为clientId: {result}");
+                            _clientId = result;
+                            _isHooked = true;
+                            
+                            Logger.LogInfo($"Hook成功（使用进程ID作为clientId），ClientId: {_clientId}, 微信版本: {_weChatVersion}");
+                            Logger.LogWarning($"注意: 如果后续命令发送失败，可能需要等待OnAcceptCallback被调用");
+                            OnHooked?.Invoke(this, _clientId);
+                            
+                            return true;
+                        }
+                        else
+                        {
+                            Logger.LogError($"OnAcceptCallback在5秒内未被调用，无法确定正确的clientId");
+                            Logger.LogError($"可能原因: 1. DLL回调机制未正确设置 2. 微信版本不匹配 3. DLL版本问题 4. 微信未登录");
+                            return false;
+                        }
+                    }
+                    else
+                    {
+                        Logger.LogInfo($"OnAcceptCallback已被调用，使用回调中的clientId: {_clientId}");
+                    }
+
                     _isHooked = true;
-                    _clientId = weChatProcess.Id;
 
                     Logger.LogInfo($"Hook成功，ClientId: {_clientId}, 微信版本: {_weChatVersion}");
                     OnHooked?.Invoke(this, _clientId);
@@ -370,7 +427,7 @@ namespace SalesChampion.Windows.Core.Hook
         }
 
         /// <summary>
-        /// 关闭Hook连接
+        /// 关闭Hook连接（安全撤回DLL注入）
         /// </summary>
         public void CloseHook()
         {
@@ -380,19 +437,55 @@ namespace SalesChampion.Windows.Core.Hook
                 {
                     if (!_isHooked)
                     {
+                        Logger.LogInfo("Hook未连接，无需清理");
                         return;
                     }
 
-                    _dllWrapper?.CloseWeChat();
+                    Logger.LogInfo("========== 开始关闭Hook连接 ==========");
+                    Logger.LogInfo($"当前ClientId: {_clientId}");
+                    Logger.LogInfo($"Hook状态: {_isHooked}");
+                    
+                    // 1. 调用DLL的关闭方法（撤回DLL注入）
+                    if (_dllWrapper != null)
+                    {
+                        Logger.LogInfo("正在调用DLL的CloseWeChat方法（撤回DLL注入）...");
+                        bool result = _dllWrapper.CloseWeChat();
+                        Logger.LogInfo($"DLL的CloseWeChat方法返回: {result}");
+                        
+                        if (!result)
+                        {
+                            Logger.LogWarning("DLL的CloseWeChat方法返回false，可能DLL注入未完全撤回");
+                        }
+                    }
+                    else
+                    {
+                        Logger.LogWarning("DLL封装对象为空，无法调用CloseWeChat方法");
+                    }
+                    
+                    // 2. 等待DLL注入完全清理（给系统时间释放文件句柄）
+                    Logger.LogInfo("等待DLL注入资源释放（1秒）...");
+                    System.Threading.Thread.Sleep(1000);
+                    
+                    // 3. 清理状态
                     _isHooked = false;
                     _clientId = 0;
-
-                    Logger.LogInfo("Hook连接已关闭");
+                    
+                    Logger.LogInfo("Hook连接状态已清理");
+                    Logger.LogInfo("========== Hook连接已关闭 ==========");
+                    
+                    // 4. 触发事件
                     OnUnhooked?.Invoke(this, EventArgs.Empty);
                 }
                 catch (Exception ex)
                 {
                     Logger.LogError($"关闭Hook连接失败: {ex.Message}", ex);
+                    Logger.LogError($"异常类型: {ex.GetType().Name}");
+                    Logger.LogError($"堆栈跟踪: {ex.StackTrace}");
+                    
+                    // 即使出错，也要清理状态
+                    _isHooked = false;
+                    _clientId = 0;
+                    OnUnhooked?.Invoke(this, EventArgs.Empty);
                 }
             }
         }
@@ -411,6 +504,18 @@ namespace SalesChampion.Windows.Core.Hook
                 return false;
             }
 
+            if (_dllWrapper == null)
+            {
+                Logger.LogError("DLL封装未初始化，无法发送命令");
+                return false;
+            }
+
+            if (_clientId <= 0)
+            {
+                Logger.LogError($"ClientId无效: {_clientId}，无法发送命令");
+                return false;
+            }
+
             try
             {
                 var command = new
@@ -420,7 +525,9 @@ namespace SalesChampion.Windows.Core.Hook
                 };
 
                 string jsonCommand = Newtonsoft.Json.JsonConvert.SerializeObject(command);
-                bool result = _dllWrapper?.SendStringData(_clientId, jsonCommand) ?? false;
+                Logger.LogInfo($"准备发送命令: 类型={commandType}, clientId={_clientId}, 命令内容={jsonCommand}");
+                
+                bool result = _dllWrapper.SendStringData(_clientId, jsonCommand);
 
                 if (result)
                 {
@@ -428,7 +535,8 @@ namespace SalesChampion.Windows.Core.Hook
                 }
                 else
                 {
-                    Logger.LogError($"发送命令失败，类型: {commandType}");
+                    Logger.LogError($"发送命令失败，类型: {commandType}, clientId: {_clientId}, Hook状态: {_isHooked}");
+                    Logger.LogError($"可能原因: 1. DLL的SendData方法返回false 2. 微信进程未响应 3. 命令格式不正确");
                 }
 
                 return result;
@@ -436,6 +544,7 @@ namespace SalesChampion.Windows.Core.Hook
             catch (Exception ex)
             {
                 Logger.LogError($"发送命令异常: {ex.Message}", ex);
+                Logger.LogError($"异常类型: {ex.GetType().Name}, 堆栈跟踪: {ex.StackTrace}");
                 return false;
             }
         }
@@ -447,7 +556,9 @@ namespace SalesChampion.Windows.Core.Hook
         /// </summary>
         private void OnAcceptCallback(int clientId)
         {
+            Logger.LogInfo($"========== OnAcceptCallback被调用 ==========");
             Logger.LogInfo($"微信连接已接受，ClientId: {clientId}");
+            Logger.LogInfo($"调用时间: {DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}");
             _clientId = clientId;
             _isHooked = true;
             OnHooked?.Invoke(this, clientId);
@@ -460,7 +571,9 @@ namespace SalesChampion.Windows.Core.Hook
         {
             try
             {
-                Logger.LogInfo($"OnReceiveCallback被调用: clientId={clientId}, length={length}");
+                Logger.LogInfo($"========== OnReceiveCallback被调用 ==========");
+                Logger.LogInfo($"clientId={clientId}, length={length}");
+                Logger.LogInfo($"调用时间: {DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}");
                 
                 if (message == IntPtr.Zero || length <= 0)
                 {
@@ -476,7 +589,8 @@ namespace SalesChampion.Windows.Core.Hook
                 
                 if (OnMessageReceived != null)
                 {
-                    Logger.LogInfo($"触发OnMessageReceived事件，订阅者数量: {OnMessageReceived.GetInvocationList().Length}");
+                    int subscriberCount = OnMessageReceived.GetInvocationList().Length;
+                    Logger.LogInfo($"触发OnMessageReceived事件，订阅者数量: {subscriberCount}");
                     OnMessageReceived.Invoke(this, jsonMessage);
                 }
                 else

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.ObjectModel;
 using System.Configuration;
+using System.IO;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -30,6 +31,9 @@ namespace SalesChampion.Windows
         private CommandService? _commandService;
         private ObservableCollection<AccountInfo> _accountList;
         
+        // 保存事件订阅的委托引用，以便在关闭时取消订阅
+        private Action<string>? _loggerEventHandler;
+        
         // 日志颜色Brush缓存，避免频繁创建
         private static readonly Brush ErrorBrush = new SolidColorBrush(Color.FromRgb(220, 53, 69));
         private static readonly Brush WarnBrush = new SolidColorBrush(Color.FromRgb(255, 193, 7));
@@ -37,6 +41,35 @@ namespace SalesChampion.Windows
         private static readonly Brush SuccessBrush = new SolidColorBrush(Color.FromRgb(40, 167, 69));
         private static readonly Brush DefaultBrush = new SolidColorBrush(Color.FromRgb(33, 37, 41));
         private static readonly Brush TimeBrush = new SolidColorBrush(Color.FromRgb(128, 128, 128));
+        
+        // 日志文件路径
+        private readonly string _logFilePath;
+
+        /// <summary>
+        /// 判断是否是进程ID（纯数字），而不是真正的微信ID
+        /// </summary>
+        private static bool IsProcessId(string? value)
+        {
+            if (string.IsNullOrEmpty(value))
+            {
+                return false;
+            }
+            // 如果整个字符串都是数字，则认为是进程ID
+            return int.TryParse(value, out _);
+        }
+
+        /// <summary>
+        /// 判断是否是真正的微信ID（不是进程ID）
+        /// </summary>
+        private static bool IsRealWeChatId(string? value)
+        {
+            if (string.IsNullOrEmpty(value))
+            {
+                return false;
+            }
+            // 如果不是纯数字，则认为是真正的微信ID
+            return !IsProcessId(value);
+        }
 
         /// <summary>
         /// 构造函数
@@ -46,6 +79,51 @@ namespace SalesChampion.Windows
             InitializeComponent();
             _accountList = new ObservableCollection<AccountInfo>();
             AccountGrid.ItemsSource = _accountList;
+            
+            // 初始化日志文件路径：MyWeChat/windows.log
+            try
+            {
+                // 获取当前程序所在目录（bin\x86\Debug\net9.0-windows）
+                string currentDir = AppDomain.CurrentDomain.BaseDirectory;
+                
+                // 向上查找 MyWeChat 目录
+                // 路径结构：MyWeChat/windows/SalesChampion.Windows/bin/x86/Debug/net9.0-windows/
+                // 需要向上4级才能到 MyWeChat
+                DirectoryInfo? dir = new DirectoryInfo(currentDir);
+                string? myWeChatDir = null;
+                
+                // 向上查找，直到找到包含 "MyWeChat" 的目录或到达根目录
+                for (int i = 0; i < 10 && dir != null; i++)
+                {
+                    if (dir.Name.Equals("MyWeChat", StringComparison.OrdinalIgnoreCase))
+                    {
+                        myWeChatDir = dir.FullName;
+                        break;
+                    }
+                    dir = dir.Parent;
+                }
+                
+                // 如果找不到 MyWeChat 目录，使用当前目录向上4级（假设标准结构）
+                if (string.IsNullOrEmpty(myWeChatDir))
+                {
+                    dir = new DirectoryInfo(currentDir);
+                    for (int i = 0; i < 4 && dir != null; i++)
+                    {
+                        dir = dir.Parent;
+                    }
+                    myWeChatDir = dir?.FullName ?? currentDir;
+                }
+                
+                _logFilePath = Path.Combine(myWeChatDir, "windows.log");
+                Logger.LogInfo($"日志文件路径: {_logFilePath}");
+            }
+            catch (Exception ex)
+            {
+                // 如果初始化失败，使用默认路径
+                _logFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "windows.log");
+                Logger.LogError($"初始化日志文件路径失败: {ex.Message}", ex);
+            }
+            
             // 延迟初始化服务，避免在构造函数中初始化导致崩溃
             UpdateUI();
         }
@@ -76,7 +154,8 @@ namespace SalesChampion.Windows
             try
             {
                 // 订阅Logger日志事件，输出到UI（带颜色）
-                Logger.OnLogMessage += (message) =>
+                // 保存委托引用，以便在关闭时取消订阅
+                _loggerEventHandler = (message) =>
                 {
                     try
                     {
@@ -108,6 +187,7 @@ namespace SalesChampion.Windows
                         // 忽略Dispatcher调用失败
                     }
                 };
+                Logger.OnLogMessage += _loggerEventHandler;
 
                 // 延迟初始化连接管理器，避免在UI线程中直接初始化导致崩溃
                 Task.Run(() =>
@@ -151,6 +231,9 @@ namespace SalesChampion.Windows
                         _momentsSyncService = new MomentsSyncService(_connectionManager, _webSocketService);
                         _tagSyncService = new TagSyncService(_connectionManager, _webSocketService);
                         _chatMessageSyncService = new ChatMessageSyncService(_connectionManager, _webSocketService);
+                        
+                        // 订阅好友列表回调中的账号信息提取事件
+                        _contactSyncService.OnAccountInfoExtracted += OnAccountInfoExtractedFromContacts;
 
                         // 初始化命令服务
                         _commandService = new CommandService(_connectionManager);
@@ -335,13 +418,13 @@ namespace SalesChampion.Windows
                 
                 AccountInfo? currentAccount = null;
                 
-                // 优先查找有真正wxid的账号（wxid_开头）
+                // 优先查找有真正wxid的账号（不是进程ID）
                 foreach (var account in _accountList)
                 {
                     Logger.LogInfo($"检查账号: WeChatId={account.WeChatId}, NickName={account.NickName}, Avatar={(!string.IsNullOrEmpty(account.Avatar) ? "有头像" : "无头像")}");
                     
-                    // 优先匹配有真正wxid的账号（wxid_开头），而不是进程ID
-                    if (!string.IsNullOrEmpty(account.WeChatId) && account.WeChatId.StartsWith("wxid_"))
+                    // 优先匹配有真正wxid的账号（不是纯数字的进程ID）
+                    if (IsRealWeChatId(account.WeChatId))
                     {
                         // 优先选择有昵称和头像的账号
                         if (currentAccount == null || 
@@ -402,11 +485,11 @@ namespace SalesChampion.Windows
                 {
                     // 没有找到账号信息，显示默认信息
                     AccountNickName.Text = "微信用户";
-                    AccountWeChatId.Text = $"微信ID: {weChatId}";
+                    AccountWeChatId.Text = "微信ID: 未知";
                     UpdateAvatarImage(AccountAvatar, null);
                     
                     TopNickName.Text = "微信用户";
-                    TopWeChatId.Text = weChatId;
+                    TopWeChatId.Text = "未知";
                     UpdateAvatarImage(TopAvatar, null);
                     
                     // 隐藏头像面板
@@ -483,40 +566,86 @@ namespace SalesChampion.Windows
                     // 更新账号信息显示
                     UpdateAccountInfoDisplay();
                     
-                    // 连接成功后，立即主动请求账号信息（不等待回调）
-                    Task.Delay(500).ContinueWith(_ =>
-                    {
-                        Dispatcher.Invoke(() =>
-                        {
-                            Logger.LogInfo("连接成功，立即请求账号信息");
-                            RequestAccountInfo();
-                        });
-                    });
+                    // 连接成功后，先等待一段时间，让微信发送11120/11121回调
+                    // 如果微信在程序启动前已登录，回调可能已经发送过了，需要等待
+                    Logger.LogInfo("连接成功，等待微信发送登录回调（11120/11121）...");
+                    AddLog("等待微信登录回调...", "INFO");
                     
-                    // 延迟一下，等待可能的登录回调消息
-                    Task.Delay(2000).ContinueWith(_ =>
+                    // 延迟3秒，等待可能的登录回调消息（给微信足够时间发送回调）
+                    Task.Delay(3000).ContinueWith(_ =>
                     {
                         Dispatcher.Invoke(() =>
                         {
-                            Logger.LogInfo("延迟更新账号信息显示");
+                            Logger.LogInfo("3秒后检查是否收到登录回调");
                             UpdateAccountInfoDisplay();
-                            // 如果仍未获取到账号信息，再次请求
-                            if (_accountList.Count == 0 || string.IsNullOrEmpty(_accountList[0].NickName))
+                            
+                            // 检查是否已收到登录回调
+                            bool hasAccountInfo = false;
+                            foreach (var acc in _accountList)
                             {
-                                Logger.LogInfo("仍未获取到账号信息，再次请求");
+                                if (IsRealWeChatId(acc.WeChatId) && !string.IsNullOrEmpty(acc.NickName))
+                                {
+                                    hasAccountInfo = true;
+                                    Logger.LogInfo($"已收到登录回调，账号信息: wxid={acc.WeChatId}, nickname={acc.NickName}");
+                                    break;
+                                }
+                            }
+                            
+                            if (!hasAccountInfo)
+                            {
+                                Logger.LogWarning("3秒后仍未收到登录回调，主动请求账号信息");
+                                AddLog("未收到登录回调，主动请求账号信息...", "WARN");
                                 RequestAccountInfo();
                             }
                         });
                     });
                     
-                    // 如果5秒后仍未获取到账号信息，再次请求并开始同步
+                    // 延迟5秒后再次检查
                     Task.Delay(5000).ContinueWith(_ =>
                     {
                         Dispatcher.Invoke(() =>
                         {
-                            if (_accountList.Count == 0 || string.IsNullOrEmpty(_accountList[0].NickName))
+                            Logger.LogInfo("5秒后再次检查账号信息");
+                            UpdateAccountInfoDisplay();
+                            
+                            // 检查是否已收到登录回调
+                            bool hasAccountInfo = false;
+                            foreach (var acc in _accountList)
                             {
-                                Logger.LogInfo("5秒后仍未获取到账号信息，最后一次请求并开始同步");
+                                if (IsRealWeChatId(acc.WeChatId) && !string.IsNullOrEmpty(acc.NickName))
+                                {
+                                    hasAccountInfo = true;
+                                    break;
+                                }
+                            }
+                            
+                            if (!hasAccountInfo)
+                            {
+                                Logger.LogWarning("5秒后仍未收到登录回调，再次请求账号信息");
+                                RequestAccountInfo();
+                            }
+                        });
+                    });
+                    
+                    // 如果10秒后仍未获取到账号信息，最后一次请求并开始同步
+                    Task.Delay(10000).ContinueWith(_ =>
+                    {
+                        Dispatcher.Invoke(() =>
+                        {
+                            bool hasAccountInfo = false;
+                            foreach (var acc in _accountList)
+                            {
+                                if (IsRealWeChatId(acc.WeChatId) && !string.IsNullOrEmpty(acc.NickName))
+                                {
+                                    hasAccountInfo = true;
+                                    break;
+                                }
+                            }
+                            
+                            if (!hasAccountInfo)
+                            {
+                                Logger.LogWarning("10秒后仍未获取到账号信息，最后一次请求并开始同步");
+                                AddLog("仍未获取到账号信息，开始自动同步数据（可能从同步过程中获取）...", "WARN");
                                 RequestAccountInfo();
                                 
                                 // 即使没有账号信息，也尝试开始同步（可能数据在同步过程中获取）
@@ -579,12 +708,12 @@ namespace SalesChampion.Windows
                 // 注意：不要使用clientId（进程ID）作为WeChatId，应该等待真正的wxid
                 int clientId = _connectionManager.ClientId;
                 
-                // 只查找有真正wxid的账号（wxid_开头），不查找以进程ID作为WeChatId的账号
+                // 只查找有真正wxid的账号（不是进程ID），不查找以进程ID作为WeChatId的账号
                 bool exists = false;
                 foreach (var account in _accountList)
                 {
-                    // 只匹配有真正wxid的账号
-                    if (!string.IsNullOrEmpty(account.WeChatId) && account.WeChatId.StartsWith("wxid_"))
+                    // 只匹配有真正wxid的账号（不是纯数字的进程ID）
+                    if (IsRealWeChatId(account.WeChatId))
                     {
                         exists = true;
                         Logger.LogInfo($"已存在账号: WeChatId={account.WeChatId}");
@@ -650,8 +779,8 @@ namespace SalesChampion.Windows
                         AccountInfo? accountInfo = null;
                         foreach (var acc in _accountList)
                         {
-                            // 只匹配有真正wxid的账号（wxid_开头），不匹配进程ID
-                            if (!string.IsNullOrEmpty(acc.WeChatId) && acc.WeChatId.StartsWith("wxid_"))
+                            // 只匹配有真正wxid的账号（不是纯数字的进程ID）
+                            if (IsRealWeChatId(acc.WeChatId))
                             {
                                 accountInfo = acc;
                                 break;
@@ -704,7 +833,12 @@ namespace SalesChampion.Windows
             {
                 try
                 {
-                    Logger.LogInfo($"收到微信消息: {message}");
+                    // 记录收到消息的详细信息，用于调试
+                    Logger.LogInfo($"========== 收到微信消息 ==========");
+                    Logger.LogInfo($"消息长度: {message?.Length ?? 0}");
+                    Logger.LogInfo($"消息内容: {message}");
+                    Logger.LogInfo($"收到时间: {DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}");
+                    
                     AddLog($"收到微信消息: {message}", "INFO");
                     
                     // 清理消息：移除可能的额外字符和空白
@@ -744,37 +878,86 @@ namespace SalesChampion.Windows
                         sb.Append(c);
                     }
                     cleanMessage = sb.ToString();
+                    
+                    // 记录原始消息长度
+                    int originalLength = cleanMessage.Length;
 
-                    // 尝试修复不完整的JSON（如果消息被截断）
-                    // 情况1: 如果消息以 "type":1112 结尾，可能是 11120 或 11121 被截断了
-                        if (cleanMessage.EndsWith("\"type\":1112"))
-                        {
-                        Logger.LogWarning("检测到JSON消息被截断（type:1112），尝试修复为11120");
-                            cleanMessage = cleanMessage.Replace("\"type\":1112", "\"type\":11120}");
-                        }
-                    // 情况2: 如果消息以 "type":11120 结尾但没有闭合括号
-                    else if (cleanMessage.EndsWith("\"type\":11120") && !cleanMessage.EndsWith("}"))
-                        {
-                        Logger.LogWarning("检测到JSON消息不完整（缺少闭合括号），尝试修复");
-                            cleanMessage = cleanMessage + "}";
-                        }
-                    // 情况3: 如果消息以 "type":1112 结尾（可能是11120或11121）
-                    else if (cleanMessage.Contains("\"type\":1112") && !cleanMessage.EndsWith("}"))
+                    // 3. 移除消息末尾的乱码字符（非JSON字符）
+                    // 找到最后一个有效的 `}` 位置
+                    int lastValidBrace = cleanMessage.LastIndexOf('}');
+                    if (lastValidBrace >= 0 && lastValidBrace < cleanMessage.Length - 1)
                     {
-                        Logger.LogWarning("检测到JSON消息包含截断的type字段，尝试修复");
-                        // 尝试修复为11120
-                        cleanMessage = cleanMessage.Replace("\"type\":1112", "\"type\":11120");
-                        // 如果还没有闭合括号，添加
-                        if (!cleanMessage.EndsWith("}"))
+                        // 如果 `}` 后面还有字符，可能是乱码，移除它们
+                        string afterBrace = cleanMessage.Substring(lastValidBrace + 1);
+                        // 检查是否是乱码（包含非可打印字符或特殊字符）
+                        bool isGarbage = false;
+                        foreach (char c in afterBrace)
                         {
-                            cleanMessage = cleanMessage + "}";
+                            if (char.IsControl(c) || (c != '}' && c != ']' && !char.IsLetterOrDigit(c) && !char.IsPunctuation(c) && !char.IsSymbol(c)))
+                            {
+                                isGarbage = true;
+                                break;
+                            }
+                        }
+                        if (isGarbage)
+                        {
+                            Logger.LogWarning($"检测到消息末尾有乱码字符，移除: {afterBrace}");
+                            cleanMessage = cleanMessage.Substring(0, lastValidBrace + 1);
                         }
                     }
-                    // 情况4: 如果消息看起来不完整（没有闭合括号）
-                    else if (!cleanMessage.EndsWith("}") && cleanMessage.StartsWith("{"))
+
+                    // 4. 修复被截断的type字段
+                    // 情况1: "type":1112 应该是 "type":11120 或 "type":11121
+                    if (cleanMessage.Contains("\"type\":1112") && !cleanMessage.Contains("\"type\":11120") && !cleanMessage.Contains("\"type\":11121"))
+                    {
+                        Logger.LogWarning("检测到type字段被截断（1112），尝试修复为11120");
+                        cleanMessage = cleanMessage.Replace("\"type\":1112", "\"type\":11120");
+                    }
+                    // 情况2: "type":11120 后面有乱码，如 "type":111200
+                    if (cleanMessage.Contains("\"type\":111200"))
+                    {
+                        Logger.LogWarning("检测到type字段包含乱码（111200），尝试修复为11120");
+                        cleanMessage = cleanMessage.Replace("\"type\":111200", "\"type\":11120");
+                    }
+                    // 情况3: "type":11126 后面有乱码，如 "type":111206
+                    if (cleanMessage.Contains("\"type\":111206"))
+                    {
+                        Logger.LogWarning("检测到type字段包含乱码（111206），尝试修复为11126");
+                        cleanMessage = cleanMessage.Replace("\"type\":111206", "\"type\":11126");
+                    }
+                    // 情况4: "type":11238 后面有乱码
+                    if (cleanMessage.Contains("\"type\":11238") && cleanMessage.IndexOf("\"type\":11238") < cleanMessage.Length - 10)
+                    {
+                        int typeIndex = cleanMessage.IndexOf("\"type\":11238");
+                        string afterType = cleanMessage.Substring(typeIndex + "\"type\":11238".Length);
+                        // 如果type后面不是 } 或 ]，可能有乱码
+                        if (!afterType.TrimStart().StartsWith("}") && !afterType.TrimStart().StartsWith("]"))
+                        {
+                            // 找到type后面的第一个有效字符位置
+                            int nextBrace = afterType.IndexOf('}');
+                            if (nextBrace > 0)
+                            {
+                                string garbage = afterType.Substring(0, nextBrace);
+                                if (garbage.Contains("") || garbage.Length > 5)
+                                {
+                                    Logger.LogWarning($"检测到type字段后有乱码，移除: {garbage}");
+                                    cleanMessage = cleanMessage.Substring(0, typeIndex + "\"type\":11238".Length) + afterType.Substring(nextBrace);
+                                }
+                            }
+                        }
+                    }
+
+                    // 5. 确保消息以 `}` 结尾
+                    if (!cleanMessage.EndsWith("}") && cleanMessage.StartsWith("{"))
                     {
                         Logger.LogWarning("检测到JSON消息不完整（缺少闭合括号），尝试修复");
                         cleanMessage = cleanMessage + "}";
+                    }
+                    
+                    // 记录清理后的消息长度
+                    if (originalLength != cleanMessage.Length)
+                    {
+                        Logger.LogInfo($"原始消息长度: {originalLength}, 清理后长度: {cleanMessage.Length}");
                     }
 
                     // 解析消息
@@ -881,8 +1064,20 @@ namespace SalesChampion.Windows
                         
                         if (!isFixed)
                         {
-                            Logger.LogError($"无法解析消息，已尝试多种修复策略: {cleanMessage}");
+                            Logger.LogError($"无法解析消息，已尝试多种修复策略");
+                            Logger.LogError($"原始消息: {message}");
+                            Logger.LogError($"清理后的消息: {cleanMessage}");
                             Logger.LogError($"原始消息长度: {message?.Length ?? 0}, 清理后长度: {cleanMessage.Length}");
+                            // 即使解析失败，也尝试提取基本信息
+                            if (cleanMessage.Contains("\"type\":"))
+                            {
+                                // 尝试提取type值
+                                var typeMatch = System.Text.RegularExpressions.Regex.Match(cleanMessage, @"""type"":(\d+)");
+                                if (typeMatch.Success)
+                                {
+                                    Logger.LogWarning($"从失败的消息中提取到type: {typeMatch.Groups[1].Value}");
+                                }
+                            }
                             return;
                         }
                     }
@@ -991,10 +1186,16 @@ namespace SalesChampion.Windows
                             }
                             
                             // 如果wxid为空，记录警告但不使用clientId作为fallback
-                            // wxid应该是真正的微信ID（如wxid_xxx），而不是进程ID
+                            // wxid应该是真正的微信ID，而不是进程ID（纯数字）
                             if (string.IsNullOrEmpty(wxid))
                             {
                                 Logger.LogWarning($"解析登录信息时wxid为空，等待真正的wxid（不使用进程ID {clientId} 作为fallback）");
+                            }
+                            // 如果wxid是进程ID（纯数字），也记录警告
+                            else if (IsProcessId(wxid))
+                            {
+                                Logger.LogWarning($"解析到的wxid是进程ID（{wxid}），这不是真正的微信ID，等待真正的wxid");
+                                wxid = string.Empty; // 清空，等待真正的wxid
                             }
                             
                             Logger.LogInfo($"解析登录信息: wxid={(!string.IsNullOrEmpty(wxid) ? wxid : "空")}, nickname={nickname}, avatar={(!string.IsNullOrEmpty(avatar) ? "有头像" : "无头像")}, account={account}");
@@ -1010,8 +1211,8 @@ namespace SalesChampion.Windows
                             AccountInfo? accountInfo = null;
                             foreach (var acc in _accountList)
                             {
-                                // 只匹配真正的wxid，不匹配clientId
-                                if (acc.WeChatId == wxid || (!string.IsNullOrEmpty(acc.WeChatId) && acc.WeChatId.StartsWith("wxid_") && wxid.StartsWith("wxid_")))
+                                // 只匹配真正的wxid（不是进程ID），不匹配clientId
+                                if (acc.WeChatId == wxid || (IsRealWeChatId(acc.WeChatId) && IsRealWeChatId(wxid)))
                                 {
                                     accountInfo = acc;
                                     break;
@@ -1222,6 +1423,71 @@ namespace SalesChampion.Windows
         }
 
         /// <summary>
+        /// 从好友列表回调中提取账号信息的事件处理
+        /// </summary>
+        private void OnAccountInfoExtractedFromContacts(object? sender, (string wxid, string nickname, string avatar, string account) accountInfo)
+        {
+            Dispatcher.Invoke(() =>
+            {
+                try
+                {
+                    Logger.LogInfo($"从好友列表回调提取到账号信息: wxid={accountInfo.wxid}, nickname={accountInfo.nickname}, account={accountInfo.account}");
+                    
+                    int clientId = _connectionManager?.ClientId ?? 0;
+                    
+                    // 更新或创建账号信息
+                    AccountInfo? accountInfoObj = null;
+                    foreach (var acc in _accountList)
+                    {
+                        if (IsRealWeChatId(acc.WeChatId) && acc.WeChatId == accountInfo.wxid)
+                        {
+                            accountInfoObj = acc;
+                            break;
+                        }
+                    }
+                    
+                    if (accountInfoObj == null)
+                    {
+                        accountInfoObj = new AccountInfo
+                        {
+                            Client = $"客户端{clientId}",
+                            WeChatId = accountInfo.wxid,
+                            BoundAccount = accountInfo.account
+                        };
+                        _accountList.Add(accountInfoObj);
+                    }
+                    
+                    // 更新账号信息
+                    if (!string.IsNullOrEmpty(accountInfo.nickname))
+                    {
+                        accountInfoObj.NickName = accountInfo.nickname;
+                    }
+                    
+                    if (!string.IsNullOrEmpty(accountInfo.avatar))
+                    {
+                        accountInfoObj.Avatar = accountInfo.avatar;
+                    }
+                    
+                    accountInfoObj.WeChatId = accountInfo.wxid;
+                    accountInfoObj.BoundAccount = accountInfo.account;
+                    
+                    Logger.LogInfo($"账号信息已更新: wxid={accountInfoObj.WeChatId}, nickname={accountInfoObj.NickName}");
+                    AddLog($"从好友列表获取到账号信息: wxid={accountInfoObj.WeChatId}, nickname={accountInfoObj.NickName}", "SUCCESS");
+                    
+                    // 更新UI显示
+                    UpdateAccountInfoDisplay();
+                    
+                    // 同步到服务器
+                    SyncMyInfoToServer(accountInfo.wxid, accountInfo.nickname, accountInfo.avatar, accountInfo.account);
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogError($"处理从好友列表提取的账号信息失败: {ex.Message}", ex);
+                }
+            });
+        }
+
+        /// <summary>
         /// 同步我的信息到服务器
         /// </summary>
         private void SyncMyInfoToServer(string wxid, string nickname, string avatar, string account)
@@ -1344,8 +1610,8 @@ namespace SalesChampion.Windows
                                     accountInfo.Avatar = avatar;
                                 }
                                 
-                                // 确保WeChatId是真正的wxid
-                                if (!string.IsNullOrEmpty(wxid) && wxid.StartsWith("wxid_"))
+                                // 确保WeChatId是真正的wxid（不是进程ID）
+                                if (IsRealWeChatId(wxid))
                                 {
                                     accountInfo.WeChatId = wxid;
                                 }
@@ -1381,6 +1647,62 @@ namespace SalesChampion.Windows
         /// </summary>
         private void AddLog(string message, string level = "INFO")
         {
+            // 格式化日志文本（用于文件保存）
+            string logText = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] [{level}] {message}";
+            
+            // 异步写入日志文件，避免阻塞UI线程
+            _ = Task.Run(() =>
+            {
+                try
+                {
+                    // 使用文件流写入，支持文件共享，避免文件被锁定
+                    // 最多重试3次，每次间隔100ms
+                    int retryCount = 0;
+                    int maxRetries = 3;
+                    bool success = false;
+                    
+                    while (!success && retryCount < maxRetries)
+                    {
+                        try
+                        {
+                            // 使用 FileShare.ReadWrite 允许其他进程读取和写入
+                            using (var fileStream = new FileStream(_logFilePath, FileMode.Append, FileAccess.Write, FileShare.ReadWrite))
+                            using (var writer = new StreamWriter(fileStream, System.Text.Encoding.UTF8))
+                            {
+                                writer.WriteLine(logText);
+                                writer.Flush();
+                            }
+                            success = true;
+                        }
+                        catch (IOException ioEx) when (ioEx.Message.Contains("being used by another process"))
+                        {
+                            retryCount++;
+                            if (retryCount < maxRetries)
+                            {
+                                // 等待一段时间后重试
+                                System.Threading.Thread.Sleep(100);
+                            }
+                            else
+                            {
+                                // 最后一次重试失败，记录错误但不抛出异常
+                                Logger.LogError($"写入日志文件失败（已重试{maxRetries}次）: {ioEx.Message}", ioEx);
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            // 其他异常，记录错误但不抛出
+                            Logger.LogError($"写入日志文件失败: {ex.Message}", ex);
+                            success = true; // 避免无限重试
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // 文件写入失败不影响UI显示，只记录错误
+                    Logger.LogError($"写入日志文件失败: {ex.Message}", ex);
+                }
+            });
+            
             // 使用BeginInvoke异步处理，避免阻塞UI线程
             // 使用Normal优先级，确保日志能够及时显示，不会被鼠标交互阻塞
             Dispatcher.BeginInvoke(new Action(() =>
@@ -1471,31 +1793,42 @@ namespace SalesChampion.Windows
             try
             {
                 FlowDocument document = LogRichTextBox.Document;
-                System.Text.StringBuilder sb = new System.Text.StringBuilder();
                 
-                // 遍历所有段落，获取完整文本
-                foreach (Block block in document.Blocks)
+                // 使用更可靠的方法：直接获取整个Document的文本范围
+                TextRange fullRange = new TextRange(
+                    document.ContentStart,
+                    document.ContentEnd
+                );
+                
+                string allText = fullRange.Text;
+                
+                // 如果直接获取失败，尝试遍历所有段落
+                if (string.IsNullOrEmpty(allText) || allText.Trim().Length == 0)
                 {
-                    if (block is Paragraph paragraph)
+                    System.Text.StringBuilder sb = new System.Text.StringBuilder();
+                    foreach (Block block in document.Blocks)
                     {
-                        // 获取段落中的所有文本
-                        TextRange paragraphRange = new TextRange(
-                            paragraph.ContentStart,
-                            paragraph.ContentEnd
-                        );
-                        string paragraphText = paragraphRange.Text;
-                        if (!string.IsNullOrEmpty(paragraphText))
+                        if (block is Paragraph paragraph)
                         {
-                            sb.AppendLine(paragraphText);
+                            TextRange paragraphRange = new TextRange(
+                                paragraph.ContentStart,
+                                paragraph.ContentEnd
+                            );
+                            string paragraphText = paragraphRange.Text;
+                            if (!string.IsNullOrEmpty(paragraphText))
+                            {
+                                sb.AppendLine(paragraphText);
+                            }
                         }
                     }
+                    allText = sb.ToString();
                 }
                 
-                string allText = sb.ToString();
-                if (!string.IsNullOrEmpty(allText))
+                if (!string.IsNullOrEmpty(allText) && allText.Trim().Length > 0)
                 {
                     Clipboard.SetText(allText);
-                    AddLog($"日志已复制到剪贴板（共 {document.Blocks.Count} 条）", "SUCCESS");
+                    int lineCount = allText.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).Length;
+                    AddLog($"日志已复制到剪贴板（共 {lineCount} 行，{document.Blocks.Count} 个段落）", "SUCCESS");
                 }
                 else
                 {
@@ -1505,6 +1838,7 @@ namespace SalesChampion.Windows
             catch (Exception ex)
             {
                 AddLog($"复制日志失败: {ex.Message}", "ERROR");
+                Logger.LogError($"复制日志失败: {ex.Message}", ex);
             }
         }
 
@@ -1728,21 +2062,184 @@ namespace SalesChampion.Windows
         #endregion
 
         /// <summary>
-        /// 窗口关闭事件
+        /// 窗口正在关闭事件（在窗口关闭前执行，确保资源被正确清理）
         /// </summary>
-        protected override void OnClosed(EventArgs e)
+        protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
         {
             try
             {
-                _connectionManager?.Disconnect();
-                _webSocketService?.DisconnectAsync().Wait();
+                Logger.LogInfo("========== 开始清理资源 ==========");
+                
+                // 1. 取消事件订阅（防止内存泄漏）
+                Logger.LogInfo("正在取消事件订阅...");
+                try
+                {
+                    // 取消Logger事件订阅
+                    if (_loggerEventHandler != null)
+                    {
+                        Logger.OnLogMessage -= _loggerEventHandler;
+                        _loggerEventHandler = null;
+                    }
+                    
+                    // 取消连接管理器事件订阅
+                    if (_connectionManager != null)
+                    {
+                        _connectionManager.OnConnectionStateChanged -= OnConnectionStateChanged;
+                        _connectionManager.OnMessageReceived -= OnWeChatMessageReceived;
+                    }
+                    
+                    // 取消WebSocket服务事件订阅
+                    if (_webSocketService != null)
+                    {
+                        _webSocketService.OnMessageReceived -= OnWebSocketMessageReceived;
+                        _webSocketService.OnConnectionStateChanged -= OnWebSocketConnectionStateChanged;
+                    }
+                    
+                    // 取消联系人同步服务事件订阅
+                    if (_contactSyncService != null)
+                    {
+                        _contactSyncService.OnAccountInfoExtracted -= OnAccountInfoExtractedFromContacts;
+                    }
+                    
+                    Logger.LogInfo("事件订阅已取消");
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogWarning($"取消事件订阅时出错: {ex.Message}");
+                }
+                
+                // 2. 断开WebSocket连接
+                if (_webSocketService != null)
+                {
+                    Logger.LogInfo("正在断开WebSocket连接...");
+                    try
+                    {
+                        _webSocketService.DisconnectAsync().Wait(TimeSpan.FromSeconds(2));
+                        Logger.LogInfo("WebSocket连接已断开");
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.LogWarning($"断开WebSocket连接时出错: {ex.Message}");
+                    }
+                }
+                
+                // 3. 关闭Hook连接（撤回DLL注入）
+                if (_connectionManager != null)
+                {
+                    Logger.LogInfo("正在关闭Hook连接（撤回DLL注入）...");
+                    try
+                    {
+                        _connectionManager.Disconnect();
+                        Logger.LogInfo("Hook连接已关闭");
+                        
+                        // 等待DLL注入完全清理（给系统时间释放文件句柄）
+                        Logger.LogInfo("等待DLL注入资源释放（2秒）...");
+                        System.Threading.Thread.Sleep(2000);
+                        Logger.LogInfo("DLL注入资源已释放");
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.LogError($"关闭Hook连接时出错: {ex.Message}", ex);
+                    }
+                }
+                
+                // 4. 清理同步服务（释放服务资源）
+                Logger.LogInfo("正在清理同步服务...");
+                try
+                {
+                    // 清理服务对象（如果实现了IDisposable，会自动释放）
+                    _contactSyncService = null;
+                    _momentsSyncService = null;
+                    _tagSyncService = null;
+                    _chatMessageSyncService = null;
+                    _commandService = null;
+                    Logger.LogInfo("同步服务已清理");
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogWarning($"清理同步服务时出错: {ex.Message}");
+                }
+                
+                // 5. 清空账号列表（释放集合资源）
+                Logger.LogInfo("正在清空账号列表...");
+                try
+                {
+                    if (_accountList != null)
+                    {
+                        _accountList.Clear();
+                    }
+                    Logger.LogInfo("账号列表已清空");
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogWarning($"清空账号列表时出错: {ex.Message}");
+                }
+                
+                // 6. 等待后台任务完成（给正在运行的任务时间完成）
+                Logger.LogInfo("等待后台任务完成（1秒）...");
+                try
+                {
+                    System.Threading.Thread.Sleep(1000);
+                    Logger.LogInfo("后台任务等待完成");
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogWarning($"等待后台任务时出错: {ex.Message}");
+                }
+                
+                Logger.LogInfo("========== 资源清理完成 ==========");
             }
             catch (Exception ex)
             {
                 Logger.LogError($"关闭窗口时出错: {ex.Message}", ex);
             }
+            finally
+            {
+                // 确保调用基类方法，允许窗口关闭
+                base.OnClosing(e);
+            }
+        }
 
-            base.OnClosed(e);
+        /// <summary>
+        /// 窗口已关闭事件（窗口关闭后执行）
+        /// </summary>
+        protected override void OnClosed(EventArgs e)
+        {
+            try
+            {
+                // 最终清理（确保所有引用都被清空）
+                Logger.LogInfo("========== 最终清理资源 ==========");
+                
+                // 清空所有服务引用
+                _connectionManager = null;
+                _webSocketService = null;
+                _contactSyncService = null;
+                _momentsSyncService = null;
+                _tagSyncService = null;
+                _chatMessageSyncService = null;
+                _commandService = null;
+                
+                // 清空账号列表（双重保险）
+                if (_accountList != null)
+                {
+                    _accountList.Clear();
+                    _accountList = null;
+                }
+                
+                // 清空事件处理程序引用
+                _loggerEventHandler = null;
+                
+                Logger.LogInfo("窗口已关闭，所有资源已清理");
+                Logger.LogInfo("========== 资源清理完成 ==========");
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError($"窗口关闭后清理时出错: {ex.Message}", ex);
+            }
+            finally
+            {
+                base.OnClosed(e);
+            }
         }
     }
 }
