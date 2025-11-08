@@ -24,8 +24,8 @@ echo.
 echo 正在启动应用
 echo.
 
-REM 启动Edge浏览器（静默模式，减少输出）
-flutter run -d edge 2>&1 | findstr /V /C:"Flutter assets" /C:"Resolving dependencies" /C:"Downloading packages" /C:"Got dependencies" /C:"packages have newer versions" /C:"Try `flutter pub" /C:"Launching" /C:"Waiting for connection" /C:"This app is linked" /C:"Debug service listening" /C:"Flutter run key commands" /C:"r Hot reload" /C:"R Hot restart" /C:"h List all" /C:"d Detach" /C:"c Clear" /C:"q Quit" /C:"A Dart VM Service" /C:"Starting application" /C:"The Flutter DevTools"
+REM 启动Edge浏览器
+flutter run -d edge
 
 if %ERRORLEVEL% NEQ 0 (
     echo.
