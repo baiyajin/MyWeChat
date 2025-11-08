@@ -90,7 +90,6 @@
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="*"/>
-                    <RowDefinition Height="200"/>
                 </Grid.RowDefinitions>
 
                 <!-- 账号列表表格 -->
@@ -108,12 +107,11 @@
                 </Border>
 
                 <!-- App命令执行日志 -->
-                <Border Grid.Row="1" Background="White" Padding="15" Margin="0,0,0,15" CornerRadius="5">
+                <Border Grid.Row="1" Background="White" Padding="15" CornerRadius="5">
                     <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="*"/>
-                            <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
                         <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,10">
                             <TextBlock Text="App命令执行日志" FontWeight="Bold" VerticalAlignment="Center"/>
@@ -135,17 +133,6 @@
                             </RichTextBox>
                         </ScrollViewer>
                     </Grid>
-                </Border>
-
-                <!-- 底部信息 -->
-                <Border Grid.Row="2" Background="#F0F0F0" Padding="15" CornerRadius="5">
-                    <StackPanel>
-                        <TextBlock Text="注意:所有操作的微信都需要通过上方按钮启动登录,请勿直接在电脑桌面进行登录启动" 
-                                   Foreground="Red" TextWrapping="Wrap" Margin="0,0,0,10"/>
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Name="MachineCodeText" Text="机器码: " Margin="0,0,20,0"/>
-                        </StackPanel>
-                    </StackPanel>
                 </Border>
             </Grid>
         </Grid>

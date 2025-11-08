@@ -743,9 +743,6 @@ namespace SalesChampion.Windows
                     VersionText.Text = $"版本: {weChatVersion}";
                 }
 
-                // 更新机器码
-                MachineCodeText.Text = $"机器码: {GetMachineCode()}";
-                
                 // 更新左侧Logo下方的版本号
                 if (AppVersionText != null)
                 {
@@ -907,14 +904,6 @@ namespace SalesChampion.Windows
             }
         }
 
-        /// <summary>
-        /// 获取机器码
-        /// </summary>
-        private string GetMachineCode()
-        {
-            // 简化实现，实际应该获取硬件信息
-            return Environment.MachineName.GetHashCode().ToString("X");
-        }
 
         /// <summary>
         /// 连接状态变化事件处理
