@@ -414,6 +414,12 @@ namespace SalesChampion.Windows
                 // 优先查找有昵称和头像的账号（从WebSocket同步过来的）
                 int clientId = _connectionManager.ClientId;
                 
+                if (_accountList == null)
+                {
+                    Logger.LogWarning("账号列表未初始化");
+                    return;
+                }
+                
                 Logger.LogInfo($"更新账号信息显示: clientId={clientId}, 账号列表数量={_accountList.Count}");
                 
                 AccountInfo? currentAccount = null;
@@ -581,13 +587,16 @@ namespace SalesChampion.Windows
                             
                             // 检查是否已收到登录回调
                             bool hasAccountInfo = false;
-                            foreach (var acc in _accountList)
+                            if (_accountList != null)
                             {
-                                if (IsRealWeChatId(acc.WeChatId) && !string.IsNullOrEmpty(acc.NickName))
+                                foreach (var acc in _accountList)
                                 {
-                                    hasAccountInfo = true;
-                                    Logger.LogInfo($"已收到登录回调，账号信息: wxid={acc.WeChatId}, nickname={acc.NickName}");
-                                    break;
+                                    if (IsRealWeChatId(acc.WeChatId) && !string.IsNullOrEmpty(acc.NickName))
+                                    {
+                                        hasAccountInfo = true;
+                                        Logger.LogInfo($"已收到登录回调，账号信息: wxid={acc.WeChatId}, nickname={acc.NickName}");
+                                        break;
+                                    }
                                 }
                             }
                             
@@ -610,12 +619,15 @@ namespace SalesChampion.Windows
                             
                             // 检查是否已收到登录回调
                             bool hasAccountInfo = false;
-                            foreach (var acc in _accountList)
+                            if (_accountList != null)
                             {
-                                if (IsRealWeChatId(acc.WeChatId) && !string.IsNullOrEmpty(acc.NickName))
+                                foreach (var acc in _accountList)
                                 {
-                                    hasAccountInfo = true;
-                                    break;
+                                    if (IsRealWeChatId(acc.WeChatId) && !string.IsNullOrEmpty(acc.NickName))
+                                    {
+                                        hasAccountInfo = true;
+                                        break;
+                                    }
                                 }
                             }
                             
@@ -633,12 +645,15 @@ namespace SalesChampion.Windows
                         Dispatcher.Invoke(() =>
                         {
                             bool hasAccountInfo = false;
-                            foreach (var acc in _accountList)
+                            if (_accountList != null)
                             {
-                                if (IsRealWeChatId(acc.WeChatId) && !string.IsNullOrEmpty(acc.NickName))
+                                foreach (var acc in _accountList)
                                 {
-                                    hasAccountInfo = true;
-                                    break;
+                                    if (IsRealWeChatId(acc.WeChatId) && !string.IsNullOrEmpty(acc.NickName))
+                                    {
+                                        hasAccountInfo = true;
+                                        break;
+                                    }
                                 }
                             }
                             
@@ -685,7 +700,7 @@ namespace SalesChampion.Windows
                 {
                     Logger.LogInfo("微信连接状态变化：已断开");
                     // 断开连接时，清空账号列表
-                    _accountList.Clear();
+                    _accountList?.Clear();
                     // 隐藏头像面板
                     AvatarPanel.Visibility = Visibility.Collapsed;
                 }
@@ -710,14 +725,17 @@ namespace SalesChampion.Windows
                 
                 // 只查找有真正wxid的账号（不是进程ID），不查找以进程ID作为WeChatId的账号
                 bool exists = false;
-                foreach (var account in _accountList)
+                if (_accountList != null)
                 {
-                    // 只匹配有真正wxid的账号（不是纯数字的进程ID）
-                    if (IsRealWeChatId(account.WeChatId))
+                    foreach (var account in _accountList)
                     {
-                        exists = true;
-                        Logger.LogInfo($"已存在账号: WeChatId={account.WeChatId}");
-                        break;
+                        // 只匹配有真正wxid的账号（不是纯数字的进程ID）
+                        if (IsRealWeChatId(account.WeChatId))
+                        {
+                            exists = true;
+                            Logger.LogInfo($"已存在账号: WeChatId={account.WeChatId}");
+                            break;
+                        }
                     }
                 }
 
@@ -777,13 +795,16 @@ namespace SalesChampion.Windows
                     {
                         // 检查账号信息是否已更新（只查找有真正wxid的账号）
                         AccountInfo? accountInfo = null;
-                        foreach (var acc in _accountList)
+                        if (_accountList != null)
                         {
-                            // 只匹配有真正wxid的账号（不是纯数字的进程ID）
-                            if (IsRealWeChatId(acc.WeChatId))
+                            foreach (var acc in _accountList)
                             {
-                                accountInfo = acc;
-                                break;
+                                // 只匹配有真正wxid的账号（不是纯数字的进程ID）
+                                if (IsRealWeChatId(acc.WeChatId))
+                                {
+                                    accountInfo = acc;
+                                    break;
+                                }
                             }
                         }
                         
@@ -1209,38 +1230,44 @@ namespace SalesChampion.Windows
                             
                             // 更新账号信息
                             AccountInfo? accountInfo = null;
-                            foreach (var acc in _accountList)
+                            if (_accountList != null)
                             {
-                                // 只匹配真正的wxid（不是进程ID），不匹配clientId
-                                if (acc.WeChatId == wxid || (IsRealWeChatId(acc.WeChatId) && IsRealWeChatId(wxid)))
+                                foreach (var acc in _accountList)
                                 {
-                                    accountInfo = acc;
-                                    break;
+                                    // 只匹配真正的wxid（不是进程ID），不匹配clientId
+                                    if (acc.WeChatId == wxid || (IsRealWeChatId(acc.WeChatId) && IsRealWeChatId(wxid)))
+                                    {
+                                        accountInfo = acc;
+                                        break;
+                                    }
+                                }
+
+                                if (accountInfo == null)
+                                {
+                                    accountInfo = new AccountInfo
+                                    {
+                                        Client = $"客户端{clientId}",
+                                        WeChatId = wxid,
+                                        BoundAccount = account
+                                    };
+                                    _accountList.Add(accountInfo);
                                 }
                             }
 
-                            if (accountInfo == null)
-                            {
-                                accountInfo = new AccountInfo
-                                {
-                                    Client = $"客户端{clientId}",
-                                    WeChatId = wxid,
-                                    BoundAccount = account
-                                };
-                                _accountList.Add(accountInfo);
-                            }
-
                             // 更新账号信息
-                            accountInfo.Client = $"客户端{clientId}";
-                            accountInfo.WeChatId = wxid;
-                            accountInfo.BoundAccount = account;
-                            
-                            if (!string.IsNullOrEmpty(nickname))
+                            if (accountInfo != null)
                             {
-                                accountInfo.NickName = nickname;
+                                accountInfo.Client = $"客户端{clientId}";
+                                accountInfo.WeChatId = wxid;
+                                accountInfo.BoundAccount = account;
+                                
+                                if (!string.IsNullOrEmpty(nickname))
+                                {
+                                    accountInfo.NickName = nickname;
+                                }
                             }
                             
-                            if (!string.IsNullOrEmpty(avatar))
+                            if (accountInfo != null && !string.IsNullOrEmpty(avatar))
                             {
                                 accountInfo.Avatar = avatar;
                             }
@@ -1347,46 +1374,52 @@ namespace SalesChampion.Windows
                         
                         // 更新账号信息
                         AccountInfo? account = null;
-                        foreach (var acc in _accountList)
+                        if (_accountList != null)
                         {
-                            if (acc.WeChatId == weChatId || acc.WeChatId == clientId.ToString())
+                            foreach (var acc in _accountList)
                             {
-                                account = acc;
-                                break;
+                                if (acc.WeChatId == weChatId || acc.WeChatId == clientId.ToString())
+                                {
+                                    account = acc;
+                                    break;
+                                }
+                            }
+                            
+                            if (account == null)
+                            {
+                                account = new AccountInfo
+                                {
+                                    Client = $"客户端{clientId}",
+                                    WeChatId = weChatId,
+                                    BoundAccount = weChatId
+                                };
+                                _accountList.Add(account);
                             }
                         }
                         
-                        if (account == null)
-                        {
-                            account = new AccountInfo
-                            {
-                                Client = $"客户端{clientId}",
-                                WeChatId = weChatId,
-                                BoundAccount = weChatId
-                            };
-                            _accountList.Add(account);
-                        }
-                        
                         // 更新昵称（尝试多种字段名）
-                        if (messageObj.nickname != null)
+                        if (account != null)
                         {
-                            account.NickName = messageObj.nickname.ToString();
-                        }
-                        else if (messageObj.nickName != null)
-                        {
-                            account.NickName = messageObj.nickName.ToString();
-                        }
-                        else if (messageObj.NickName != null)
-                        {
-                            account.NickName = messageObj.NickName.ToString();
+                            if (messageObj.nickname != null)
+                            {
+                                account.NickName = messageObj.nickname.ToString();
+                            }
+                            else if (messageObj.nickName != null)
+                            {
+                                account.NickName = messageObj.nickName.ToString();
+                            }
+                            else if (messageObj.NickName != null)
+                            {
+                                account.NickName = messageObj.NickName.ToString();
+                            }
                         }
                         
                         // 更新头像（尝试多种字段名）
-                        if (messageObj.avatar != null)
+                        if (account != null && messageObj.avatar != null)
                         {
                             account.Avatar = messageObj.avatar.ToString();
                         }
-                        else if (messageObj.Avatar != null)
+                        else if (account != null && messageObj.Avatar != null)
                         {
                             account.Avatar = messageObj.Avatar.ToString();
                         }
@@ -1437,42 +1470,48 @@ namespace SalesChampion.Windows
                     
                     // 更新或创建账号信息
                     AccountInfo? accountInfoObj = null;
-                    foreach (var acc in _accountList)
+                    if (_accountList != null)
                     {
-                        if (IsRealWeChatId(acc.WeChatId) && acc.WeChatId == accountInfo.wxid)
+                        foreach (var acc in _accountList)
                         {
-                            accountInfoObj = acc;
-                            break;
+                            if (IsRealWeChatId(acc.WeChatId) && acc.WeChatId == accountInfo.wxid)
+                            {
+                                accountInfoObj = acc;
+                                break;
+                            }
+                        }
+                        
+                        if (accountInfoObj == null)
+                        {
+                            accountInfoObj = new AccountInfo
+                            {
+                                Client = $"客户端{clientId}",
+                                WeChatId = accountInfo.wxid,
+                                BoundAccount = accountInfo.account
+                            };
+                            _accountList.Add(accountInfoObj);
                         }
                     }
                     
-                    if (accountInfoObj == null)
-                    {
-                        accountInfoObj = new AccountInfo
-                        {
-                            Client = $"客户端{clientId}",
-                            WeChatId = accountInfo.wxid,
-                            BoundAccount = accountInfo.account
-                        };
-                        _accountList.Add(accountInfoObj);
-                    }
-                    
                     // 更新账号信息
-                    if (!string.IsNullOrEmpty(accountInfo.nickname))
+                    if (accountInfoObj != null)
                     {
-                        accountInfoObj.NickName = accountInfo.nickname;
+                        if (!string.IsNullOrEmpty(accountInfo.nickname))
+                        {
+                            accountInfoObj.NickName = accountInfo.nickname;
+                        }
+                        
+                        if (!string.IsNullOrEmpty(accountInfo.avatar))
+                        {
+                            accountInfoObj.Avatar = accountInfo.avatar;
+                        }
+                        
+                        accountInfoObj.WeChatId = accountInfo.wxid;
+                        accountInfoObj.BoundAccount = accountInfo.account;
+                        
+                        Logger.LogInfo($"账号信息已更新: wxid={accountInfoObj.WeChatId}, nickname={accountInfoObj.NickName}");
+                        AddLog($"从好友列表获取到账号信息: wxid={accountInfoObj.WeChatId}, nickname={accountInfoObj.NickName}", "SUCCESS");
                     }
-                    
-                    if (!string.IsNullOrEmpty(accountInfo.avatar))
-                    {
-                        accountInfoObj.Avatar = accountInfo.avatar;
-                    }
-                    
-                    accountInfoObj.WeChatId = accountInfo.wxid;
-                    accountInfoObj.BoundAccount = accountInfo.account;
-                    
-                    Logger.LogInfo($"账号信息已更新: wxid={accountInfoObj.WeChatId}, nickname={accountInfoObj.NickName}");
-                    AddLog($"从好友列表获取到账号信息: wxid={accountInfoObj.WeChatId}, nickname={accountInfoObj.NickName}", "SUCCESS");
                     
                     // 更新UI显示
                     UpdateAccountInfoDisplay();
@@ -1569,48 +1608,53 @@ namespace SalesChampion.Windows
                                 
                                 // 更新账号信息
                                 AccountInfo? accountInfo = null;
-                                foreach (var acc in _accountList)
+                                if (_accountList != null)
                                 {
-                                    if (acc.WeChatId == wxid || 
-                                        acc.WeChatId == clientId.ToString() ||
-                                        (!string.IsNullOrEmpty(wxid) && acc.WeChatId == wxid))
+                                    foreach (var acc in _accountList)
                                     {
-                                        accountInfo = acc;
-                                        break;
+                                        if (acc.WeChatId == wxid || 
+                                            acc.WeChatId == clientId.ToString() ||
+                                            (!string.IsNullOrEmpty(wxid) && acc.WeChatId == wxid))
+                                        {
+                                            accountInfo = acc;
+                                            break;
+                                        }
+                                    }
+                                    
+                                    // 如果wxid为空，不创建账号信息（等待真正的wxid）
+                                    if (string.IsNullOrEmpty(wxid))
+                                    {
+                                        Logger.LogWarning("从好友列表回调中获取的wxid为空，跳过账号信息更新");
+                                        return;
+                                    }
+                                    
+                                    if (accountInfo == null)
+                                    {
+                                        // 创建新账号信息（只使用真正的wxid，不使用clientId）
+                                        accountInfo = new AccountInfo
+                                        {
+                                            Client = $"客户端{clientId}",
+                                            WeChatId = wxid,
+                                            BoundAccount = !string.IsNullOrEmpty(account) ? account : wxid
+                                        };
+                                        _accountList.Add(accountInfo);
                                     }
                                 }
                                 
-                                // 如果wxid为空，不创建账号信息（等待真正的wxid）
-                                if (string.IsNullOrEmpty(wxid))
-                                {
-                                    Logger.LogWarning("从好友列表回调中获取的wxid为空，跳过账号信息更新");
-                                    return;
-                                }
-                                
-                                if (accountInfo == null)
-                                {
-                                    // 创建新账号信息（只使用真正的wxid，不使用clientId）
-                                    accountInfo = new AccountInfo
-                                    {
-                                        Client = $"客户端{clientId}",
-                                        WeChatId = wxid,
-                                        BoundAccount = !string.IsNullOrEmpty(account) ? account : wxid
-                                    };
-                                    _accountList.Add(accountInfo);
-                                }
-                                
                                 // 更新账号信息
-                                if (!string.IsNullOrEmpty(nickname))
+                                if (accountInfo != null)
                                 {
-                                    accountInfo.NickName = nickname;
-                                }
-                                
-                                if (!string.IsNullOrEmpty(avatar))
-                                {
-                                    accountInfo.Avatar = avatar;
-                                }
-                                
-                                // 确保WeChatId是真正的wxid（不是进程ID）
+                                    if (!string.IsNullOrEmpty(nickname))
+                                    {
+                                        accountInfo.NickName = nickname;
+                                    }
+                                    
+                                    if (!string.IsNullOrEmpty(avatar))
+                                    {
+                                        accountInfo.Avatar = avatar;
+                                    }
+                                    
+                                    // 确保WeChatId是真正的wxid（不是进程ID）
                                 if (IsRealWeChatId(wxid))
                                 {
                                     accountInfo.WeChatId = wxid;
