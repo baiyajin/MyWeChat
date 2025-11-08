@@ -74,19 +74,7 @@
                     </StackPanel>
                 </Border>
 
-                <!-- 操作按钮 -->
-                <Button Name="BtnLoginWeChat" Content="登录微信" Click="BtnLoginWeChat_Click" 
-                        Margin="0,0,0,10" Padding="10" Background="#07C160" Foreground="White" 
-                        BorderThickness="0" Cursor="Hand" FontSize="14"/>
-                <Button Name="BtnSyncContacts" Content="同步好友" Click="BtnSyncContacts_Click" 
-                        Margin="0,0,0,10" Padding="10" Background="#07C160" Foreground="White" 
-                        BorderThickness="0" Cursor="Hand" FontSize="14"/>
-                <Button Name="BtnSyncMoments" Content="同步朋友圈" Click="BtnSyncMoments_Click" 
-                        Margin="0,0,0,10" Padding="10" Background="#07C160" Foreground="White" 
-                        BorderThickness="0" Cursor="Hand" FontSize="14"/>
-                <Button Name="BtnSyncTags" Content="同步标签" Click="BtnSyncTags_Click" 
-                        Margin="0,0,0,20" Padding="10" Background="#07C160" Foreground="White" 
-                        BorderThickness="0" Cursor="Hand" FontSize="14"/>
+                <!-- 操作按钮已移除，改为自动检测微信进程 -->
                 
                 <!-- Logo和版本信息 -->
                 <StackPanel Margin="0,20,0,0" HorizontalAlignment="Center">
