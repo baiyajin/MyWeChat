@@ -847,11 +847,7 @@ namespace SalesChampion.Windows
                     UpdateAccountInfoDisplay();
                 }
                 
-                // 更新左侧Logo下方的版本号
-                if (AppVersionText != null)
-                {
-                    AppVersionText.Text = "版本号: 1.0.0";
-                }
+                // 版本号显示已移除（之前显示在左上角连接状态区域）
             }
             catch (Exception ex)
             {
