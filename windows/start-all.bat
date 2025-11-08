@@ -1,5 +1,22 @@
 @echo off
 chcp 65001 >nul 2>&1
+
+REM ========================================
+REM 自动请求管理员权限
+REM ========================================
+>nul 2>&1 "%SYSTEMROOT%\system32\cacls.exe" "%SYSTEMROOT%\system32\config\system"
+if '%errorlevel%' NEQ '0' (
+    echo 正在请求管理员权限...
+    echo.
+    REM 使用PowerShell请求管理员权限并重新运行脚本
+    powershell -Command "Start-Process -FilePath '%~f0' -Verb RunAs"
+    exit /b
+)
+
+REM 确认已获得管理员权限
+echo [管理员权限] 已获得管理员权限
+echo.
+
 setlocal enabledelayedexpansion
 set "PROJECT_DIR=%~dp0SalesChampion.Windows"
 set "EXE_NAME=SalesChampion.Windows.exe"
