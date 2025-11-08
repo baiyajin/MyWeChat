@@ -29,7 +29,7 @@ namespace SalesChampion.Windows
         private TagSyncService? _tagSyncService;
         private ChatMessageSyncService? _chatMessageSyncService;
         private CommandService? _commandService;
-        private ObservableCollection<AccountInfo> _accountList;
+        private ObservableCollection<AccountInfo>? _accountList;
         
         // 保存事件订阅的委托引用，以便在关闭时取消订阅
         private Action<string>? _loggerEventHandler;
