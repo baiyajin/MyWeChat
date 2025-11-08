@@ -365,8 +365,41 @@ namespace SalesChampion.Windows
                 }
                 else if (!weChatRunning)
                 {
-                    // 微信进程未运行，输出日志让用户知道定时器正在工作
-                    Logger.LogInfo("[定时器] 微信进程未运行，继续检测...");
+                    // 微信进程未运行，自动启动微信
+                    Logger.LogInfo("[定时器] 微信进程未运行，正在自动启动微信...");
+                    AddLog("微信进程未运行，正在自动启动微信...", "INFO");
+                    
+                    if (_connectionManager != null && !_isWeChatConnected)
+                    {
+                        try
+                        {
+                            bool result = _connectionManager.Connect();
+                            if (result)
+                            {
+                                _isWeChatConnected = true;
+                                Logger.LogInfo("[定时器] 微信自动启动成功");
+                                AddLog("微信自动启动成功", "SUCCESS");
+                                
+                                // 启动账号信息获取定时器
+                                StartAccountInfoFetchTimer();
+                            }
+                            else
+                            {
+                                Logger.LogWarning("[定时器] 微信自动启动失败，将在下次检测时重试");
+                                AddLog("微信自动启动失败，将在下次检测时重试", "WARN");
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Logger.LogError($"[定时器] 微信自动启动异常: {ex.Message}", ex);
+                            AddLog($"微信自动启动异常: {ex.Message}", "ERROR");
+                        }
+                    }
+                    else if (_isWeChatConnected)
+                    {
+                        // 如果已连接但进程不存在，可能是进程刚退出，等待下次检测
+                        Logger.LogInfo("[定时器] 微信进程未运行，但连接状态仍为已连接，等待下次检测...");
+                    }
                 }
                 else if (_isWeChatConnected)
                 {
