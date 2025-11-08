@@ -215,7 +215,7 @@ class _ProfileTabState extends State<ProfileTab> with SingleTickerProviderStateM
     const double diagramHeight = 220.0; // 减小高度，让节点更靠近
     const double iconSize = 32.0;
     const double iconCenterY = iconSize / 2; // 图标中心Y坐标（相对于节点顶部）
-    const double horizontalPadding = 40.0; // 减小水平间距
+    const double horizontalPadding = 20.0; // 减小水平间距，让节点更靠近
     
     return LayoutBuilder(
       builder: (context, constraints) {
