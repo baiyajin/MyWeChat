@@ -212,16 +212,17 @@ class _ProfileTabState extends State<ProfileTab> with SingleTickerProviderStateM
     // 节点大小（统一）
     const double nodeSize = 100.0;
     const double nodeHeight = 120.0;
-    const double diagramHeight = 280.0;
+    const double diagramHeight = 220.0; // 减小高度，让节点更靠近
     const double iconSize = 32.0;
     const double iconCenterY = iconSize / 2; // 图标中心Y坐标（相对于节点顶部）
+    const double horizontalPadding = 40.0; // 减小水平间距
     
     return LayoutBuilder(
       builder: (context, constraints) {
         final screenWidth = constraints.maxWidth;
         final centerX = screenWidth / 2;
-        final leftX = nodeSize / 2 + 16; // Windows节点中心X
-        final rightX = screenWidth - nodeSize / 2 - 16; // App节点中心X
+        final leftX = nodeSize / 2 + horizontalPadding; // Windows节点中心X
+        final rightX = screenWidth - nodeSize / 2 - horizontalPadding; // App节点中心X
         
         // 计算图标中心位置
         // 服务器图标中心（顶部节点）
@@ -299,7 +300,7 @@ class _ProfileTabState extends State<ProfileTab> with SingleTickerProviderStateM
               // Windows端节点（左下）
               Positioned(
                 bottom: 0,
-                left: 16,
+                left: horizontalPadding,
                 child: _buildStatusNode(
                   icon: Icons.computer,
                   title: 'Windows端',
@@ -313,7 +314,7 @@ class _ProfileTabState extends State<ProfileTab> with SingleTickerProviderStateM
               // App端节点（右下）
               Positioned(
                 bottom: 0,
-                right: 16,
+                right: horizontalPadding,
                 child: _buildStatusNode(
                   icon: Icons.phone_android,
                   title: 'App端',
