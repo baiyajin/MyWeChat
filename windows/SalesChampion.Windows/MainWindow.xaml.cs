@@ -618,11 +618,12 @@ namespace SalesChampion.Windows
                 }
 
                 // 只检查是否已收到账号信息，不主动请求
-                // 账号信息应该通过微信发送的 11120/11121 回调消息获取
+                // 账号信息应该通过微信发送的 1112 回调消息获取
+                // 数据格式为: {"data":{"account":"...","avatar":"...","nickname":"...","wxid":"..."},"type":1112}
                 if (!hasAccountInfo)
                 {
-                    // 还没有账号信息，继续等待 11120/11121 回调消息
-                    Logger.LogInfo("[定时器] 尚未收到账号信息，继续等待11120/11121回调消息...");
+                    // 还没有账号信息，继续等待 1112 回调消息
+                    Logger.LogInfo("[定时器] 尚未收到账号信息，继续等待1112回调消息...");
                     // 不主动请求，只检查
                 }
                 else
@@ -809,9 +810,10 @@ namespace SalesChampion.Windows
                     AddLog("微信已连接，正在获取账号信息...", "INFO");
                     UpdateAccountList();
                     
-                    // 连接成功后，等待微信发送的 11120/11121 回调消息
+                    // 连接成功后，等待微信发送的 1112 回调消息
+                    // 数据格式为: {"data":{"account":"...","avatar":"...","nickname":"...","wxid":"..."},"type":1112}
                     // 不主动请求，只等待回调消息
-                    Logger.LogInfo("连接成功，等待微信发送11120/11121回调消息...");
+                    Logger.LogInfo("连接成功，等待微信发送1112回调消息...");
                 }
             }
             catch (Exception ex)
@@ -1039,10 +1041,10 @@ namespace SalesChampion.Windows
                     }
                 }
 
-                // 如果没有真正的wxid，不创建账号（等待11120/11121回调提供真正的wxid）
+                // 如果没有真正的wxid，不创建账号（等待1112回调提供真正的wxid）
                 if (!exists)
                 {
-                    Logger.LogInfo("账号列表中暂无真正的wxid，等待11120/11121回调提供账号信息");
+                    Logger.LogInfo("账号列表中暂无真正的wxid，等待1112回调提供账号信息");
                     // 不创建以进程ID作为WeChatId的账号
                 }
             }
@@ -1055,7 +1057,8 @@ namespace SalesChampion.Windows
 
         /// <summary>
         /// 检查账号信息
-        /// 不主动请求，只等待微信发送的 11120/11121 回调消息
+        /// 不主动请求，只等待微信发送的 1112 回调消息
+        /// 数据格式为: {"data":{"account":"...","avatar":"...","nickname":"...","wxid":"..."},"type":1112}
         /// 好友、标签、朋友圈等数据由 app 端触发
         /// </summary>
         private void CheckAccountInfo()
@@ -1069,9 +1072,9 @@ namespace SalesChampion.Windows
                 }
 
                 // 只检查是否已收到账号信息，不主动请求
-                // 账号信息应该通过微信发送的 11120/11121 回调消息获取
-                // 这些消息中包含 account、avatar、nickname 等字段
-                Logger.LogInfo("检查是否已收到账号信息（等待11120/11121回调消息）");
+                // 账号信息应该通过微信发送的 1112 回调消息获取
+                // 数据格式为: {"data":{"account":"...","avatar":"...","nickname":"...","wxid":"..."},"type":1112}
+                Logger.LogInfo("检查是否已收到账号信息（等待1112回调消息）");
                 
                 // 检查账号列表中是否已有完整的账号信息
                 bool hasAccountInfo = false;
@@ -1100,8 +1103,8 @@ namespace SalesChampion.Windows
                 }
                 else
                 {
-                    // 还没有账号信息，继续等待 11120/11121 回调消息
-                    Logger.LogInfo("尚未收到账号信息，继续等待11120/11121回调消息...");
+                    // 还没有账号信息，继续等待 1112 回调消息
+                    Logger.LogInfo("尚未收到账号信息，继续等待1112回调消息...");
                 }
             }
             catch (Exception ex)
@@ -1254,13 +1257,8 @@ namespace SalesChampion.Windows
                     }
 
                     // 4. 修复被截断的type字段
-                    // 情况1: "type":1112 应该是 "type":11120 或 "type":11121
-                    if (cleanMessage.Contains("\"type\":1112") && !cleanMessage.Contains("\"type\":11120") && !cleanMessage.Contains("\"type\":11121"))
-                    {
-                        Logger.LogWarning("检测到type字段被截断（1112），尝试修复为11120");
-                        cleanMessage = cleanMessage.Replace("\"type\":1112", "\"type\":11120");
-                    }
-                    // 情况2: "type":11120 后面有乱码，如 "type":111200
+                    // 注意：type:1112 是正确的类型，表示账号信息回调，不需要修复
+                    // 情况1: "type":111200 后面有乱码，如 "type":111200（11120后面有乱码）
                     if (cleanMessage.Contains("\"type\":111200"))
                     {
                         Logger.LogWarning("检测到type字段包含乱码（111200），尝试修复为11120");
@@ -1343,10 +1341,12 @@ namespace SalesChampion.Windows
                             }
                         }
                         
-                        // 策略2: 如果消息包含 "type":1112，尝试修复为 11120
-                        if (!isFixed && cleanMessage.Contains("\"type\":1112"))
+                        // 策略2: 如果消息包含 "type":1112，这是正确的类型，不需要修复
+                        // type:1112 表示账号信息回调，数据格式为 {"data":{...},"type":1112}
+                        // 如果消息包含 "type":111200，可能是11120后面有乱码，尝试修复
+                        if (!isFixed && cleanMessage.Contains("\"type\":111200"))
                         {
-                            string fixedJson = cleanMessage.Replace("\"type\":1112", "\"type\":11120");
+                            string fixedJson = cleanMessage.Replace("\"type\":111200", "\"type\":11120");
                             if (!fixedJson.EndsWith("}"))
                             {
                                 fixedJson = fixedJson + "}";
@@ -1356,7 +1356,7 @@ namespace SalesChampion.Windows
                                 messageObj = Newtonsoft.Json.JsonConvert.DeserializeObject<dynamic>(fixedJson) ?? null;
                                 if (messageObj != null)
                                 {
-                                    Logger.LogInfo("通过修复type字段成功解析");
+                                    Logger.LogInfo("通过修复type字段（111200->11120）成功解析");
                                     cleanMessage = fixedJson;
                                     isFixed = true;
                                 }
@@ -1440,25 +1440,18 @@ namespace SalesChampion.Windows
                     {
                         int.TryParse(messageObj.type.ToString(), out messageType);
                     }
-                    
-                    // 特殊处理：如果type是1112，可能是11120被截断了
-                    if (messageType == 1112)
-                    {
-                        Logger.LogWarning("检测到消息类型1112，可能是11120被截断，尝试修复");
-                        messageType = 11120;
-                    }
 
                     // 记录所有消息类型，用于调试
                     Logger.LogInfo($"收到消息类型: {messageType}, 消息内容: {message}");
 
-                    // 根据原项目和日志，消息类型 11120 和 11121 都表示登录回调
-                    // 11120 可能是初始化消息，11121 是登录成功消息
-                    // 从日志看，11120 消息包含账号信息（wxid, nickname, avatar等）
-                    // 注意：1112 可能是 11120 被截断的情况
-                    if (messageType == 11120 || messageType == 11121 || messageType == 1112)
+                    // 根据实际日志，消息类型 1112 表示账号信息回调
+                    // 数据格式为: {"data":{"account":"...","avatar":"...","nickname":"...","wxid":"..."},"type":1112}
+                    // 判断是否获取到账号数据的标准：data中有account（或wxid）和nickname
+                    if (messageType == 1112)
                     {
-                        // 解析登录信息
-                        // 注意：11120消息的data可能直接是对象，不需要再次解析
+                        // 解析账号信息
+                        // 数据格式为: {"data":{"account":"...","avatar":"...","nickname":"...","wxid":"..."},"type":1112}
+                        // data字段是对象，包含account、avatar、nickname、wxid等字段
                         dynamic? loginInfo = null;
                         
                         if (messageObj?.data != null)
@@ -1550,7 +1543,7 @@ namespace SalesChampion.Windows
                             // 如果wxid为空，不创建账号信息（等待真正的wxid）
                             if (string.IsNullOrEmpty(wxid))
                             {
-                                Logger.LogWarning("wxid为空，跳过账号信息更新，等待11120/11121回调提供真正的wxid");
+                                Logger.LogWarning("wxid为空，跳过账号信息更新，等待1112回调提供真正的wxid");
                                 return;
                             }
 
@@ -1958,7 +1951,7 @@ namespace SalesChampion.Windows
                                     {
                                         Logger.LogWarning("从好友列表回调中获取的wxid为空，跳过账号信息更新");
                                         return;
-                                    }
+                                }
                                 
                                 if (accountInfo == null)
                                 {
