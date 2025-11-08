@@ -3,6 +3,7 @@ using System.Collections.ObjectModel;
 using System.Configuration;
 using System.Diagnostics;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
@@ -413,27 +414,99 @@ namespace SalesChampion.Windows
             }
         }
 
+        // Windows API 用于显示窗口
+        [DllImport("user32.dll")]
+        private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+        
+        [DllImport("user32.dll")]
+        private static extern bool IsWindowVisible(IntPtr hWnd);
+        
+        [DllImport("user32.dll")]
+        private static extern bool SetForegroundWindow(IntPtr hWnd);
+        
+        private const int SW_RESTORE = 9; // 恢复窗口
+        private const int SW_SHOW = 5; // 显示窗口
+        
         /// <summary>
-        /// 检查微信进程是否运行
+        /// 检查微信进程是否运行，并检查窗口是否可见
         /// </summary>
         private bool IsWeChatProcessRunning()
         {
             try
             {
+                Process? weChatProcess = null;
+                
                 // 检查 WeChat 进程
                 Process[] weChatProcesses = Process.GetProcessesByName("WeChat");
                 if (weChatProcesses.Length > 0)
                 {
-                    return true;
+                    weChatProcess = weChatProcesses[0];
                 }
-
-                // 检查 Weixin 进程（新版本）
-                Process[] weixinProcesses = Process.GetProcessesByName("Weixin");
-                if (weixinProcesses.Length > 0)
+                else
                 {
+                    // 检查 Weixin 进程（新版本）
+                    Process[] weixinProcesses = Process.GetProcessesByName("Weixin");
+                    if (weixinProcesses.Length > 0)
+                    {
+                        weChatProcess = weixinProcesses[0];
+                    }
+                }
+                
+                if (weChatProcess != null)
+                {
+                    // 检查窗口是否可见
+                    try
+                    {
+                        weChatProcess.Refresh();
+                        IntPtr mainWindowHandle = weChatProcess.MainWindowHandle;
+                        
+                        if (mainWindowHandle != IntPtr.Zero)
+                        {
+                            bool isVisible = IsWindowVisible(mainWindowHandle);
+                            
+                            if (!isVisible)
+                            {
+                                Logger.LogWarning($"检测到微信进程（PID: {weChatProcess.Id}），但窗口不可见，尝试显示窗口...");
+                                AddLog($"微信窗口不可见，正在显示窗口...", "WARN");
+                                
+                                // 尝试显示窗口
+                                ShowWindow(mainWindowHandle, SW_RESTORE);
+                                ShowWindow(mainWindowHandle, SW_SHOW);
+                                SetForegroundWindow(mainWindowHandle);
+                                
+                                // 等待一下让窗口显示
+                                System.Threading.Thread.Sleep(500);
+                                
+                                // 再次检查
+                                isVisible = IsWindowVisible(mainWindowHandle);
+                                if (isVisible)
+                                {
+                                    Logger.LogInfo("微信窗口已显示");
+                                    AddLog("微信窗口已显示", "SUCCESS");
+                                }
+                                else
+                                {
+                                    Logger.LogWarning("无法显示微信窗口，可能窗口被最小化或隐藏");
+                                }
+                            }
+                            else
+                            {
+                                Logger.LogInfo($"检测到微信进程（PID: {weChatProcess.Id}），窗口可见");
+                            }
+                        }
+                        else
+                        {
+                            Logger.LogWarning($"检测到微信进程（PID: {weChatProcess.Id}），但无法获取主窗口句柄（可能窗口未创建）");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.LogWarning($"检查微信窗口可见性失败: {ex.Message}");
+                    }
+                    
                     return true;
                 }
-
+                
                 return false;
             }
             catch (Exception ex)
