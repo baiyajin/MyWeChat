@@ -194,6 +194,7 @@ namespace SalesChampion.Windows.Services.WebSocket
                         await _webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "服务器关闭连接", CancellationToken.None);
                         _isConnected = false;
                         OnConnectionStateChanged?.Invoke(this, false);
+                        Logger.LogInfo("WebSocket连接已关闭（服务器发送关闭消息）");
                         break;
                     }
                     else
@@ -206,15 +207,55 @@ namespace SalesChampion.Windows.Services.WebSocket
                 catch (OperationCanceledException)
                 {
                     // 正常取消
+                    Logger.LogInfo("WebSocket接收消息任务已取消");
                     break;
                 }
-                catch (Exception ex)
+                catch (WebSocketException wsEx)
                 {
-                    Logger.LogError($"接收WebSocket消息失败: {ex.Message}", ex);
+                    // WebSocket特定异常，检查连接状态
+                    if (_webSocket?.State == WebSocketState.Aborted || 
+                        _webSocket?.State == WebSocketState.Closed ||
+                        wsEx.Message.Contains("closed") || 
+                        wsEx.Message.Contains("close handshake"))
+                    {
+                        // 连接已关闭，这是正常情况
+                        Logger.LogInfo($"WebSocket连接已关闭: {wsEx.Message}");
+                    }
+                    else
+                    {
+                        // 其他WebSocket错误
+                        Logger.LogError($"WebSocket错误: {wsEx.Message}", wsEx);
+                    }
                     _isConnected = false;
                     OnConnectionStateChanged?.Invoke(this, false);
                     break;
                 }
+                catch (Exception ex)
+                {
+                    // 检查是否是连接关闭相关的异常
+                    if (ex.Message.Contains("closed") || 
+                        ex.Message.Contains("close handshake") ||
+                        ex.Message.Contains("The remote party closed"))
+                    {
+                        // 连接关闭，这是正常情况
+                        Logger.LogInfo($"WebSocket连接已关闭: {ex.Message}");
+                    }
+                    else
+                    {
+                        // 其他错误
+                        Logger.LogError($"接收WebSocket消息失败: {ex.Message}", ex);
+                    }
+                    _isConnected = false;
+                    OnConnectionStateChanged?.Invoke(this, false);
+                    break;
+                }
+            }
+            
+            // 确保连接状态已更新
+            if (_isConnected)
+            {
+                _isConnected = false;
+                OnConnectionStateChanged?.Invoke(this, false);
             }
         }
     }
