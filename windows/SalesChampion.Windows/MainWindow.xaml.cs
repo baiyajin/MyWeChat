@@ -1494,27 +1494,8 @@ namespace SalesChampion.Windows
                                 });
                             });
                             
-                            // 根据原项目，登录成功后自动触发同步
-                            // 延迟1.5秒后开始同步标签和好友列表
-                            Task.Delay(1500).ContinueWith(_ =>
-                            {
-                                Dispatcher.Invoke(() =>
-                                {
-                                    AddLog("登录成功，开始自动同步数据...", "INFO");
-                                    
-                                    // 先同步标签
-                                    _tagSyncService?.SyncTags();
-                                    
-                                    // 延迟3秒后同步好友列表
-                                    Task.Delay(3000).ContinueWith(__ =>
-                                    {
-                                        Dispatcher.Invoke(() =>
-                                        {
-                                            _contactSyncService?.SyncContacts();
-                                        });
-                                    });
-                                });
-                            });
+                            // 不自动同步其他数据（好友、标签、朋友圈等）
+                            // 这些数据由 app 端点击时，通过服务端请求获取
                         }
                     }
                     // 消息类型 11126 表示好友列表回调
