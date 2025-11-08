@@ -57,10 +57,56 @@ namespace SalesChampion.Windows.Services.WebSocket
 
                 Logger.LogInfo($"正在连接WebSocket服务器: {_serverUrl}");
 
+                // 验证服务器地址格式
+                if (string.IsNullOrEmpty(_serverUrl))
+                {
+                    string errorMsg = "WebSocket服务器地址未配置";
+                    Logger.LogError(errorMsg);
+                    Logger.LogError("请在 App.config 中配置 WebSocketUrl，格式: ws://localhost:8000/ws");
+                    _isConnected = false;
+                    OnConnectionStateChanged?.Invoke(this, false);
+                    return false;
+                }
+
+                if (!Uri.TryCreate(_serverUrl, UriKind.Absolute, out Uri? uri) || 
+                    (uri.Scheme != "ws" && uri.Scheme != "wss"))
+                {
+                    string errorMsg = $"WebSocket服务器地址格式错误: {_serverUrl}";
+                    Logger.LogError(errorMsg);
+                    Logger.LogError("正确的格式应该是: ws://localhost:8000/ws 或 wss://example.com/ws");
+                    _isConnected = false;
+                    OnConnectionStateChanged?.Invoke(this, false);
+                    return false;
+                }
+
                 _webSocket = new ClientWebSocket();
                 _cancellationTokenSource = new CancellationTokenSource();
 
-                await _webSocket.ConnectAsync(new Uri(_serverUrl), _cancellationTokenSource.Token);
+                // 设置连接超时（10秒）
+                using (var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(10)))
+                {
+                    using (var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(_cancellationTokenSource.Token, timeoutCts.Token))
+                    {
+                        try
+                        {
+                            await _webSocket.ConnectAsync(uri, linkedCts.Token);
+                        }
+                        catch (OperationCanceledException) when (timeoutCts.Token.IsCancellationRequested)
+                        {
+                            string errorMsg = $"WebSocket连接超时（10秒），无法连接到服务器: {_serverUrl}";
+                            Logger.LogError(errorMsg);
+                            Logger.LogError("可能的原因：");
+                            Logger.LogError("  1. WebSocket服务器未启动");
+                            Logger.LogError("  2. 服务器地址配置错误");
+                            Logger.LogError("  3. 防火墙阻止连接");
+                            Logger.LogError("  4. 网络连接问题");
+                            Logger.LogError($"请检查服务器是否运行在: {_serverUrl}");
+                            _isConnected = false;
+                            OnConnectionStateChanged?.Invoke(this, false);
+                            return false;
+                        }
+                    }
+                }
 
                 _isConnected = true;
                 OnConnectionStateChanged?.Invoke(this, true);
@@ -78,9 +124,47 @@ namespace SalesChampion.Windows.Services.WebSocket
 
                 return true;
             }
+            catch (System.Net.Sockets.SocketException socketEx)
+            {
+                string errorMsg = $"WebSocket连接失败（网络错误）: {socketEx.Message}";
+                Logger.LogError(errorMsg);
+                Logger.LogError($"服务器地址: {_serverUrl}");
+                Logger.LogError("可能的原因：");
+                Logger.LogError("  1. WebSocket服务器未启动");
+                Logger.LogError("  2. 服务器地址配置错误");
+                Logger.LogError("  3. 防火墙阻止连接");
+                Logger.LogError("  4. 网络连接问题");
+                Logger.LogError($"请检查服务器是否运行在: {_serverUrl}");
+                _isConnected = false;
+                OnConnectionStateChanged?.Invoke(this, false);
+                return false;
+            }
+            catch (System.Net.Http.HttpRequestException httpEx)
+            {
+                string errorMsg = $"WebSocket连接失败（HTTP错误）: {httpEx.Message}";
+                Logger.LogError(errorMsg);
+                Logger.LogError($"服务器地址: {_serverUrl}");
+                Logger.LogError("可能的原因：");
+                Logger.LogError("  1. WebSocket服务器未启动");
+                Logger.LogError("  2. 服务器地址配置错误");
+                Logger.LogError("  3. 服务器不支持WebSocket协议");
+                Logger.LogError($"请检查服务器是否运行在: {_serverUrl}");
+                _isConnected = false;
+                OnConnectionStateChanged?.Invoke(this, false);
+                return false;
+            }
             catch (Exception ex)
             {
-                Logger.LogError($"WebSocket连接失败: {ex.Message}", ex);
+                string errorMsg = $"WebSocket连接失败: {ex.Message}";
+                Logger.LogError(errorMsg);
+                Logger.LogError($"异常类型: {ex.GetType().Name}");
+                Logger.LogError($"服务器地址: {_serverUrl}");
+                Logger.LogError("可能的原因：");
+                Logger.LogError("  1. WebSocket服务器未启动");
+                Logger.LogError("  2. 服务器地址配置错误");
+                Logger.LogError("  3. 防火墙阻止连接");
+                Logger.LogError("  4. 网络连接问题");
+                Logger.LogError($"请检查服务器是否运行在: {_serverUrl}");
                 _isConnected = false;
                 OnConnectionStateChanged?.Invoke(this, false);
                 return false;
