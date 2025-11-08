@@ -46,6 +46,9 @@ namespace SalesChampion.Windows
         // 标记是否已连接微信
         private bool _isWeChatConnected = false;
         
+        // 标记是否正在关闭
+        private bool _isClosing = false;
+        
         // 日志颜色Brush缓存，避免频繁创建
         private static readonly Brush ErrorBrush = new SolidColorBrush(Color.FromRgb(220, 53, 69));
         private static readonly Brush WarnBrush = new SolidColorBrush(Color.FromRgb(255, 193, 7));
@@ -2354,150 +2357,218 @@ namespace SalesChampion.Windows
 
         protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
         {
-            try
+            // 如果已经在关闭中，直接允许关闭
+            if (_isClosing)
             {
-                Logger.LogInfo("========== 开始清理资源 ==========");
-                
-                // 0. 停止所有定时器
-                Logger.LogInfo("正在停止所有定时器...");
+                base.OnClosing(e);
+                return;
+            }
+            
+            // 阻止窗口立即关闭
+            e.Cancel = true;
+            _isClosing = true;
+            
+            // 显示关闭进度遮罩
+            Dispatcher.Invoke(() =>
+            {
+                ClosingOverlay.Visibility = Visibility.Visible;
+                ClosingProgressBar.Value = 0;
+                ClosingStatusText.Text = "准备关闭...";
+                ClosingProgressText.Text = "0%";
+            });
+            
+            // 异步执行资源清理
+            Task.Run(async () =>
+            {
                 try
                 {
-                    StopAllTimers();
-                    Logger.LogInfo("所有定时器已停止");
-                }
-                catch (Exception ex)
-                {
-                    Logger.LogWarning($"停止定时器时出错: {ex.Message}");
-                }
-                
-                // 1. 取消事件订阅（防止内存泄漏）
-                Logger.LogInfo("正在取消事件订阅...");
-                try
-                {
-                    // 取消Logger事件订阅
-                    if (_loggerEventHandler != null)
+                    Logger.LogInfo("========== 开始清理资源 ==========");
+                    
+                    // 0. 停止所有定时器
+                    UpdateClosingProgress(5, "正在停止所有定时器...");
+                    Logger.LogInfo("正在停止所有定时器...");
+                    try
                     {
-                        Logger.OnLogMessage -= _loggerEventHandler;
-                        _loggerEventHandler = null;
+                        Dispatcher.Invoke(() => StopAllTimers());
+                        Logger.LogInfo("所有定时器已停止");
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.LogWarning($"停止定时器时出错: {ex.Message}");
                     }
                     
-                    // 取消连接管理器事件订阅
-                    if (_connectionManager != null)
+                    // 1. 取消事件订阅（防止内存泄漏）
+                    UpdateClosingProgress(15, "正在取消事件订阅...");
+                    Logger.LogInfo("正在取消事件订阅...");
+                    try
                     {
-                        _connectionManager.OnConnectionStateChanged -= OnConnectionStateChanged;
-                        _connectionManager.OnMessageReceived -= OnWeChatMessageReceived;
+                        Dispatcher.Invoke(() =>
+                        {
+                            // 取消Logger事件订阅
+                            if (_loggerEventHandler != null)
+                            {
+                                Logger.OnLogMessage -= _loggerEventHandler;
+                                _loggerEventHandler = null;
+                            }
+                            
+                            // 取消连接管理器事件订阅
+                            if (_connectionManager != null)
+                            {
+                                _connectionManager.OnConnectionStateChanged -= OnConnectionStateChanged;
+                                _connectionManager.OnMessageReceived -= OnWeChatMessageReceived;
+                            }
+                            
+                            // 取消WebSocket服务事件订阅
+                            if (_webSocketService != null)
+                            {
+                                _webSocketService.OnMessageReceived -= OnWebSocketMessageReceived;
+                                _webSocketService.OnConnectionStateChanged -= OnWebSocketConnectionStateChanged;
+                            }
+                            
+                            // 取消联系人同步服务事件订阅
+                            if (_contactSyncService != null)
+                            {
+                                _contactSyncService.OnAccountInfoExtracted -= OnAccountInfoExtractedFromContacts;
+                            }
+                        });
+                        Logger.LogInfo("事件订阅已取消");
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.LogWarning($"取消事件订阅时出错: {ex.Message}");
                     }
                     
-                    // 取消WebSocket服务事件订阅
+                    // 2. 断开WebSocket连接
+                    UpdateClosingProgress(30, "正在断开WebSocket连接...");
                     if (_webSocketService != null)
                     {
-                        _webSocketService.OnMessageReceived -= OnWebSocketMessageReceived;
-                        _webSocketService.OnConnectionStateChanged -= OnWebSocketConnectionStateChanged;
+                        Logger.LogInfo("正在断开WebSocket连接...");
+                        try
+                        {
+                            await _webSocketService.DisconnectAsync().ConfigureAwait(false);
+                            Logger.LogInfo("WebSocket连接已断开");
+                        }
+                        catch (Exception ex)
+                        {
+                            Logger.LogWarning($"断开WebSocket连接时出错: {ex.Message}");
+                        }
                     }
                     
-                    // 取消联系人同步服务事件订阅
-                    if (_contactSyncService != null)
+                    // 3. 关闭Hook连接（撤回DLL注入）
+                    UpdateClosingProgress(50, "正在关闭Hook连接（撤回DLL注入）...");
+                    if (_connectionManager != null)
                     {
-                        _contactSyncService.OnAccountInfoExtracted -= OnAccountInfoExtractedFromContacts;
+                        Logger.LogInfo("正在关闭Hook连接（撤回DLL注入）...");
+                        try
+                        {
+                            Dispatcher.Invoke(() => _connectionManager.Disconnect());
+                            Logger.LogInfo("Hook连接已关闭");
+                            
+                            // 等待DLL注入完全清理（给系统时间释放文件句柄）
+                            UpdateClosingProgress(60, "等待DLL注入资源释放（2秒）...");
+                            Logger.LogInfo("等待DLL注入资源释放（2秒）...");
+                            await Task.Delay(2000).ConfigureAwait(false);
+                            Logger.LogInfo("DLL注入资源已释放");
+                        }
+                        catch (Exception ex)
+                        {
+                            Logger.LogError($"关闭Hook连接时出错: {ex.Message}", ex);
+                        }
                     }
                     
-                    Logger.LogInfo("事件订阅已取消");
-                }
-                catch (Exception ex)
-                {
-                    Logger.LogWarning($"取消事件订阅时出错: {ex.Message}");
-                }
-                
-                // 2. 断开WebSocket连接
-                if (_webSocketService != null)
-                {
-                    Logger.LogInfo("正在断开WebSocket连接...");
+                    // 4. 清理同步服务（释放服务资源）
+                    UpdateClosingProgress(75, "正在清理同步服务...");
+                    Logger.LogInfo("正在清理同步服务...");
                     try
                     {
-                        _webSocketService.DisconnectAsync().Wait(TimeSpan.FromSeconds(2));
-                        Logger.LogInfo("WebSocket连接已断开");
+                        Dispatcher.Invoke(() =>
+                        {
+                            // 清理服务对象（如果实现了IDisposable，会自动释放）
+                            _contactSyncService = null;
+                            _momentsSyncService = null;
+                            _tagSyncService = null;
+                            _chatMessageSyncService = null;
+                            _commandService = null;
+                        });
+                        Logger.LogInfo("同步服务已清理");
                     }
                     catch (Exception ex)
                     {
-                        Logger.LogWarning($"断开WebSocket连接时出错: {ex.Message}");
+                        Logger.LogWarning($"清理同步服务时出错: {ex.Message}");
                     }
-                }
-                
-                // 3. 关闭Hook连接（撤回DLL注入）
-                if (_connectionManager != null)
-                {
-                    Logger.LogInfo("正在关闭Hook连接（撤回DLL注入）...");
+                    
+                    // 5. 清空账号列表（释放集合资源）
+                    UpdateClosingProgress(85, "正在清空账号列表...");
+                    Logger.LogInfo("正在清空账号列表...");
                     try
                     {
-                        _connectionManager.Disconnect();
-                        Logger.LogInfo("Hook连接已关闭");
-                        
-                        // 等待DLL注入完全清理（给系统时间释放文件句柄）
-                        Logger.LogInfo("等待DLL注入资源释放（2秒）...");
-                        System.Threading.Thread.Sleep(2000);
-                        Logger.LogInfo("DLL注入资源已释放");
+                        Dispatcher.Invoke(() =>
+                        {
+                            if (_accountList != null)
+                            {
+                                _accountList.Clear();
+                            }
+                        });
+                        Logger.LogInfo("账号列表已清空");
                     }
                     catch (Exception ex)
                     {
-                        Logger.LogError($"关闭Hook连接时出错: {ex.Message}", ex);
+                        Logger.LogWarning($"清空账号列表时出错: {ex.Message}");
                     }
-                }
-                
-                // 4. 清理同步服务（释放服务资源）
-                Logger.LogInfo("正在清理同步服务...");
-                try
-                {
-                    // 清理服务对象（如果实现了IDisposable，会自动释放）
-                    _contactSyncService = null;
-                    _momentsSyncService = null;
-                    _tagSyncService = null;
-                    _chatMessageSyncService = null;
-                    _commandService = null;
-                    Logger.LogInfo("同步服务已清理");
-                }
-                catch (Exception ex)
-                {
-                    Logger.LogWarning($"清理同步服务时出错: {ex.Message}");
-                }
-                
-                // 5. 清空账号列表（释放集合资源）
-                Logger.LogInfo("正在清空账号列表...");
-                try
-                {
-                    if (_accountList != null)
+                    
+                    // 6. 等待后台任务完成（给正在运行的任务时间完成）
+                    UpdateClosingProgress(90, "等待后台任务完成（1秒）...");
+                    Logger.LogInfo("等待后台任务完成（1秒）...");
+                    try
                     {
-                        _accountList.Clear();
+                        await Task.Delay(1000).ConfigureAwait(false);
+                        Logger.LogInfo("后台任务等待完成");
                     }
-                    Logger.LogInfo("账号列表已清空");
+                    catch (Exception ex)
+                    {
+                        Logger.LogWarning($"等待后台任务时出错: {ex.Message}");
+                    }
+                    
+                    UpdateClosingProgress(100, "资源清理完成，正在关闭窗口...");
+                    Logger.LogInfo("========== 资源清理完成 ==========");
+                    
+                    // 等待一小段时间让用户看到完成状态
+                    await Task.Delay(300).ConfigureAwait(false);
+                    
+                    // 关闭窗口
+                    Dispatcher.Invoke(() =>
+                    {
+                        ClosingOverlay.Visibility = Visibility.Collapsed;
+                        Close();
+                    });
                 }
                 catch (Exception ex)
                 {
-                    Logger.LogWarning($"清空账号列表时出错: {ex.Message}");
+                    Logger.LogError($"关闭窗口时出错: {ex.Message}", ex);
+                    UpdateClosingProgress(100, $"关闭时出错: {ex.Message}");
+                    
+                    // 即使出错也关闭窗口
+                    await Task.Delay(1000).ConfigureAwait(false);
+                    Dispatcher.Invoke(() =>
+                    {
+                        ClosingOverlay.Visibility = Visibility.Collapsed;
+                        Close();
+                    });
                 }
-                
-                // 6. 等待后台任务完成（给正在运行的任务时间完成）
-                Logger.LogInfo("等待后台任务完成（1秒）...");
-                try
-                {
-                    System.Threading.Thread.Sleep(1000);
-                    Logger.LogInfo("后台任务等待完成");
-                }
-                catch (Exception ex)
-                {
-                    Logger.LogWarning($"等待后台任务时出错: {ex.Message}");
-                }
-                
-                Logger.LogInfo("========== 资源清理完成 ==========");
-            }
-            catch (Exception ex)
+            });
+        }
+        
+        /// <summary>
+        /// 更新关闭进度
+        /// </summary>
+        private void UpdateClosingProgress(int progress, string status)
+        {
+            Dispatcher.Invoke(() =>
             {
-                Logger.LogError($"关闭窗口时出错: {ex.Message}", ex);
-            }
-            finally
-            {
-                // 确保调用基类方法，允许窗口关闭
-                base.OnClosing(e);
-            }
+                ClosingProgressBar.Value = progress;
+                ClosingStatusText.Text = status;
+                ClosingProgressText.Text = $"{progress}%";
+            });
         }
 
         /// <summary>
