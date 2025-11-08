@@ -270,6 +270,66 @@ namespace SalesChampion.Windows.Core.Hook
                         Logger.LogInfo($"使用指定的微信路径: {weChatExePath}");
                     }
 
+                    // 检查微信是否正在运行
+                    Logger.LogInfo("正在检查微信是否正在运行...");
+                    Process? existingWeChatProcess = FindWeChatProcess();
+                    if (existingWeChatProcess == null)
+                    {
+                        // 微信未运行，需要启动微信
+                        Logger.LogInfo("微信未运行，正在启动微信...");
+                        try
+                        {
+                            ProcessStartInfo startInfo = new ProcessStartInfo
+                            {
+                                FileName = weChatExePath,
+                                UseShellExecute = true,
+                                WorkingDirectory = Path.GetDirectoryName(weChatExePath) ?? string.Empty
+                            };
+                            
+                            Process? startedProcess = Process.Start(startInfo);
+                            if (startedProcess == null)
+                            {
+                                string errorMsg = "启动微信失败，无法创建进程";
+                                Logger.LogError(errorMsg);
+                                throw new InvalidOperationException(errorMsg);
+                            }
+                            
+                            Logger.LogInfo($"微信启动命令已执行，等待微信启动...");
+                            
+                            // 等待微信启动（最多等待10秒）
+                            int waitCount = 0;
+                            int maxWaitCount = 100; // 10秒 = 100 * 100ms
+                            while (waitCount < maxWaitCount)
+                            {
+                                Thread.Sleep(100);
+                                existingWeChatProcess = FindWeChatProcess();
+                                if (existingWeChatProcess != null)
+                                {
+                                    Logger.LogInfo($"微信已启动，进程ID: {existingWeChatProcess.Id}");
+                                    break;
+                                }
+                                waitCount++;
+                            }
+                            
+                            if (existingWeChatProcess == null)
+                            {
+                                string errorMsg = "微信启动超时，未找到运行中的微信进程。可能原因：1. 微信启动失败 2. 进程名称不匹配 3. 等待时间不足";
+                                Logger.LogError(errorMsg);
+                                throw new InvalidOperationException(errorMsg);
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            string errorMsg = $"启动微信失败: {ex.Message}";
+                            Logger.LogError(errorMsg, ex);
+                            throw new InvalidOperationException(errorMsg, ex);
+                        }
+                    }
+                    else
+                    {
+                        Logger.LogInfo($"微信已在运行，进程ID: {existingWeChatProcess.Id}");
+                    }
+
                     // 打开微信互斥锁
                     Logger.LogInfo("正在打开微信互斥锁...");
                     int result = _dllWrapper.OpenWeChatMutex(weChatExePath ?? string.Empty);
@@ -290,9 +350,18 @@ namespace SalesChampion.Windows.Core.Hook
                         weChatProcess = FindWeChatProcess();
                         if (weChatProcess == null)
                         {
-                            string errorMsg = "未找到运行中的微信进程。可能原因：1. 微信启动失败 2. 进程名称不匹配 3. 等待时间不足";
-                            Logger.LogError(errorMsg);
-                            throw new InvalidOperationException(errorMsg);
+                            // 如果找不到，尝试使用之前找到的进程
+                            if (existingWeChatProcess != null)
+                            {
+                                Logger.LogWarning("通过互斥锁未找到进程，使用之前找到的进程");
+                                weChatProcess = existingWeChatProcess;
+                            }
+                            else
+                            {
+                                string errorMsg = "未找到运行中的微信进程。可能原因：1. 微信启动失败 2. 进程名称不匹配 3. 等待时间不足";
+                                Logger.LogError(errorMsg);
+                                throw new InvalidOperationException(errorMsg);
+                            }
                         }
                     }
                     else if (result > 0)
@@ -313,18 +382,43 @@ namespace SalesChampion.Windows.Core.Hook
                             weChatProcess = FindWeChatProcess();
                             if (weChatProcess == null)
                             {
-                                string errorMsg = $"未找到运行中的微信进程（进程ID: {result}）。可能原因：1. 进程已退出 2. 进程名称不匹配";
-                                Logger.LogError(errorMsg);
-                                throw new InvalidOperationException(errorMsg);
+                                // 如果找不到，尝试使用之前找到的进程
+                                if (existingWeChatProcess != null)
+                                {
+                                    Logger.LogWarning("通过进程ID和进程名都未找到进程，使用之前找到的进程");
+                                    weChatProcess = existingWeChatProcess;
+                                }
+                                else
+                                {
+                                    string errorMsg = $"未找到运行中的微信进程（进程ID: {result}）。可能原因：1. 进程已退出 2. 进程名称不匹配";
+                                    Logger.LogError(errorMsg);
+                                    throw new InvalidOperationException(errorMsg);
+                                }
                             }
                         }
                     }
                     else
                     {
                         // 返回值 < 0 表示真正的错误
-                        string errorMsg = $"打开微信失败，返回码: {result}。可能原因：1. 权限不足 2. DLL版本不匹配 3. 微信未安装";
-                        Logger.LogError(errorMsg);
-                        throw new InvalidOperationException(errorMsg);
+                        // 但如果我们已经找到了微信进程，可以继续处理
+                        if (existingWeChatProcess != null)
+                        {
+                            Logger.LogWarning($"打开微信互斥锁返回错误码: {result}，但已找到微信进程，继续处理");
+                            weChatProcess = existingWeChatProcess;
+                        }
+                        else
+                        {
+                            string errorMsg = $"打开微信失败，返回码: {result}。可能原因：1. 权限不足 2. DLL版本不匹配 3. 微信未安装";
+                            Logger.LogError(errorMsg);
+                            throw new InvalidOperationException(errorMsg);
+                        }
+                    }
+                    
+                    // 如果仍未找到进程，使用之前找到的进程
+                    if (weChatProcess == null && existingWeChatProcess != null)
+                    {
+                        Logger.LogWarning("使用之前找到的微信进程");
+                        weChatProcess = existingWeChatProcess;
                     }
 
                     Logger.LogInfo($"找到微信进程，PID: {weChatProcess.Id}, 进程名: {weChatProcess.ProcessName}");
@@ -950,9 +1044,24 @@ namespace SalesChampion.Windows.Core.Hook
         {
             try
             {
-                Process[] processes = Process.GetProcessesByName("WeChat");
+                // 根据微信版本确定进程名
+                // 新版本（4.0.1.21, 4.0.3.22, 4.1.0.34）使用 Weixin，旧版本使用 WeChat
+                bool isNewVersion = _weChatVersion == "4.0.1.21" || _weChatVersion == "4.0.3.22" || _weChatVersion == "4.1.0.34";
+                string processName = isNewVersion ? "Weixin" : "WeChat";
+                
+                // 先尝试根据版本查找
+                Process[] processes = Process.GetProcessesByName(processName);
                 if (processes.Length > 0)
                 {
+                    return processes[0];
+                }
+                
+                // 如果根据版本找不到，尝试查找另一个进程名（兼容性处理）
+                string alternativeProcessName = isNewVersion ? "WeChat" : "Weixin";
+                processes = Process.GetProcessesByName(alternativeProcessName);
+                if (processes.Length > 0)
+                {
+                    Logger.LogInfo($"根据版本未找到 {processName} 进程，但找到了 {alternativeProcessName} 进程，使用它");
                     return processes[0];
                 }
             }
