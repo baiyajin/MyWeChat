@@ -265,3 +265,5 @@ server/*.sqlite3
 copy_logos.py
 复制logo.bat
 .git-rewrite
+decrypt_password.py
+decrypted_passwords.txt
