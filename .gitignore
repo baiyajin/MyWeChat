@@ -227,6 +227,7 @@ windows/*.png
 # ============================================
 # 反编译代码（通常是临时文件）
 reverse-engineering/
+reverse-engineering copy/
 
 # 数据库文件（开发环境）
 server/*.db
