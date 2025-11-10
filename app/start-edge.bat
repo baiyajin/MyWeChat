@@ -28,16 +28,19 @@ REM 检查端口是否被占用
 netstat -ano | findstr :5000 >nul
 if %ERRORLEVEL% EQU 0 (
     echo 警告: 端口 5000 已被占用，尝试使用其他端口...
-    echo 启动Edge浏览器...
-    echo 提示: 如果浏览器没有自动打开，请手动访问 http://127.0.0.1:5001
-    echo.
-    flutter run -d edge --web-port=5001 --web-hostname=127.0.0.1 --device-timeout=10 2>&1 | findstr /V "adb"
+    set WEB_PORT=5001
+    set WEB_URL=http://127.0.0.1:5001
 ) else (
-    echo 启动Edge浏览器...
-    echo 提示: 如果浏览器没有自动打开，请手动访问 http://127.0.0.1:5000
-    echo.
-    flutter run -d edge --web-port=5000 --web-hostname=127.0.0.1 --device-timeout=10 2>&1 | findstr /V "adb"
+    set WEB_PORT=5000
+    set WEB_URL=http://127.0.0.1:5000
 )
+
+echo 启动Edge浏览器...
+echo 提示: 如果浏览器没有自动打开，请手动访问 %WEB_URL%
+echo.
+
+REM 启动 Flutter 应用，过滤 ADB 错误但保留其他输出
+flutter run -d edge --web-port=%WEB_PORT% --web-hostname=127.0.0.1 --device-timeout=10 2>&1 | findstr /V /C:"Unable to run \"adb\"" /C:"Error details: Process exited abnormally" /C:"daemon not running" /C:"could not read ok from ADB Server" /C:"failed to start daemon" /C:"adb.exe: failed to check server version"
 
 if %ERRORLEVEL% NEQ 0 (
     echo.

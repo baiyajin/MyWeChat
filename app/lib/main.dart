@@ -187,10 +187,19 @@ class _AuthWrapperState extends State<_AuthWrapper> {
   @override
   void initState() {
     super.initState();
-    // 使用 Future.microtask 确保在 build 之后执行
-    Future.microtask(() {
-      _checkLoginState();
-    });
+    // 在 Web 平台上，先显示界面，再异步检查登录状态
+    // 这样可以避免浏览器显示"响应时间太长"
+    if (kIsWeb) {
+      // Web 平台：先显示加载界面，然后快速检查登录状态
+      Future.microtask(() {
+        _checkLoginState();
+      });
+    } else {
+      // 非 Web 平台：正常流程
+      Future.microtask(() {
+        _checkLoginState();
+      });
+    }
   }
 
   /// 检查登录状态
@@ -201,9 +210,43 @@ class _AuthWrapperState extends State<_AuthWrapper> {
       
       // 在 Web 平台上，使用更短的超时时间，避免浏览器显示"响应时间太长"
       final isWeb = kIsWeb;
-      final wsTimeout = isWeb ? const Duration(seconds: 2) : const Duration(seconds: 5);
-      final wsTotalTimeout = isWeb ? const Duration(seconds: 3) : const Duration(seconds: 6);
+      final wsTimeout = isWeb ? const Duration(seconds: 1) : const Duration(seconds: 5);
+      final wsTotalTimeout = isWeb ? const Duration(seconds: 2) : const Duration(seconds: 6);
       
+      // 在 Web 平台上，先快速显示界面，再异步连接 WebSocket
+      if (isWeb) {
+        // 先显示登录界面，避免浏览器显示"响应时间太长"
+        setState(() {
+          _isLoading = false;
+          _isLoggedIn = false;
+        });
+        
+        // 异步连接 WebSocket（不阻塞界面显示）
+        Future.microtask(() async {
+          await _connectWebSocket(wsService, apiService, wsTimeout, wsTotalTimeout);
+        });
+        return;
+      }
+      
+      // 非 Web 平台：正常流程
+      await _connectWebSocket(wsService, apiService, wsTimeout, wsTotalTimeout);
+    } catch (e) {
+      // 静默处理错误
+      setState(() {
+        _isLoggedIn = false;
+        _isLoading = false;
+      });
+    }
+  }
+  
+  /// 连接 WebSocket 并检查登录状态
+  Future<void> _connectWebSocket(
+    WebSocketService wsService,
+    ApiService apiService,
+    Duration wsTimeout,
+    Duration wsTotalTimeout,
+  ) async {
+    try {
       // 先建立WebSocket连接（无论是否登录都需要），使用超时
       if (!wsService.isConnected) {
         // 将HTTP URL转换为WebSocket URL
@@ -212,19 +255,17 @@ class _AuthWrapperState extends State<_AuthWrapper> {
           wsUrl = wsUrl.endsWith('/') ? '${wsUrl}ws' : '$wsUrl/ws';
         }
         
-        // 使用超时连接，在 Web 平台上使用更短的超时时间
+        // 使用超时连接
         try {
           final connected = await wsService.connect(wsUrl, timeout: wsTimeout)
               .timeout(
                 wsTotalTimeout,
                 onTimeout: () {
-                  print('WebSocket连接超时（Web平台）');
                   return false;
                 },
               );
           // 即使连接失败，也继续检查登录状态，允许用户使用登录页面
         } catch (e) {
-          print('WebSocket连接失败: $e');
           // 连接失败，继续显示登录页面
         }
       }
@@ -232,7 +273,7 @@ class _AuthWrapperState extends State<_AuthWrapper> {
       // 检查登录状态（使用超时）
       String? wxid;
       try {
-        final loadTimeout = isWeb ? const Duration(seconds: 1) : const Duration(seconds: 2);
+        final loadTimeout = kIsWeb ? const Duration(seconds: 1) : const Duration(seconds: 2);
         wxid = await wsService.loadLoginState()
             .timeout(
               loadTimeout,
@@ -247,7 +288,7 @@ class _AuthWrapperState extends State<_AuthWrapper> {
       if (wxid != null && wxid.isNotEmpty) {
         // 已登录，尝试快速登录（使用超时）
         try {
-          final quickLoginTimeout = isWeb ? const Duration(seconds: 3) : const Duration(seconds: 5);
+          final quickLoginTimeout = kIsWeb ? const Duration(seconds: 2) : const Duration(seconds: 5);
           final success = await wsService.quickLogin(wxid)
               .timeout(
                 quickLoginTimeout,
@@ -256,28 +297,20 @@ class _AuthWrapperState extends State<_AuthWrapper> {
                 },
               );
           if (success && wsService.myInfo != null) {
-            setState(() {
-              _isLoggedIn = true;
-              _isLoading = false;
-            });
+            if (mounted) {
+              setState(() {
+                _isLoggedIn = true;
+                _isLoading = false;
+              });
+            }
             return;
           }
         } catch (e) {
           // 静默处理错误
         }
       }
-      
-      // 未登录或登录失败
-      setState(() {
-        _isLoggedIn = false;
-        _isLoading = false;
-      });
     } catch (e) {
       // 静默处理错误
-      setState(() {
-        _isLoggedIn = false;
-        _isLoading = false;
-      });
     }
   }
 
