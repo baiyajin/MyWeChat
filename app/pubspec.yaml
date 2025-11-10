@@ -12,7 +12,7 @@ dependencies:
   
   # HTTP和WebSocket
   http: ^1.2.2
-  web_socket_channel: ^2.4.0
+  web_socket_channel: ^3.0.3
   
   # JSON序列化
   json_annotation: ^4.9.0
@@ -28,14 +28,14 @@ dependencies:
   flutter_staggered_grid_view: ^0.7.0
 
   # 窗口管理（Windows 平台）
-  window_manager: ^0.3.8
+  window_manager: ^0.5.1
 
   cupertino_icons: ^1.0.8
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^5.0.0
+  flutter_lints: ^6.0.0
   build_runner: ^2.4.13
   json_serializable: ^6.8.0
 
