@@ -242,12 +242,15 @@ namespace MyWeChat.Windows.Services.WebSocket
 
         /// <summary>
         /// 发送消息（同步方法）
+        /// 注意：此方法可能导致死锁，建议使用异步方法 SendMessageAsync
         /// </summary>
         public bool SendMessage(string message)
         {
             try
             {
-                return SendMessageAsync(message).Result;
+                // 使用 ConfigureAwait(false) 避免死锁，但仍然可能阻塞调用线程
+                // 建议在后台线程调用此方法，或直接使用 SendMessageAsync
+                return SendMessageAsync(message).ConfigureAwait(false).GetAwaiter().GetResult();
             }
             catch (Exception ex)
             {

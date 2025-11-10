@@ -14,6 +14,7 @@ namespace MyWeChat.Windows.Core.Connection
         private string? _weChatVersion;
         private bool _isConnected;
         private bool _isInitialized = false;
+        private readonly object _initLock = new object(); // 初始化锁
 
         /// <summary>
         /// 连接状态
@@ -45,11 +46,16 @@ namespace MyWeChat.Windows.Core.Connection
         /// </summary>
         public bool Initialize()
         {
-            // 防止重复初始化
-            if (_isInitialized)
+            // 使用锁防止多线程重复初始化
+            lock (_initLock)
             {
-                Logger.LogWarning("连接管理器已初始化，跳过重复初始化");
-                return true;
+                // 防止重复初始化
+                if (_isInitialized)
+                {
+                    // 只在调试时输出警告，避免日志过多
+                    // Logger.LogWarning("连接管理器已初始化，跳过重复初始化");
+                    return true;
+                }
             }
             
             try
@@ -119,7 +125,12 @@ namespace MyWeChat.Windows.Core.Connection
                     return false;
                 }
 
-                _isInitialized = true;
+                // 初始化成功后才设置标志
+                lock (_initLock)
+                {
+                    _isInitialized = true;
+                }
+
                 Logger.LogInfo("========== 连接管理器初始化完成 ==========");
                 return true;
             }
@@ -132,6 +143,7 @@ namespace MyWeChat.Windows.Core.Connection
                 {
                     Logger.LogError($"内部异常: {ex.InnerException.Message}");
                 }
+                // 初始化失败时，不设置标志，允许重试
                 return false;
             }
         }

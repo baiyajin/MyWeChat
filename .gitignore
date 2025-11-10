@@ -270,3 +270,4 @@ copy_logos.py
 .git-rewrite
 decrypt_password.py
 decrypted_passwords.txt
+account_info.json

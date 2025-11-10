@@ -38,7 +38,8 @@ namespace MyWeChat.Windows.Core.Hook
                 string? version = GetVersionFromRegistry();
                 if (!string.IsNullOrEmpty(version))
                 {
-                    Utils.Logger.LogInfo($"从注册表获取微信版本: {version}");
+                    // 减少日志输出，只在成功时输出一次
+                    // Utils.Logger.LogInfo($"从注册表获取微信版本: {version}");
                     string? normalized = NormalizeVersion(version);
                     if (!string.IsNullOrEmpty(normalized))
                     {
@@ -50,13 +51,15 @@ namespace MyWeChat.Windows.Core.Hook
                 string? weChatPath = GetWeChatInstallPath();
                 if (!string.IsNullOrEmpty(weChatPath))
                 {
-                    Utils.Logger.LogInfo($"找到微信安装路径: {weChatPath}");
+                    // 减少日志输出
+                    // Utils.Logger.LogInfo($"找到微信安装路径: {weChatPath}");
                     
                     // 方法2.1: 从安装路径的子目录中检测版本（优先）
                     string? versionFromPath = GetVersionFromInstallPath(weChatPath);
                     if (!string.IsNullOrEmpty(versionFromPath))
                     {
-                        Utils.Logger.LogInfo($"从安装路径子目录获取微信版本: {versionFromPath}");
+                        // 减少日志输出
+                        // Utils.Logger.LogInfo($"从安装路径子目录获取微信版本: {versionFromPath}");
                         string? normalized = NormalizeVersion(versionFromPath);
                         if (!string.IsNullOrEmpty(normalized))
                         {
@@ -72,7 +75,8 @@ namespace MyWeChat.Windows.Core.Hook
                         {
                             FileVersionInfo versionInfo = FileVersionInfo.GetVersionInfo(exePath);
                             string? fileVersion = versionInfo.FileVersion;
-                            Utils.Logger.LogInfo($"从WeChat.exe获取文件版本: {fileVersion}");
+                            // 减少日志输出
+                            // Utils.Logger.LogInfo($"从WeChat.exe获取文件版本: {fileVersion}");
                             string? normalized = NormalizeVersion(fileVersion);
                             if (!string.IsNullOrEmpty(normalized))
                             {
@@ -81,13 +85,15 @@ namespace MyWeChat.Windows.Core.Hook
                         }
                         catch (Exception ex)
                         {
-                            Utils.Logger.LogWarning($"从WeChat.exe获取版本失败: {ex.Message}");
+                            // 只在调试时输出警告
+                            // Utils.Logger.LogWarning($"从WeChat.exe获取版本失败: {ex.Message}");
                         }
                     }
                 }
                 else
                 {
-                    Utils.Logger.LogWarning("未找到微信安装路径");
+                    // 只在调试时输出警告
+                    // Utils.Logger.LogWarning("未找到微信安装路径");
                 }
 
                 // 方法3: 从运行中的进程获取版本（可能失败，因为架构不匹配）
@@ -96,7 +102,8 @@ namespace MyWeChat.Windows.Core.Hook
                     version = GetVersionFromRunningProcess();
                     if (!string.IsNullOrEmpty(version))
                     {
-                        Utils.Logger.LogInfo($"从进程获取微信版本: {version}");
+                        // 减少日志输出
+                        // Utils.Logger.LogInfo($"从进程获取微信版本: {version}");
                         string? normalized = NormalizeVersion(version);
                         if (!string.IsNullOrEmpty(normalized))
                         {
@@ -106,8 +113,8 @@ namespace MyWeChat.Windows.Core.Hook
                 }
                 catch (Exception ex)
                 {
-                    // 忽略进程获取失败（可能是架构不匹配）
-                    Utils.Logger.LogWarning($"从进程获取版本失败（可能架构不匹配）: {ex.Message}");
+                    // 忽略进程获取失败（可能是架构不匹配），不输出日志
+                    // Utils.Logger.LogWarning($"从进程获取版本失败（可能架构不匹配）: {ex.Message}");
                 }
             }
             catch (Exception ex)
@@ -155,7 +162,8 @@ namespace MyWeChat.Windows.Core.Hook
                                     if (versionValue != null)
                                     {
                                         string? version = versionValue?.ToString();
-                                        Utils.Logger.LogInfo($"从注册表获取到版本: {version}");
+                                        // 减少日志输出，只在最终成功时输出
+                                        // Utils.Logger.LogInfo($"从注册表获取到版本: {version}");
                                         return version;
                                     }
                                     
@@ -169,7 +177,8 @@ namespace MyWeChat.Windows.Core.Hook
                                         string? versionFromPath = GetVersionFromInstallPath(installPath);
                                         if (!string.IsNullOrEmpty(versionFromPath))
                                         {
-                                            Utils.Logger.LogInfo($"从安装路径获取到版本: {versionFromPath}");
+                                            // 减少日志输出
+                                            // Utils.Logger.LogInfo($"从安装路径获取到版本: {versionFromPath}");
                                             return versionFromPath;
                                         }
                                     }
@@ -217,7 +226,8 @@ namespace MyWeChat.Windows.Core.Hook
                         string version = dirName.Substring(1, dirName.Length - 2);
                         if (IsValidVersion(version))
                         {
-                            Utils.Logger.LogInfo($"  找到版本目录（方括号格式）: {version}");
+                            // 减少日志输出
+                            // Utils.Logger.LogInfo($"  找到版本目录（方括号格式）: {version}");
                             return version;
                         }
                     }
@@ -225,7 +235,8 @@ namespace MyWeChat.Windows.Core.Hook
                     // 方法2: 检查直接版本号格式（如 4.1.0.34）
                     if (IsValidVersion(dirName))
                     {
-                        Utils.Logger.LogInfo($"  找到版本目录（直接格式）: {dirName}");
+                        // 减少日志输出
+                        // Utils.Logger.LogInfo($"  找到版本目录（直接格式）: {dirName}");
                         return dirName;
                     }
                 }
@@ -301,7 +312,8 @@ namespace MyWeChat.Windows.Core.Hook
                                     if (installPath != null)
                                     {
                                         string? path = installPath?.ToString();
-                                        Utils.Logger.LogInfo($"从注册表获取到安装路径: {path} (路径: {root.Name}\\{registryPath})");
+                                        // 减少日志输出
+                                        // Utils.Logger.LogInfo($"从注册表获取到安装路径: {path} (路径: {root.Name}\\{registryPath})");
                                         return path;
                                     }
                                 }

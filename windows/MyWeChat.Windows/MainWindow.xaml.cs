@@ -28,6 +28,9 @@ namespace MyWeChat.Windows
     {
         private WeChatConnectionManager? _connectionManager;
         private bool _isInitializing = false;
+        private bool _isInitialized = false; // 标记是否已完成初始化
+        private bool _accountInfoLoaded = false; // 标记账号信息是否已加载
+        private readonly object _initLock = new object(); // 初始化锁
         private WebSocketService? _webSocketService;
         private ContactSyncService? _contactSyncService;
         private MomentsSyncService? _momentsSyncService;
@@ -103,6 +106,13 @@ namespace MyWeChat.Windows
         {
             try
             {
+                // 防止 Loaded 事件被多次触发导致重复初始化
+                if (_isInitialized || _isInitializing)
+                {
+                    Logger.LogWarning("窗口已初始化或正在初始化，跳过重复初始化");
+                    return;
+                }
+                
                 // 窗口加载完成后再初始化服务
                 InitializeServices();
             }
@@ -119,20 +129,25 @@ namespace MyWeChat.Windows
         /// </summary>
         private void InitializeServices()
         {
-            // 防止重复初始化
-            if (_isInitializing)
+            // 使用锁防止多线程重复初始化
+            lock (_initLock)
             {
-                Logger.LogWarning("服务正在初始化中，跳过重复初始化");
-                return;
+                // 防止重复初始化
+                if (_isInitializing || _isInitialized)
+                {
+                    Logger.LogWarning("服务正在初始化中或已初始化，跳过重复初始化");
+                    return;
+                }
+                
+                if (_connectionManager != null)
+                {
+                    Logger.LogWarning("连接管理器已初始化，跳过重复初始化");
+                    _isInitialized = true;
+                    return;
+                }
+                
+                _isInitializing = true;
             }
-            
-            if (_connectionManager != null)
-            {
-                Logger.LogWarning("连接管理器已初始化，跳过重复初始化");
-                return;
-            }
-            
-            _isInitializing = true;
             
             try
             {
@@ -145,66 +160,113 @@ namespace MyWeChat.Windows
                         // 使用BeginInvoke异步调用，避免阻塞UI线程
                         Dispatcher.BeginInvoke(new Action(() =>
                         {
-                            // 从消息中提取日志级别
-                            string level = "INFO";
-                            if (message.StartsWith("[ERROR]"))
+                            // 设置标志，防止循环调用
+                            _isLoggingFromEvent = true;
+                            try
                             {
-                                level = "ERROR";
-                                message = message.Substring(8).TrimStart();
+                                // 从消息中提取日志级别
+                                string level = "INFO";
+                                if (message.StartsWith("[ERROR]"))
+                                {
+                                    level = "ERROR";
+                                    message = message.Substring(8).TrimStart();
+                                }
+                                else if (message.StartsWith("[WARN]"))
+                                {
+                                    level = "WARN";
+                                    message = message.Substring(7).TrimStart();
+                                }
+                                else if (message.StartsWith("[INFO]"))
+                                {
+                                    level = "INFO";
+                                    message = message.Substring(7).TrimStart();
+                                }
+                                // 注意：这里不应该调用AddLog，因为AddLog会再次调用Logger，形成循环
+                                // AddLog(message, level);
+                                // 如果需要UI显示，应该直接更新UI，而不是通过AddLog
                             }
-                            else if (message.StartsWith("[WARN]"))
+                            finally
                             {
-                                level = "WARN";
-                                message = message.Substring(7).TrimStart();
+                                _isLoggingFromEvent = false;
                             }
-                            else if (message.StartsWith("[INFO]"))
-                            {
-                                level = "INFO";
-                                message = message.Substring(7).TrimStart();
-                            }
-                            AddLog(message, level);
                         }), System.Windows.Threading.DispatcherPriority.Normal);
                     }
                     catch
                     {
                         // 忽略Dispatcher调用失败
+                        _isLoggingFromEvent = false;
                     }
                 };
                 Logger.OnLogMessage += _loggerEventHandler;
 
-                // 从本地加载账号信息
-                LoadAccountInfoFromLocal();
-
                 // 延迟初始化连接管理器，避免在UI线程中直接初始化导致崩溃
-                Task.Run(() =>
+                Task.Run(async () =>
                 {
                     try
                     {
-                        Dispatcher.Invoke(() =>
+                        // 在 Task.Run 内部再次检查，防止重复初始化
+                        lock (_initLock)
+                        {
+                            if (_connectionManager != null)
+                            {
+                                Logger.LogWarning("连接管理器已在后台线程中初始化，跳过重复初始化");
+                                return;
+                            }
+                        }
+
+                        // 使用 BeginInvoke 异步调用，避免阻塞后台线程
+                        Dispatcher.BeginInvoke(new Action(() =>
                         {
                             AddLog("正在初始化连接管理器...", "INFO");
-                        });
+                        }));
 
-                        // 初始化连接管理器
-                        _connectionManager = new WeChatConnectionManager();
-                        _connectionManager.OnConnectionStateChanged += OnConnectionStateChanged;
-                        _connectionManager.OnMessageReceived += OnWeChatMessageReceived;
+                        // 从本地加载账号信息（移到后台线程，避免阻塞UI）
+                        // 只加载一次，防止重复加载
+                        if (!_accountInfoLoaded)
+                        {
+                            LoadAccountInfoFromLocal();
+                            _accountInfoLoaded = true;
+                        }
+                        else
+                        {
+                            Logger.LogWarning("账号信息已加载，跳过重复加载");
+                        }
+
+                        // 初始化连接管理器（在锁内创建，确保只创建一次）
+                        WeChatConnectionManager? connectionManager = null;
+                        lock (_initLock)
+                        {
+                            if (_connectionManager == null)
+                            {
+                                connectionManager = new WeChatConnectionManager();
+                                _connectionManager = connectionManager;
+                            }
+                            else
+                            {
+                                Logger.LogWarning("连接管理器已在其他线程中创建，跳过重复创建");
+                                return;
+                            }
+                        }
+
+                        // 在锁外订阅事件和初始化，避免死锁
+                        connectionManager.OnConnectionStateChanged += OnConnectionStateChanged;
+                        connectionManager.OnMessageReceived += OnWeChatMessageReceived;
                         
-                        if (!_connectionManager.Initialize())
+                        if (!connectionManager.Initialize())
                         {
                             Logger.LogError("连接管理器初始化失败");
-                            Dispatcher.Invoke(() =>
+                            Dispatcher.BeginInvoke(new Action(() =>
                             {
                                 UpdateUI(); // 即使初始化失败，也更新UI显示
-                            });
+                            }));
                             return;
                         }
                         
                         // 初始化成功，立即更新UI显示版本号
-                        Dispatcher.Invoke(() =>
+                        Dispatcher.BeginInvoke(new Action(() =>
                         {
                             UpdateUI();
-                        });
+                        }));
 
                         // 初始化WebSocket服务
                         string webSocketUrl = ConfigurationManager.AppSettings["WebSocketUrl"] ?? "ws://localhost:8000/ws";
@@ -212,14 +274,24 @@ namespace MyWeChat.Windows
                         _webSocketService.OnMessageReceived += OnWebSocketMessageReceived;
                         _webSocketService.OnConnectionStateChanged += OnWebSocketConnectionStateChanged;
 
+                        // 再次检查连接管理器是否仍然有效
+                        lock (_initLock)
+                        {
+                            if (_connectionManager == null || _connectionManager != connectionManager)
+                            {
+                                Logger.LogWarning("连接管理器已被其他线程修改，跳过后续初始化");
+                                return;
+                            }
+                        }
+
                         // 初始化同步服务
-                        _contactSyncService = new ContactSyncService(_connectionManager, _webSocketService, GetCurrentWeChatId);
-                        _momentsSyncService = new MomentsSyncService(_connectionManager, _webSocketService, GetCurrentWeChatId);
-                        _tagSyncService = new TagSyncService(_connectionManager, _webSocketService, GetCurrentWeChatId);
-                        _chatMessageSyncService = new ChatMessageSyncService(_connectionManager, _webSocketService, GetCurrentWeChatId);
+                        _contactSyncService = new ContactSyncService(connectionManager, _webSocketService, GetCurrentWeChatId);
+                        _momentsSyncService = new MomentsSyncService(connectionManager, _webSocketService, GetCurrentWeChatId);
+                        _tagSyncService = new TagSyncService(connectionManager, _webSocketService, GetCurrentWeChatId);
+                        _chatMessageSyncService = new ChatMessageSyncService(connectionManager, _webSocketService, GetCurrentWeChatId);
 
                         // 初始化命令服务
-                        _commandService = new CommandService(_connectionManager);
+                        _commandService = new CommandService(connectionManager);
                         
                         // 设置同步服务到命令服务（用于处理同步命令）
                         _commandService.SetSyncServices(_contactSyncService, _momentsSyncService, _tagSyncService);
@@ -230,23 +302,27 @@ namespace MyWeChat.Windows
                         Logger.LogInfo("服务初始化完成");
                         
                         // 启动定时器检测微信进程
-                            Dispatcher.Invoke(() =>
-                            {
+                        Dispatcher.BeginInvoke(new Action(() =>
+                        {
                             StartWeChatProcessCheckTimer();
-                        });
+                        }));
                     }
                     catch (Exception ex)
                     {
                         Logger.LogError($"初始化服务失败: {ex.Message}", ex);
-                        Dispatcher.Invoke(() =>
+                        Dispatcher.BeginInvoke(new Action(() =>
                         {
                             MessageBox.Show($"初始化失败: {ex.Message}\n\n堆栈跟踪:\n{ex.StackTrace}", 
                                 "错误", MessageBoxButton.OK, MessageBoxImage.Error);
-                        });
+                        }));
                     }
                     finally
                     {
-                        _isInitializing = false;
+                        lock (_initLock)
+                        {
+                            _isInitializing = false;
+                            _isInitialized = true; // 标记为已初始化
+                        }
                     }
                 });
             }
@@ -255,7 +331,11 @@ namespace MyWeChat.Windows
                 Logger.LogError($"初始化服务失败: {ex.Message}", ex);
                 MessageBox.Show($"初始化失败: {ex.Message}\n\n堆栈跟踪:\n{ex.StackTrace}", 
                     "错误", MessageBoxButton.OK, MessageBoxImage.Error);
-                _isInitializing = false;
+                lock (_initLock)
+                {
+                    _isInitializing = false;
+                    // 初始化失败时不设置 _isInitialized，允许下次重试
+                }
             }
         }
         
@@ -2030,12 +2110,14 @@ namespace MyWeChat.Windows
                     }
                     else
                     {
-                        Logger.LogInfo("本地账号信息文件不存在，跳过加载");
+                        // 减少日志输出，避免重复日志
+                        // Logger.LogInfo("本地账号信息文件不存在，跳过加载");
                         return;
                     }
                 }
 
-                Logger.LogInfo($"从本地加载账号信息: {_accountInfoFilePath}");
+                // 减少日志输出，避免重复日志
+                // Logger.LogInfo($"从本地加载账号信息: {_accountInfoFilePath}");
 
                 // 读取JSON文件
                 string json = File.ReadAllText(_accountInfoFilePath, System.Text.Encoding.UTF8);
@@ -2412,11 +2494,21 @@ namespace MyWeChat.Windows
             }), System.Windows.Threading.DispatcherPriority.Normal);
         }
 
+        // 标志：防止日志循环调用
+        private bool _isLoggingFromEvent = false;
+
         /// <summary>
         /// 添加日志（统一使用Logger输出到Logs目录）
+        /// 注意：如果是从Logger事件中调用的，不应该再次调用Logger，避免循环
         /// </summary>
         private void AddLog(string message, string level = "INFO")
         {
+            // 如果是从Logger事件中调用的，直接返回，避免循环
+            if (_isLoggingFromEvent)
+            {
+                return;
+            }
+
             // 根据日志级别调用对应的Logger方法
             switch (level.ToUpper())
             {
