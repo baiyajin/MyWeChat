@@ -34,10 +34,12 @@ REM 检查端口是否被占用
 netstat -ano | findstr :5000 >nul
 if %ERRORLEVEL% EQU 0 (
     echo 警告: 端口 5000 已被占用，尝试使用其他端口...
-    flutter run -d edge --web-port=5001 --web-hostname=localhost
+    flutter run -d edge --web-port=5001 --web-hostname=localhost --verbose
 ) else (
     echo 启动Edge浏览器...
-    flutter run -d edge --web-port=5000 --web-hostname=localhost
+    echo 提示: 如果浏览器没有自动打开，请手动访问 http://localhost:5000
+    echo.
+    flutter run -d edge --web-port=5000 --web-hostname=localhost --verbose
 )
 
 if %ERRORLEVEL% NEQ 0 (
