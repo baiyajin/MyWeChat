@@ -41,7 +41,7 @@ echo.
 
 REM 启动 Flutter 应用
 REM 注意: 不使用 findstr 过滤，以保留彩色输出和确保服务器正常启动
-flutter run -d edge --web-port=%WEB_PORT% --web-hostname=127.0.0.1 --device-timeout=10 --web-renderer html
+flutter run -d edge --web-port=%WEB_PORT% --web-hostname=127.0.0.1 --device-timeout=10
 
 if %ERRORLEVEL% NEQ 0 (
     echo.
