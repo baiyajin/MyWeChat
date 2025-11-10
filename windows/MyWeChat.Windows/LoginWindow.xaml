@@ -21,8 +21,7 @@
                                FontSize="28" 
                                FontWeight="Light"
                                Foreground="#333333"
-                               HorizontalAlignment="Center"
-                               LetterSpacing="2"/>
+                               HorizontalAlignment="Center"/>
                 </StackPanel>
                 
                 <!-- 登录历史列表 - App端风格 -->

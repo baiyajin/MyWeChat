@@ -691,62 +691,6 @@ dotnet build -c Debug --no-incremental
 set "BUILD_ERROR=!errorlevel!"
 if !BUILD_ERROR! neq 0 (
     echo.
-    echo [X] 错误: 编译失败
-    echo.
-    echo 可能的原因:
-    echo   1. PDB文件被锁定（最常见）
-    echo   2. Visual Studio或其他调试器正在附加
-    echo   3. 程序进程可能还在运行
-    echo   4. 微信进程可能正在使用注入的DLL
-    echo.
-    echo 尝试自动修复...
-    echo.
-    
-    REM 再次尝试删除PDB文件
-    echo [修复] 再次尝试删除PDB文件...
-    if exist "bin\x86\Debug\net9.0-windows\MyWeChat.Windows.pdb" (
-        del /f /q "bin\x86\Debug\net9.0-windows\MyWeChat.Windows.pdb" >nul 2>&1
-    )
-    if exist "obj\x86\Debug\net9.0-windows\MyWeChat.Windows.pdb" (
-        del /f /q "obj\x86\Debug\net9.0-windows\MyWeChat.Windows.pdb" >nul 2>&1
-    )
-    
-    REM 等待3秒后重试
-    echo [修复] 等待3秒后重试编译...
-    timeout /t 3 /nobreak >nul 2>&1
-    
-    echo [修复] 重试编译...
-    dotnet build -c Debug --no-incremental
-    set "BUILD_ERROR=!errorlevel!"
-    
-    if !BUILD_ERROR! neq 0 (
-        echo.
-        echo ========================================
-        echo [X] 错误: 重试编译仍然失败
-        echo ========================================
-        echo.
-        echo 解决方法:
-        echo   1. 关闭Visual Studio或其他IDE
-        echo   2. 关闭所有MyWeChat.Windows.exe进程
-        echo   3. 关闭微信进程（如果正在使用注入的DLL）
-        echo   4. 重新运行编译
-        echo.
-        echo 编译失败，不会执行后续步骤：
-        echo   [X] 步骤3: 关闭程序（已跳过）
-        echo   [X] 步骤4: 运行程序（已跳过）
-        echo.
-        pause
-        exit /b 1
-    ) else (
-        echo [OK] 重试编译成功！
-    )
-) else (
-    echo [OK] 编译成功！
-)
-
-REM 检查编译是否真的成功
-if !BUILD_ERROR! neq 0 (
-    echo.
     echo ========================================
     echo [X] 错误: 编译失败，停止执行后续步骤
     echo ========================================
@@ -754,6 +698,8 @@ if !BUILD_ERROR! neq 0 (
     echo 编译失败，不会执行后续步骤：
     echo   [X] 步骤3: 关闭程序（已跳过）
     echo   [X] 步骤4: 运行程序（已跳过）
+    echo.
+    echo 请修复编译错误后重新运行脚本
     echo.
     pause
     exit /b 1
