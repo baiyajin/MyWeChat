@@ -28,7 +28,7 @@ namespace MyWeChat.Windows.Utils
         /// <summary>
         /// 日志输出事件（用于输出到UI）
         /// </summary>
-        public static event Action<string>? OnLogMessage;
+        public static event Action<string, string>? OnLogMessage; // 改为传递 level 和 message
 
         /// <summary>
         /// 初始化日志目录
@@ -151,10 +151,10 @@ namespace MyWeChat.Windows.Utils
                     // 写入文件
                     File.AppendAllText(filePath, logEntry);
 
-                    // 触发UI日志事件
+                    // 触发UI日志事件（传递 level 和 message，避免在事件处理中再次解析）
                     try
                     {
-                        OnLogMessage?.Invoke($"[{level}] {message}");
+                        OnLogMessage?.Invoke(level, message);
                     }
                     catch
                     {
@@ -230,4 +230,3 @@ namespace MyWeChat.Windows.Utils
         }
     }
 }
-

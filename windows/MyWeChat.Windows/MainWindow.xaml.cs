@@ -40,7 +40,7 @@ namespace MyWeChat.Windows
         private ObservableCollection<AccountInfo>? _accountList;
         
         // 保存事件订阅的委托引用，以便在关闭时取消订阅
-        private Action<string>? _loggerEventHandler;
+        private Action<string, string>? _loggerEventHandler; // 改为接收 level 和 message
         
         // 定时器：检测微信进程
         private DispatcherTimer? _weChatProcessCheckTimer;
@@ -151,51 +151,12 @@ namespace MyWeChat.Windows
             
             try
             {
-                // 订阅Logger日志事件，输出到UI（带颜色）
-                // 保存委托引用，以便在关闭时取消订阅
-                _loggerEventHandler = (message) =>
+                // 订阅Logger日志事件，用于UI显示（如果需要）
+                // 注意：当前UI日志显示已移除，这里保留事件订阅以便将来扩展
+                _loggerEventHandler = (level, message) =>
                 {
-                    try
-                    {
-                        // 使用BeginInvoke异步调用，避免阻塞UI线程
-                        Dispatcher.BeginInvoke(new Action(() =>
-                        {
-                            // 设置标志，防止循环调用
-                            _isLoggingFromEvent = true;
-                            try
-                            {
-                                // 从消息中提取日志级别
-                                string level = "INFO";
-                                if (message.StartsWith("[ERROR]"))
-                                {
-                                    level = "ERROR";
-                                    message = message.Substring(8).TrimStart();
-                                }
-                                else if (message.StartsWith("[WARN]"))
-                                {
-                                    level = "WARN";
-                                    message = message.Substring(7).TrimStart();
-                                }
-                                else if (message.StartsWith("[INFO]"))
-                                {
-                                    level = "INFO";
-                                    message = message.Substring(7).TrimStart();
-                                }
-                                // 注意：这里不应该调用AddLog，因为AddLog会再次调用Logger，形成循环
-                                // AddLog(message, level);
-                                // 如果需要UI显示，应该直接更新UI，而不是通过AddLog
-                            }
-                            finally
-                            {
-                                _isLoggingFromEvent = false;
-                            }
-                        }), System.Windows.Threading.DispatcherPriority.Normal);
-                    }
-                    catch
-                    {
-                        // 忽略Dispatcher调用失败
-                        _isLoggingFromEvent = false;
-                    }
+                    // 如果需要UI显示日志，可以在这里实现
+                    // 当前不实现，避免不必要的复杂度
                 };
                 Logger.OnLogMessage += _loggerEventHandler;
 
@@ -1825,7 +1786,11 @@ namespace MyWeChat.Windows
                             SaveAccountInfoToLocal(accountInfo);
                             
                             // 实时同步我的信息到服务器（发送所有字段）
-                            SyncMyInfoToServer(accountInfo);
+                            // 延迟一点时间，确保WebSocket连接稳定
+                            Task.Delay(500).ContinueWith(_ =>
+                            {
+                                SyncMyInfoToServer(accountInfo);
+                            });
                             
                             // 检查JSON消息中的账号信息字段是否完整（account、nickname等）
                             if (IsAccountInfoCompleteFromJson(loginInfo))
@@ -2494,22 +2459,13 @@ namespace MyWeChat.Windows
             }), System.Windows.Threading.DispatcherPriority.Normal);
         }
 
-        // 标志：防止日志循环调用
-        private bool _isLoggingFromEvent = false;
-
         /// <summary>
         /// 添加日志（统一使用Logger输出到Logs目录）
-        /// 注意：如果是从Logger事件中调用的，不应该再次调用Logger，避免循环
+        /// 简化设计：直接调用Logger，不再需要AddLog包装
         /// </summary>
         private void AddLog(string message, string level = "INFO")
         {
-            // 如果是从Logger事件中调用的，直接返回，避免循环
-            if (_isLoggingFromEvent)
-            {
-                return;
-            }
-
-            // 根据日志级别调用对应的Logger方法
+            // 直接调用Logger，简化设计
             switch (level.ToUpper())
             {
                 case "ERROR":

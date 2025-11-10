@@ -1,1 +1,1 @@
-修复finally块：确保_isInitializing标志在异常时也能正确重置
+修复账号信息同步问题：添加WebSocket连接检查和延迟重试机制，确保账号信息能正确同步到app端
