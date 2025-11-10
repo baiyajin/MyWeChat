@@ -7,7 +7,7 @@ from typing import List, Dict, Set
 import json
 import asyncio
 from sqlalchemy import select
-from app.models.database import AsyncSessionLocal, AccountInfo, Contact, Moment
+from app.models.database import AsyncSessionLocal, AccountInfo
 
 
 class WebSocketManager:
@@ -18,25 +18,36 @@ class WebSocketManager:
         self.windows_clients: Set[WebSocket] = set()
         # App端连接集合
         self.app_clients: Set[WebSocket] = set()
+        # 临时连接集合（等待client_type消息）
+        self.pending_clients: Set[WebSocket] = set()
+        # App端连接与微信账号ID的映射关系
+        self.app_client_wxid_map: Dict[WebSocket, str] = {}
+        # 登录码存储（phone -> {code, wxid, expire_time}）
+        self.login_codes: Dict[str, Dict] = {}
 
     async def connect(self, websocket: WebSocket):
         """接受WebSocket连接"""
         await websocket.accept()
         
-        # 根据连接类型区分Windows端和App端
-        # 可以通过消息中的client_type字段区分
-        # 暂时先添加到Windows端，后续根据消息类型区分
-        self.windows_clients.add(websocket)
-        print(f"WebSocket连接已建立，当前Windows端连接数: {len(self.windows_clients)}")
+        # 先添加到临时连接集合，等待client_type消息后再分类
+        self.pending_clients.add(websocket)
+        print(f"WebSocket连接已建立，等待客户端类型注册（临时连接数: {len(self.pending_clients)}）")
 
     def disconnect(self, websocket: WebSocket):
         """断开WebSocket连接"""
+        if websocket in self.pending_clients:
+            self.pending_clients.remove(websocket)
+            print(f"临时连接已断开，当前临时连接数: {len(self.pending_clients)}")
+        
         if websocket in self.windows_clients:
             self.windows_clients.remove(websocket)
             print(f"Windows端连接已断开，当前连接数: {len(self.windows_clients)}")
         
         if websocket in self.app_clients:
             self.app_clients.remove(websocket)
+            # 清理App端映射
+            if websocket in self.app_client_wxid_map:
+                del self.app_client_wxid_map[websocket]
             print(f"App端连接已断开，当前连接数: {len(self.app_clients)}")
 
     async def handle_message(self, websocket: WebSocket, message: Dict):
@@ -47,26 +58,24 @@ class WebSocketManager:
             print(f"收到WebSocket消息，类型: {message_type}, 来源: {websocket}")
             
             if message_type == "sync_contacts":
-                # Windows端同步联系人数据，保存到数据库并转发到App端
-                print(f"收到联系人数据同步，保存到数据库并转发到App端，数据数量: {len(message.get('data', []))}")
-                await self._save_contacts_to_db(message.get("data", []))
-                await self.broadcast_to_app_clients(message)
+                # Windows端同步联系人数据，只转发到App端（不保存到数据库）
+                print(f"收到联系人数据同步，转发到App端，数据数量: {len(message.get('data', []))}")
+                await self._forward_to_app_clients_by_wxid(message)
             
             elif message_type == "sync_moments":
-                # Windows端同步朋友圈数据，保存到数据库并转发到App端
-                print(f"收到朋友圈数据同步，保存到数据库并转发到App端，数据数量: {len(message.get('data', []))}")
-                await self._save_moments_to_db(message.get("data", []))
-                await self.broadcast_to_app_clients(message)
+                # Windows端同步朋友圈数据，只转发到App端（不保存到数据库）
+                print(f"收到朋友圈数据同步，转发到App端，数据数量: {len(message.get('data', []))}")
+                await self._forward_to_app_clients_by_wxid(message)
             
             elif message_type == "sync_tags":
-                # Windows端同步标签数据，实时转发到App端
-                print(f"转发标签同步到App端，数据数量: {len(message.get('data', []))}")
-                await self.broadcast_to_app_clients(message)
+                # Windows端同步标签数据，只转发到App端（不保存到数据库）
+                print(f"收到标签数据同步，转发到App端，数据数量: {len(message.get('data', []))}")
+                await self._forward_to_app_clients_by_wxid(message)
             
             elif message_type == "sync_chat_message":
-                # Windows端同步聊天消息，实时转发到App端
-                print("转发聊天消息同步到App端")
-                await self.broadcast_to_app_clients(message)
+                # Windows端同步聊天消息，只转发到App端（不保存到数据库）
+                print("收到聊天消息同步，转发到App端")
+                await self._forward_to_app_clients_by_wxid(message)
             
             elif message_type == "sync_my_info":
                 # Windows端同步我的信息，保存到数据库并转发到App端
@@ -88,16 +97,50 @@ class WebSocketManager:
                 # 客户端类型注册
                 client_type = message.get("client_type", "")
                 print(f"客户端类型注册: {client_type}")
+                
+                # 先从临时连接集合中移除（如果存在）
+                if websocket in self.pending_clients:
+                    self.pending_clients.remove(websocket)
+                
+                # 从其他集合中移除（如果存在）
+                if websocket in self.app_clients:
+                    self.app_clients.remove(websocket)
+                    # 清理App端映射
+                    if websocket in self.app_client_wxid_map:
+                        del self.app_client_wxid_map[websocket]
+                
+                if websocket in self.windows_clients:
+                    self.windows_clients.remove(websocket)
+                
+                # 根据client_type添加到对应的集合
                 if client_type == "windows":
-                    if websocket in self.app_clients:
-                        self.app_clients.remove(websocket)
                     self.windows_clients.add(websocket)
                     print(f"Windows端连接数: {len(self.windows_clients)}")
                 elif client_type == "app":
-                    if websocket in self.windows_clients:
-                        self.windows_clients.remove(websocket)
                     self.app_clients.add(websocket)
                     print(f"App端连接数: {len(self.app_clients)}")
+                else:
+                    print(f"未知的客户端类型: {client_type}，保持为临时连接")
+                    self.pending_clients.add(websocket)
+            
+            elif message_type == "login":
+                # App端登录请求（发送手机号，获取登录码）
+                await self._handle_login(websocket, message)
+            
+            elif message_type == "verify_login_code":
+                # App端验证登录码
+                await self._handle_verify_login_code(websocket, message)
+            
+            elif message_type == "quick_login":
+                # App端快速登录（使用wxid）
+                await self._handle_quick_login(websocket, message)
+            
+            elif message_type == "set_wxid":
+                # App端设置当前微信账号ID（登录成功后）
+                wxid = message.get("wxid", "")
+                if wxid:
+                    self.app_client_wxid_map[websocket] = wxid
+                    print(f"App端已设置微信账号ID: {wxid}")
             
         except Exception as e:
             print(f"处理WebSocket消息失败: {e}")
@@ -109,10 +152,49 @@ class WebSocketManager:
         """广播消息到所有App端"""
         await self.send_to_app_client(message)
     
+    async def _forward_to_app_clients_by_wxid(self, message: Dict):
+        """根据微信账号ID转发消息到对应的App端"""
+        # 从消息中提取we_chat_id（可能在不同位置）
+        data = message.get("data", [])
+        if not data:
+            # 如果没有数据，直接转发给所有App端
+            await self.broadcast_to_app_clients(message)
+            return
+        
+        # 提取we_chat_id（从第一条数据中获取）
+        we_chat_id = None
+        if isinstance(data, list) and len(data) > 0:
+            first_item = data[0]
+            if isinstance(first_item, dict):
+                we_chat_id = first_item.get("we_chat_id") or first_item.get("weChatId")
+        elif isinstance(data, dict):
+            we_chat_id = data.get("we_chat_id") or data.get("weChatId")
+        
+        if not we_chat_id:
+            # 如果无法提取we_chat_id，转发给所有App端
+            await self.broadcast_to_app_clients(message)
+            return
+        
+        # 只转发给登录了对应微信账号的App端
+        forwarded_count = 0
+        for app_client, client_wxid in self.app_client_wxid_map.items():
+            if client_wxid == we_chat_id:
+                try:
+                    message_json = json.dumps(message, ensure_ascii=False)
+                    await app_client.send_text(message_json)
+                    forwarded_count += 1
+                except Exception as e:
+                    print(f"转发消息到App端失败: {e}")
+        
+        if forwarded_count > 0:
+            print(f"已转发消息到 {forwarded_count} 个App端（微信账号ID: {we_chat_id}）")
+        else:
+            print(f"没有找到登录了微信账号 {we_chat_id} 的App端")
+    
     async def send_to_windows_client(self, message: Dict):
         """发送消息到Windows端（单播）"""
         if not self.windows_clients:
-            print("没有Windows端连接")
+            print(f"没有Windows端连接（Windows端连接数: {len(self.windows_clients)}, App端连接数: {len(self.app_clients)}, 临时连接数: {len(self.pending_clients)}）")
             return
         
         message_json = json.dumps(message, ensure_ascii=False)
@@ -121,6 +203,7 @@ class WebSocketManager:
         for client in self.windows_clients:
             try:
                 await client.send_text(message_json)
+                print(f"消息已成功发送到Windows端（命令类型: {message.get('command_type', 'unknown')}）")
                 break  # 只发送给第一个连接的Windows客户端
             except Exception as e:
                 print(f"发送消息到Windows端失败: {e}")
@@ -208,135 +291,233 @@ class WebSocketManager:
             import traceback
             traceback.print_exc()
 
-    async def _save_contacts_to_db(self, contacts_data: List[Dict]):
-        """保存联系人数据到数据库"""
+    async def _handle_login(self, websocket: WebSocket, message: Dict):
+        """处理App端登录请求（发送手机号，获取登录码）"""
         try:
-            if not contacts_data:
-                print("联系人数据为空，跳过保存")
+            phone = message.get("phone", "").strip()
+            if not phone:
+                await websocket.send_text(json.dumps({
+                    "type": "login_response",
+                    "success": False,
+                    "message": "手机号不能为空"
+                }, ensure_ascii=False))
                 return
-
+            
+            # 从数据库查找对应的微信账号
             async with AsyncSessionLocal() as session:
-                saved_count = 0
-                updated_count = 0
+                stmt = select(AccountInfo).where(AccountInfo.phone == phone)
+                result = await session.execute(stmt)
+                account_info = result.scalar_one_or_none()
                 
-                for contact_data in contacts_data:
-                    try:
-                        we_chat_id = contact_data.get("we_chat_id") or contact_data.get("weChatId") or ""
-                        friend_id = contact_data.get("friend_id") or contact_data.get("friendId") or ""
-                        
-                        if not we_chat_id or not friend_id:
-                            continue
-                        
-                        # 检查是否已存在
-                        stmt = select(Contact).where(
-                            Contact.we_chat_id == we_chat_id,
-                            Contact.friend_id == friend_id
-                        )
-                        result = await session.execute(stmt)
-                        existing = result.scalar_one_or_none()
-
-                        if existing:
-                            # 更新现有记录
-                            existing.nick_name = contact_data.get("nick_name") or contact_data.get("nickName") or existing.nick_name
-                            existing.remark = contact_data.get("remark") or existing.remark
-                            existing.avatar = contact_data.get("avatar") or existing.avatar
-                            existing.city = contact_data.get("city") or existing.city
-                            existing.province = contact_data.get("province") or existing.province
-                            existing.country = contact_data.get("country") or existing.country
-                            existing.sex = contact_data.get("sex", existing.sex)
-                            existing.label_ids = contact_data.get("label_ids") or contact_data.get("labelIds") or existing.label_ids
-                            existing.friend_no = contact_data.get("friend_no") or contact_data.get("friendNo") or existing.friend_no
-                            existing.is_new_friend = contact_data.get("is_new_friend") or contact_data.get("isNewFriend") or existing.is_new_friend
-                            updated_count += 1
-                        else:
-                            # 创建新记录
-                            contact = Contact(
-                                we_chat_id=we_chat_id,
-                                friend_id=friend_id,
-                                nick_name=contact_data.get("nick_name") or contact_data.get("nickName") or "",
-                                remark=contact_data.get("remark") or "",
-                                avatar=contact_data.get("avatar") or "",
-                                city=contact_data.get("city") or "",
-                                province=contact_data.get("province") or "",
-                                country=contact_data.get("country") or "",
-                                sex=contact_data.get("sex", 0),
-                                label_ids=contact_data.get("label_ids") or contact_data.get("labelIds") or "",
-                                friend_no=contact_data.get("friend_no") or contact_data.get("friendNo") or "",
-                                is_new_friend=contact_data.get("is_new_friend") or contact_data.get("isNewFriend") or "0"
-                            )
-                            session.add(contact)
-                            saved_count += 1
-                    except Exception as e:
-                        print(f"保存单个联系人数据失败: {e}")
-                        continue
-
-                await session.commit()
-                print(f"联系人数据已保存到数据库: 新增 {saved_count} 条，更新 {updated_count} 条")
+                if not account_info:
+                    await websocket.send_text(json.dumps({
+                        "type": "login_response",
+                        "success": False,
+                        "message": "未找到该手机号对应的微信账号"
+                    }, ensure_ascii=False))
+                    return
+                
+                # 生成4位数登录码
+                import random
+                login_code = str(random.randint(1000, 9999))
+                
+                # 存储登录码（5分钟过期）
+                import time
+                self.login_codes[phone] = {
+                    "code": login_code,
+                    "wxid": account_info.wxid,
+                    "expire_time": time.time() + 300  # 5分钟
+                }
+                
+                # 通知Windows端向该微信账号发送登录码
+                wxid = account_info.wxid
+                command_message = {
+                    "type": "command",
+                    "command_type": "send_text_message",
+                    "command_data": {
+                        "target_wxid": wxid,
+                        "content": f"您的登录验证码是：{login_code}，5分钟内有效。"
+                    },
+                    "target_we_chat_id": wxid
+                }
+                await self.send_to_windows_client(command_message)
+                
+                await websocket.send_text(json.dumps({
+                    "type": "login_response",
+                    "success": True,
+                    "message": "登录码已发送到您的微信，请查收"
+                }, ensure_ascii=False))
+                
+                print(f"已为手机号 {phone} 生成登录码，并通知Windows端发送")
         except Exception as e:
-            print(f"保存联系人数据到数据库失败: {e}")
+            print(f"处理登录请求失败: {e}")
             import traceback
             traceback.print_exc()
-
-    async def _save_moments_to_db(self, moments_data: List[Dict]):
-        """保存朋友圈数据到数据库"""
+            try:
+                await websocket.send_text(json.dumps({
+                    "type": "login_response",
+                    "success": False,
+                    "message": f"登录失败: {str(e)}"
+                }, ensure_ascii=False))
+            except:
+                pass
+    
+    async def _handle_verify_login_code(self, websocket: WebSocket, message: Dict):
+        """处理App端验证登录码"""
         try:
-            if not moments_data:
-                print("朋友圈数据为空，跳过保存")
+            phone = message.get("phone", "").strip()
+            code = message.get("code", "").strip()
+            
+            if not phone or not code:
+                await websocket.send_text(json.dumps({
+                    "type": "verify_login_code_response",
+                    "success": False,
+                    "message": "手机号和验证码不能为空"
+                }, ensure_ascii=False))
                 return
-
+            
+            # 检查登录码
+            if phone not in self.login_codes:
+                await websocket.send_text(json.dumps({
+                    "type": "verify_login_code_response",
+                    "success": False,
+                    "message": "验证码已过期或不存在"
+                }, ensure_ascii=False))
+                return
+            
+            login_info = self.login_codes[phone]
+            import time
+            if time.time() > login_info["expire_time"]:
+                del self.login_codes[phone]
+                await websocket.send_text(json.dumps({
+                    "type": "verify_login_code_response",
+                    "success": False,
+                    "message": "验证码已过期"
+                }, ensure_ascii=False))
+                return
+            
+            if login_info["code"] != code:
+                await websocket.send_text(json.dumps({
+                    "type": "verify_login_code_response",
+                    "success": False,
+                    "message": "验证码错误"
+                }, ensure_ascii=False))
+                return
+            
+            # 验证成功，设置App端的微信账号ID
+            wxid = login_info["wxid"]
+            self.app_client_wxid_map[websocket] = wxid
+            
+            # 获取账号信息
             async with AsyncSessionLocal() as session:
-                saved_count = 0
-                updated_count = 0
+                stmt = select(AccountInfo).where(AccountInfo.wxid == wxid)
+                result = await session.execute(stmt)
+                account_info = result.scalar_one_or_none()
                 
-                for moment_data in moments_data:
-                    try:
-                        we_chat_id = moment_data.get("we_chat_id") or moment_data.get("weChatId") or ""
-                        moment_id = moment_data.get("moment_id") or moment_data.get("momentId") or ""
-                        
-                        if not we_chat_id or not moment_id:
-                            continue
-                        
-                        # 检查是否已存在
-                        stmt = select(Moment).where(
-                            Moment.we_chat_id == we_chat_id,
-                            Moment.moment_id == moment_id
-                        )
-                        result = await session.execute(stmt)
-                        existing = result.scalar_one_or_none()
-
-                        if existing:
-                            # 更新现有记录
-                            existing.friend_id = moment_data.get("friend_id") or moment_data.get("friendId") or existing.friend_id
-                            existing.nick_name = moment_data.get("nick_name") or moment_data.get("nickName") or existing.nick_name
-                            existing.content = moment_data.get("content") or moment_data.get("moments") or existing.content
-                            existing.release_time = moment_data.get("release_time") or moment_data.get("releaseTime") or existing.release_time
-                            existing.moment_type = moment_data.get("moment_type") or moment_data.get("type") or existing.moment_type
-                            existing.json_text = moment_data.get("json_text") or moment_data.get("jsonText") or existing.json_text
-                            updated_count += 1
-                        else:
-                            # 创建新记录
-                            moment = Moment(
-                                we_chat_id=we_chat_id,
-                                moment_id=moment_id,
-                                friend_id=moment_data.get("friend_id") or moment_data.get("friendId") or "",
-                                nick_name=moment_data.get("nick_name") or moment_data.get("nickName") or "",
-                                content=moment_data.get("content") or moment_data.get("moments") or "",
-                                release_time=moment_data.get("release_time") or moment_data.get("releaseTime") or "",
-                                moment_type=moment_data.get("moment_type") or moment_data.get("type") or 0,
-                                json_text=moment_data.get("json_text") or moment_data.get("jsonText") or ""
-                            )
-                            session.add(moment)
-                            saved_count += 1
-                    except Exception as e:
-                        print(f"保存单个朋友圈数据失败: {e}")
-                        continue
-
-                await session.commit()
-                print(f"朋友圈数据已保存到数据库: 新增 {saved_count} 条，更新 {updated_count} 条")
+                if account_info:
+                    account_data = {
+                        "wxid": account_info.wxid,
+                        "nickname": account_info.nickname,
+                        "avatar": account_info.avatar,
+                        "account": account_info.account,
+                        "device_id": account_info.device_id,
+                        "phone": account_info.phone,
+                        "wx_user_dir": account_info.wx_user_dir,
+                        "unread_msg_count": account_info.unread_msg_count,
+                        "is_fake_device_id": account_info.is_fake_device_id,
+                        "pid": account_info.pid
+                    }
+                else:
+                    account_data = {}
+            
+            # 删除登录码
+            del self.login_codes[phone]
+            
+            await websocket.send_text(json.dumps({
+                "type": "verify_login_code_response",
+                "success": True,
+                "message": "登录成功",
+                "wxid": wxid,
+                "account_info": account_data
+            }, ensure_ascii=False))
+            
+            print(f"App端登录成功: 手机号={phone}, wxid={wxid}")
         except Exception as e:
-            print(f"保存朋友圈数据到数据库失败: {e}")
+            print(f"验证登录码失败: {e}")
             import traceback
             traceback.print_exc()
+            try:
+                await websocket.send_text(json.dumps({
+                    "type": "verify_login_code_response",
+                    "success": False,
+                    "message": f"验证失败: {str(e)}"
+                }, ensure_ascii=False))
+            except:
+                pass
+    
+    async def _handle_quick_login(self, websocket: WebSocket, message: Dict):
+        """处理App端快速登录（使用wxid）"""
+        try:
+            wxid = message.get("wxid", "").strip()
+            if not wxid:
+                await websocket.send_text(json.dumps({
+                    "type": "quick_login_response",
+                    "success": False,
+                    "message": "微信账号ID不能为空"
+                }, ensure_ascii=False))
+                return
+            
+            # 验证wxid是否存在
+            async with AsyncSessionLocal() as session:
+                stmt = select(AccountInfo).where(AccountInfo.wxid == wxid)
+                result = await session.execute(stmt)
+                account_info = result.scalar_one_or_none()
+                
+                if not account_info:
+                    await websocket.send_text(json.dumps({
+                        "type": "quick_login_response",
+                        "success": False,
+                        "message": "微信账号不存在"
+                    }, ensure_ascii=False))
+                    return
+                
+                # 设置App端的微信账号ID
+                self.app_client_wxid_map[websocket] = wxid
+                
+                account_data = {
+                    "wxid": account_info.wxid,
+                    "nickname": account_info.nickname,
+                    "avatar": account_info.avatar,
+                    "account": account_info.account,
+                    "device_id": account_info.device_id,
+                    "phone": account_info.phone,
+                    "wx_user_dir": account_info.wx_user_dir,
+                    "unread_msg_count": account_info.unread_msg_count,
+                    "is_fake_device_id": account_info.is_fake_device_id,
+                    "pid": account_info.pid
+                }
+            
+            await websocket.send_text(json.dumps({
+                "type": "quick_login_response",
+                "success": True,
+                "message": "快速登录成功",
+                "wxid": wxid,
+                "account_info": account_data
+            }, ensure_ascii=False))
+            
+            print(f"App端快速登录成功: wxid={wxid}")
+        except Exception as e:
+            print(f"快速登录失败: {e}")
+            import traceback
+            traceback.print_exc()
+            try:
+                await websocket.send_text(json.dumps({
+                    "type": "quick_login_response",
+                    "success": False,
+                    "message": f"快速登录失败: {str(e)}"
+                }, ensure_ascii=False))
+            except:
+                pass
 
 
 # 全局WebSocket管理器实例

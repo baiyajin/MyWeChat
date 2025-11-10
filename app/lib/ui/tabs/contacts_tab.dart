@@ -17,22 +17,24 @@ class _ContactsTabState extends State<ContactsTab> {
   @override
   void initState() {
     super.initState();
-    // 页面初始化时，从数据库加载联系人数据
+    // 页面初始化时，通过WebSocket请求同步联系人数据
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadContactsFromServer();
+      _requestSyncContacts();
     });
   }
 
-  /// 从服务器加载联系人数据
-  Future<void> _loadContactsFromServer() async {
+  /// 通过WebSocket请求同步联系人数据
+  void _requestSyncContacts() {
     try {
       final wsService = Provider.of<WebSocketService>(context, listen: false);
-      final apiService = Provider.of<ApiService>(context, listen: false);
       final weChatId = wsService.currentWeChatId;
-      final contacts = await apiService.getContacts(weChatId: weChatId);
-      wsService.updateContacts(contacts);
+      if (weChatId != null && weChatId.isNotEmpty) {
+        wsService.requestSyncContacts(weChatId);
+      } else {
+        print('无法请求同步联系人数据，微信账号ID为空');
+      }
     } catch (e) {
-      print('从服务器加载联系人数据失败: $e');
+      print('请求同步联系人数据失败: $e');
     }
   }
 
@@ -62,7 +64,7 @@ class _ContactsTabState extends State<ContactsTab> {
                   const SizedBox(height: 8),
                   TextButton(
                     onPressed: () {
-                      _loadContactsFromServer();
+                      _requestSyncContacts();
                     },
                     child: const Text('点击刷新'),
                   ),

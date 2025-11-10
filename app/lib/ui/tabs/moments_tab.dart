@@ -17,22 +17,24 @@ class _MomentsTabState extends State<MomentsTab> {
   @override
   void initState() {
     super.initState();
-    // 页面初始化时，从数据库加载朋友圈数据
+    // 页面初始化时，通过WebSocket请求同步朋友圈数据
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadMomentsFromServer();
+      _requestSyncMoments();
     });
   }
 
-  /// 从服务器加载朋友圈数据
-  Future<void> _loadMomentsFromServer() async {
+  /// 通过WebSocket请求同步朋友圈数据
+  void _requestSyncMoments() {
     try {
       final wsService = Provider.of<WebSocketService>(context, listen: false);
-      final apiService = Provider.of<ApiService>(context, listen: false);
       final weChatId = wsService.currentWeChatId;
-      final moments = await apiService.getMoments(weChatId: weChatId);
-      wsService.updateMoments(moments);
+      if (weChatId != null && weChatId.isNotEmpty) {
+        wsService.requestSyncMoments(weChatId);
+      } else {
+        print('无法请求同步朋友圈数据，微信账号ID为空');
+      }
     } catch (e) {
-      print('从服务器加载朋友圈数据失败: $e');
+      print('请求同步朋友圈数据失败: $e');
     }
   }
 
@@ -71,7 +73,7 @@ class _MomentsTabState extends State<MomentsTab> {
                   const SizedBox(height: 8),
                   TextButton(
                     onPressed: () {
-                      _loadMomentsFromServer();
+                      _requestSyncMoments();
                     },
                     child: const Text('点击刷新'),
                   ),
@@ -82,8 +84,8 @@ class _MomentsTabState extends State<MomentsTab> {
 
           return RefreshIndicator(
             onRefresh: () async {
-              // 刷新朋友圈（从数据库获取）
-              await _loadMomentsFromServer();
+              // 刷新朋友圈（通过WebSocket实时同步）
+              _requestSyncMoments();
             },
             child: ListView.builder(
               padding: const EdgeInsets.symmetric(vertical: 8),

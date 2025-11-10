@@ -173,24 +173,39 @@ class _ProfileTabState extends State<ProfileTab> with SingleTickerProviderStateM
               
               const SizedBox(height: 10),
               
-              // 系统状态区域 - 展示三端关系和状态
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      '系统状态',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    // 三端关系图（三角布局）
-                    _buildSystemStatusDiagram(),
-                  ],
+              // 切换账号和退出登录
+              if (hasUserData) ...[
+                Container(
+                  color: Colors.white,
+                  child: _buildMenuItem(
+                    icon: Icons.swap_horiz,
+                    title: '切换账号',
+                    onTap: () {
+                      _showSwitchAccountDialog(context, wsService, apiService);
+                    },
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Container(
+                  color: Colors.white,
+                  child: _buildMenuItem(
+                    icon: Icons.logout,
+                    title: '退出登录',
+                    onTap: () {
+                      _showLogoutDialog(context, wsService);
+                    },
+                  ),
+                ),
+              ],
+              
+              const SizedBox(height: 10),
+              
+              // 系统状态区域 - 展示三端关系和状态（装饰用，透明度20%）
+              Opacity(
+                opacity: 0.2,
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: _buildSystemStatusDiagram(),
                 ),
               ),
             ],
@@ -200,7 +215,7 @@ class _ProfileTabState extends State<ProfileTab> with SingleTickerProviderStateM
     );
   }
   
-  /// 构建系统状态关系图（三角布局）
+  /// 构建系统状态关系图（圆形布局）
   Widget _buildSystemStatusDiagram() {
     final serverRunning = _systemStatus?['server']?['status'] == 'running';
     final windowsConnected = _systemStatus?['windows']?['status'] == 'connected';
@@ -210,141 +225,139 @@ class _ProfileTabState extends State<ProfileTab> with SingleTickerProviderStateM
     final serverVersion = _systemStatus?['server']?['version'] ?? '未知';
     
     // 节点大小（统一）
-    const double nodeSize = 100.0;
-    const double nodeHeight = 120.0;
-    const double diagramHeight = 220.0; // 减小高度，让节点更靠近
-    const double iconSize = 32.0;
-    const double iconCenterY = iconSize / 2; // 图标中心Y坐标（相对于节点顶部）
-    const double horizontalPadding = 20.0; // 减小水平间距，让节点更靠近
+    const double iconSize = 32.0; // 图标大小
     const double iconRadius = iconSize / 2; // 图标半径
-    const double connectionOffset = iconRadius + 4.0; // 连接线偏移量，在图标边缘外4像素
+    const double nodeSize = iconSize + 20.0; // 节点大小（图标+边距）
+    const double nodeRadius = nodeSize / 2; // 节点半径
+    const double diagramSize = 250.0; // 圆形直径
+    // 节点在圆形路径上的半径（图标中心到圆心的距离）- 连接线经过图标中心
+    const double nodeCircleRadius = diagramSize / 2 - nodeRadius - 10;
+    // 连接线半径：使用节点圆形路径半径，使连接线经过图标中心
+    const double connectionLineRadius = nodeCircleRadius;
     
     return LayoutBuilder(
       builder: (context, constraints) {
         final screenWidth = constraints.maxWidth;
         final centerX = screenWidth / 2;
-        final leftX = nodeSize / 2 + horizontalPadding; // Windows节点中心X
-        final rightX = screenWidth - nodeSize / 2 - horizontalPadding; // App节点中心X
+        final centerY = diagramSize / 2;
         
-        // 计算图标中心位置
-        // 服务器图标中心（顶部节点）
-        final serverIconX = centerX;
-        final serverIconY = iconCenterY;
+        // 计算三个节点在圆形路径上的位置（120度间隔）
+        // 服务器在顶部（270度，统一使用0-2π范围）
+        final serverAngle = 3 * math.pi / 2; // 270度
+        final serverX = centerX + nodeCircleRadius * math.cos(serverAngle);
+        final serverY = centerY + nodeCircleRadius * math.sin(serverAngle);
         
-        // Windows图标中心（左下节点）
-        final windowsIconX = leftX;
-        final windowsIconY = diagramHeight - nodeHeight + iconCenterY;
+        // Windows端在左下（150度）
+        final windowsAngle = 5 * math.pi / 6; // 150度
+        final windowsX = centerX + nodeCircleRadius * math.cos(windowsAngle);
+        final windowsY = centerY + nodeCircleRadius * math.sin(windowsAngle);
         
-        // App图标中心（右下节点）
-        final appIconX = rightX;
-        final appIconY = diagramHeight - nodeHeight + iconCenterY;
+        // App端在右下（30度）
+        final appAngle = math.pi / 6; // 30度
+        final appX = centerX + nodeCircleRadius * math.cos(appAngle);
+        final appY = centerY + nodeCircleRadius * math.sin(appAngle);
         
-        // 计算连接点位置（在图标边缘，而不是中心）
-        // 服务器到Windows的连接点
-        final serverToWindowsDx = windowsIconX - serverIconX;
-        final serverToWindowsDy = windowsIconY - serverIconY;
-        final serverToWindowsDistance = math.sqrt(serverToWindowsDx * serverToWindowsDx + serverToWindowsDy * serverToWindowsDy);
-        final serverToWindowsRatio = connectionOffset / serverToWindowsDistance;
-        final serverToWindowsStartX = serverIconX + serverToWindowsDx * serverToWindowsRatio;
-        final serverToWindowsStartY = serverIconY + serverToWindowsDy * serverToWindowsRatio;
-        final serverToWindowsEndX = windowsIconX - serverToWindowsDx * serverToWindowsRatio;
-        final serverToWindowsEndY = windowsIconY - serverToWindowsDy * serverToWindowsRatio;
+        // 计算图标的角度范围（图标半径对应的角度）
+        // 使用反正切计算图标边缘的角度偏移
+        final iconAngleOffset = math.atan(iconRadius / connectionLineRadius);
         
-        // 服务器到App的连接点
-        final serverToAppDx = appIconX - serverIconX;
-        final serverToAppDy = appIconY - serverIconY;
-        final serverToAppDistance = math.sqrt(serverToAppDx * serverToAppDx + serverToAppDy * serverToAppDy);
-        final serverToAppRatio = connectionOffset / serverToAppDistance;
-        final serverToAppStartX = serverIconX + serverToAppDx * serverToAppRatio;
-        final serverToAppStartY = serverIconY + serverToAppDy * serverToAppRatio;
-        final serverToAppEndX = appIconX - serverToAppDx * serverToAppRatio;
-        final serverToAppEndY = appIconY - serverToAppDy * serverToAppRatio;
+        // Windows端 -> 服务器：从Windows图标边缘开始，到服务器图标边缘结束
+        // 顺时针方向：从150度顺时针到270度
+        final windowsToServerStartAngle = windowsAngle + iconAngleOffset; // 从Windows图标边缘开始
+        final windowsToServerEndAngle = serverAngle - iconAngleOffset; // 到服务器图标边缘结束
+        
+        // 服务器 -> App端：从服务器图标边缘开始，到App图标边缘结束
+        // 顺时针方向：从270度顺时针到30度（需要经过360度/0度）
+        // 使用390度（30度+360度）来确保顺时针方向绘制
+        final serverToAppStartAngle = serverAngle + iconAngleOffset; // 从服务器图标边缘开始
+        final serverToAppEndAngle = appAngle + 2 * math.pi - iconAngleOffset; // 到App图标边缘结束（使用390度确保顺时针，绘制器会按指定方向绘制）
         
         return SizedBox(
           width: double.infinity,
-          height: diagramHeight,
+          height: diagramSize,
           child: Stack(
             children: [
-              // 连接线：服务器 -> Windows端
+              // 连接线：Windows端 -> 服务器（圆形弧线，在服务器图标边缘断开）
               Positioned.fill(
                 child: AnimatedBuilder(
                   animation: _animation,
                   builder: (context, child) {
                     return CustomPaint(
-                      painter: _ConnectionLinePainter(
-                        startX: serverToWindowsStartX,
-                        startY: serverToWindowsStartY,
-                        endX: serverToWindowsEndX,
-                        endY: serverToWindowsEndY,
+                      painter: _CircularConnectionLinePainter(
+                        centerX: centerX,
+                        centerY: centerY,
+                        radius: connectionLineRadius,
+                        startAngle: windowsToServerStartAngle,
+                        endAngle: windowsToServerEndAngle,
                         isConnected: windowsConnected,
                         animationValue: _animation.value,
+                        useShortestPath: true, // Windows到服务器使用最短路径
                       ),
                     );
                   },
                 ),
               ),
               
-              // 连接线：服务器 -> App端
+              // 连接线：服务器 -> App端（圆形弧线，从服务器图标边缘开始）
               Positioned.fill(
                 child: AnimatedBuilder(
                   animation: _animation,
                   builder: (context, child) {
                     return CustomPaint(
-                      painter: _ConnectionLinePainter(
-                        startX: serverToAppStartX,
-                        startY: serverToAppStartY,
-                        endX: serverToAppEndX,
-                        endY: serverToAppEndY,
+                      painter: _CircularConnectionLinePainter(
+                        centerX: centerX,
+                        centerY: centerY,
+                        radius: connectionLineRadius,
+                        startAngle: serverToAppStartAngle,
+                        endAngle: serverToAppEndAngle,
                         isConnected: appConnected,
                         animationValue: _animation.value,
+                        useShortestPath: false, // 服务器到App按指定方向绘制（顺时针）
                       ),
                     );
                   },
                 ),
               ),
               
-              // 服务器节点（上方）
+              // 服务器节点
               Positioned(
-                top: 0,
-                left: 0,
-                right: 0,
-                child: Center(
-                  child: _buildStatusNode(
-                    icon: Icons.dns,
-                    title: '服务器',
-                    status: serverRunning,
-                    detail: serverVersion,
-                    width: nodeSize,
-                    height: nodeHeight,
-                  ),
+                left: serverX - nodeRadius,
+                top: serverY - nodeRadius,
+                child: _buildStatusNode(
+                  icon: Icons.dns,
+                  title: '服务器',
+                  status: serverRunning,
+                  detail: serverVersion,
+                  width: nodeSize,
+                  height: nodeSize,
                 ),
               ),
               
-              // Windows端节点（左下）
+              // Windows端节点
               Positioned(
-                bottom: 0,
-                left: horizontalPadding,
+                left: windowsX - nodeRadius,
+                top: windowsY - nodeRadius,
                 child: _buildStatusNode(
                   icon: Icons.computer,
                   title: 'Windows端',
                   status: windowsConnected,
                   detail: windowsConnected ? '$windowsCount 个连接' : '未连接',
                   width: nodeSize,
-                  height: nodeHeight,
+                  height: nodeSize,
                 ),
               ),
               
-              // App端节点（右下）
+              // App端节点
               Positioned(
-                bottom: 0,
-                right: horizontalPadding,
+                left: appX - nodeRadius,
+                top: appY - nodeRadius,
                 child: _buildStatusNode(
                   icon: Icons.phone_android,
                   title: 'App端',
                   status: appConnected,
                   detail: appConnected ? '$appCount 个连接' : '未连接',
                   width: nodeSize,
-                  height: nodeHeight,
+                  height: nodeSize,
                 ),
               ),
             ],
@@ -354,7 +367,7 @@ class _ProfileTabState extends State<ProfileTab> with SingleTickerProviderStateM
     );
   }
   
-  /// 构建状态节点
+  /// 构建状态节点（仅图标，无文字，装饰用）
   Widget _buildStatusNode({
     required IconData icon,
     required String title,
@@ -363,74 +376,33 @@ class _ProfileTabState extends State<ProfileTab> with SingleTickerProviderStateM
     required double width,
     required double height,
   }) {
-    // 使用圆形背景，透明度20%
-    // 使用较小的值作为直径，确保是圆形
-    final double diameter = math.min(width, height);
-    
-    return ClipOval(
-      child: Container(
-        width: diameter,
-        height: diameter,
-        decoration: BoxDecoration(
-          color: (status ? Colors.green[700] : Colors.grey[600])?.withOpacity(0.2),
-          shape: BoxShape.circle,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
+    // 仅显示图标，无文字
+    return SizedBox(
+      width: width,
+      height: height,
+      child: Center(
+        child: Stack(
+          alignment: Alignment.center,
           children: [
-            // 图标和状态指示
-            Stack(
-              alignment: Alignment.center,
-              children: [
-                Icon(
-                  icon,
-                  size: 32,
-                  color: status ? Colors.green[700] : Colors.grey[600],
-                ),
-                Positioned(
-                  right: 0,
-                  top: 0,
-                  child: Container(
-                    width: 12,
-                    height: 12,
-                    decoration: BoxDecoration(
-                      color: status ? Colors.green : Colors.red,
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: Colors.white,
-                        width: 2,
-                      ),
-                    ),
+            Icon(
+              icon,
+              size: 32,
+              color: status ? Colors.green[700] : Colors.grey[600],
+            ),
+            Positioned(
+              right: 0,
+              top: 0,
+              child: Container(
+                width: 12,
+                height: 12,
+                decoration: BoxDecoration(
+                  color: status ? Colors.green : Colors.red,
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: Colors.white,
+                    width: 2,
                   ),
                 ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            // 标题
-            Text(
-              title,
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                color: status ? Colors.green[700] : Colors.grey[700],
-              ),
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 4),
-            // 详情
-            Flexible(
-              child: Text(
-                detail,
-                style: TextStyle(
-                  fontSize: 11,
-                  color: Colors.grey[600],
-                ),
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
               ),
             ),
           ],
@@ -546,24 +518,157 @@ class _ProfileTabState extends State<ProfileTab> with SingleTickerProviderStateM
       color: Colors.grey[200],
     );
   }
+  
+  /// 显示切换账号对话框
+  Future<void> _showSwitchAccountDialog(
+    BuildContext context,
+    WebSocketService wsService,
+    ApiService apiService,
+  ) async {
+    try {
+      // 获取所有账号列表
+      final accounts = await apiService.getAllAccounts();
+      
+      if (!mounted) return;
+      
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('切换账号'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: accounts.length,
+              itemBuilder: (context, index) {
+                final account = accounts[index];
+                final currentWxid = wsService.currentWeChatId;
+                final isCurrent = account['wxid'] == currentWxid;
+                
+                return ListTile(
+                  leading: CircleAvatar(
+                    backgroundImage: account['avatar'] != null && account['avatar'].toString().isNotEmpty
+                        ? NetworkImage(account['avatar'].toString())
+                        : null,
+                    child: account['avatar'] == null || account['avatar'].toString().isEmpty
+                        ? const Icon(Icons.person)
+                        : null,
+                  ),
+                  title: Text(account['nickname']?.toString() ?? '未知'),
+                  subtitle: Text(account['phone']?.toString() ?? ''),
+                  trailing: isCurrent
+                      ? const Icon(Icons.check, color: Color(0xFF07C160))
+                      : null,
+                  onTap: () async {
+                    Navigator.of(context).pop();
+                    
+                    if (!isCurrent) {
+                      // 切换账号
+                      final success = await wsService.quickLogin(account['wxid'].toString());
+                      if (success && wsService.myInfo != null) {
+                        // 保存登录状态
+                        await wsService.saveLoginState();
+                        
+                        // 刷新页面
+                        if (mounted) {
+                          setState(() {});
+                        }
+                      } else {
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('切换账号失败'),
+                              duration: Duration(seconds: 2),
+                            ),
+                          );
+                        }
+                      }
+                    }
+                  },
+                );
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('取消'),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('获取账号列表失败: $e'),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    }
+  }
+  
+  /// 显示退出登录对话框
+  Future<void> _showLogoutDialog(
+    BuildContext context,
+    WebSocketService wsService,
+  ) async {
+    if (!mounted) return;
+    
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('退出登录'),
+        content: const Text('确定要退出登录吗？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text(
+              '退出',
+              style: TextStyle(color: Colors.red),
+            ),
+          ),
+        ],
+      ),
+    );
+    
+    if (confirmed == true) {
+      // 清除登录状态
+      await wsService.clearLoginState();
+      
+      // 跳转到登录页面
+      if (mounted) {
+        Navigator.of(context).pushReplacementNamed('/');
+      }
+    }
+  }
 }
 
-/// 连接线绘制器
-class _ConnectionLinePainter extends CustomPainter {
-  final double startX;
-  final double startY;
-  final double endX;
-  final double endY;
+/// 圆形连接线绘制器
+class _CircularConnectionLinePainter extends CustomPainter {
+  final double centerX;
+  final double centerY;
+  final double radius;
+  final double startAngle;
+  final double endAngle;
   final bool isConnected;
   final double animationValue;
+  final bool useShortestPath; // 是否使用最短路径，false时按指定方向绘制
   
-  _ConnectionLinePainter({
-    required this.startX,
-    required this.startY,
-    required this.endX,
-    required this.endY,
+  _CircularConnectionLinePainter({
+    required this.centerX,
+    required this.centerY,
+    required this.radius,
+    required this.startAngle,
+    required this.endAngle,
     required this.isConnected,
     required this.animationValue,
+    this.useShortestPath = true, // 默认使用最短路径
   });
   
   @override
@@ -574,24 +679,39 @@ class _ConnectionLinePainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
     
-    // 绘制主连接线
-    canvas.drawLine(
-      Offset(startX, startY),
-      Offset(endX, endY),
+    // 计算角度差
+    double angleDiff = endAngle - startAngle;
+    
+    if (useShortestPath) {
+      // 标准化角度到 [-π, π] 范围，选择较短的弧线路径
+      while (angleDiff > math.pi) angleDiff -= 2 * math.pi;
+      while (angleDiff < -math.pi) angleDiff += 2 * math.pi;
+    } else {
+      // 按指定方向绘制，标准化角度到 [0, 2π] 范围
+      while (angleDiff < 0) angleDiff += 2 * math.pi;
+      while (angleDiff > 2 * math.pi) angleDiff -= 2 * math.pi;
+    }
+    
+    // 绘制圆形弧线
+    final rect = Rect.fromCircle(
+      center: Offset(centerX, centerY),
+      radius: radius,
+    );
+    
+    canvas.drawArc(
+      rect,
+      startAngle,
+      angleDiff,
+      false, // 不填充
       paint,
     );
     
     // 绘制动画效果（流动的光点）
     if (isConnected) {
-      // 计算光点位置
-      final dx = endX - startX;
-      final dy = endY - startY;
-      final distance = math.sqrt(dx * dx + dy * dy);
-      final animatedDistance = distance * animationValue;
-      final ratio = animatedDistance / distance;
-      
-      final animatedX = startX + dx * ratio;
-      final animatedY = startY + dy * ratio;
+      // 计算光点在弧线上的位置
+      final animatedAngle = startAngle + angleDiff * animationValue;
+      final animatedX = centerX + radius * math.cos(animatedAngle);
+      final animatedY = centerY + radius * math.sin(animatedAngle);
       
       // 绘制光晕效果（外层）
       final glowPaint = Paint()
@@ -616,12 +736,14 @@ class _ConnectionLinePainter extends CustomPainter {
   }
   
   @override
-  bool shouldRepaint(_ConnectionLinePainter oldDelegate) {
+  bool shouldRepaint(_CircularConnectionLinePainter oldDelegate) {
     return oldDelegate.isConnected != isConnected ||
         oldDelegate.animationValue != animationValue ||
-        oldDelegate.startX != startX ||
-        oldDelegate.startY != startY ||
-        oldDelegate.endX != endX ||
-        oldDelegate.endY != endY;
+        oldDelegate.centerX != centerX ||
+        oldDelegate.centerY != centerY ||
+        oldDelegate.radius != radius ||
+        oldDelegate.startAngle != startAngle ||
+        oldDelegate.endAngle != endAngle ||
+        oldDelegate.useShortestPath != useShortestPath;
   }
 }

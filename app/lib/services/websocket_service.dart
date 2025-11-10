@@ -154,6 +154,15 @@ class WebSocketService extends ChangeNotifier {
         case 'command_result':
           _handleCommandResult(data);
           break;
+        case 'login_response':
+          _handleLoginResponse(data);
+          break;
+        case 'verify_login_code_response':
+          _handleVerifyLoginCodeResponse(data);
+          break;
+        case 'quick_login_response':
+          _handleQuickLoginResponse(data);
+          break;
         default:
           print('未知消息类型: $type');
       }
@@ -164,6 +173,161 @@ class WebSocketService extends ChangeNotifier {
       print('堆栈跟踪: ${StackTrace.current}');
     }
   }
+  
+  // 登录相关的Completer
+  Completer<bool>? _loginCompleter;
+  Completer<bool>? _verifyLoginCodeCompleter;
+  Completer<bool>? _quickLoginCompleter;
+  
+  /// 处理登录响应
+  void _handleLoginResponse(Map<String, dynamic> data) {
+    final success = data['success'] as bool? ?? false;
+    final message = data['message'] as String? ?? '';
+    print('登录响应: success=$success, message=$message');
+    
+    if (_loginCompleter != null && !_loginCompleter!.isCompleted) {
+      _loginCompleter!.complete(success);
+    }
+  }
+  
+  /// 处理验证登录码响应
+  void _handleVerifyLoginCodeResponse(Map<String, dynamic> data) {
+    final success = data['success'] as bool? ?? false;
+    final message = data['message'] as String? ?? '';
+    print('验证登录码响应: success=$success, message=$message');
+    
+    if (success) {
+      final accountInfo = data['account_info'] as Map<String, dynamic>?;
+      if (accountInfo != null) {
+        _myInfo = accountInfo;
+        _currentWeChatId = accountInfo['wxid']?.toString();
+        _saveMyInfoToLocal(accountInfo);
+        notifyListeners();
+      }
+    }
+    
+    if (_verifyLoginCodeCompleter != null && !_verifyLoginCodeCompleter!.isCompleted) {
+      _verifyLoginCodeCompleter!.complete(success);
+    }
+  }
+  
+  /// 处理快速登录响应
+  void _handleQuickLoginResponse(Map<String, dynamic> data) {
+    final success = data['success'] as bool? ?? false;
+    final message = data['message'] as String? ?? '';
+    print('快速登录响应: success=$success, message=$message');
+    
+    if (success) {
+      final accountInfo = data['account_info'] as Map<String, dynamic>?;
+      if (accountInfo != null) {
+        _myInfo = accountInfo;
+        _currentWeChatId = accountInfo['wxid']?.toString();
+        _saveMyInfoToLocal(accountInfo);
+        notifyListeners();
+      }
+    }
+    
+    if (_quickLoginCompleter != null && !_quickLoginCompleter!.isCompleted) {
+      _quickLoginCompleter!.complete(success);
+    }
+  }
+  
+  /// 请求登录码
+  void requestLoginCode(String phone) {
+    _loginCompleter = Completer<bool>();
+    _sendMessage({
+      'type': 'login',
+      'phone': phone,
+    });
+  }
+  
+  /// 验证登录码
+  Future<bool> verifyLoginCode(String phone, String code) async {
+    _verifyLoginCodeCompleter = Completer<bool>();
+    _sendMessage({
+      'type': 'verify_login_code',
+      'phone': phone,
+      'code': code,
+    });
+    
+    try {
+      return await _verifyLoginCodeCompleter!.future.timeout(
+        const Duration(seconds: 30),
+        onTimeout: () {
+          print('验证登录码超时');
+          return false;
+        },
+      );
+    } catch (e) {
+      print('验证登录码失败: $e');
+      return false;
+    }
+  }
+  
+  /// 快速登录
+  Future<bool> quickLogin(String wxid) async {
+    _quickLoginCompleter = Completer<bool>();
+    _sendMessage({
+      'type': 'quick_login',
+      'wxid': wxid,
+    });
+    
+    try {
+      return await _quickLoginCompleter!.future.timeout(
+        const Duration(seconds: 30),
+        onTimeout: () {
+          print('快速登录超时');
+          return false;
+        },
+      );
+    } catch (e) {
+      print('快速登录失败: $e');
+      return false;
+    }
+  }
+  
+  /// 保存登录状态
+  Future<void> saveLoginState() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (_currentWeChatId != null) {
+        await prefs.setString('logged_in_wxid', _currentWeChatId!);
+        print('登录状态已保存: $_currentWeChatId');
+      }
+    } catch (e) {
+      print('保存登录状态失败: $e');
+    }
+  }
+  
+  /// 加载登录状态
+  Future<String?> loadLoginState() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final wxid = prefs.getString('logged_in_wxid');
+      if (wxid != null) {
+        _currentWeChatId = wxid;
+        print('已加载登录状态: $wxid');
+      }
+      return wxid;
+    } catch (e) {
+      print('加载登录状态失败: $e');
+      return null;
+    }
+  }
+  
+  /// 清除登录状态
+  Future<void> clearLoginState() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('logged_in_wxid');
+      _currentWeChatId = null;
+      _myInfo = null;
+      notifyListeners();
+      print('登录状态已清除');
+    } catch (e) {
+      print('清除登录状态失败: $e');
+    }
+  }
 
   /// 处理联系人同步
   void _handleContactsSync(List<dynamic> contactsData) {
@@ -171,6 +335,16 @@ class WebSocketService extends ChangeNotifier {
       print('========== 开始处理好友列表同步 ==========');
       print('原始数据数量: ${contactsData.length}');
       print('原始数据: $contactsData');
+      
+      // 检查数据是否属于当前登录的账号
+      if (contactsData.isNotEmpty) {
+        final firstItem = contactsData[0] as Map<String, dynamic>;
+        final weChatId = firstItem['we_chat_id'] ?? firstItem['weChatId'];
+        if (weChatId != null && weChatId.toString() != _currentWeChatId) {
+          print('跳过不属于当前账号的联系人数据: weChatId=$weChatId, currentWeChatId=$_currentWeChatId');
+          return;
+        }
+      }
       
       // 如果是分批同步，需要合并到现有列表
       List<ContactModel> newContacts = contactsData
@@ -327,10 +501,24 @@ class WebSocketService extends ChangeNotifier {
 
   /// 处理朋友圈同步
   void _handleMomentsSync(List<dynamic> momentsData) {
-    _moments = momentsData
-        .map((json) => MomentsModel.fromJson(json as Map<String, dynamic>))
-        .toList();
-    notifyListeners();
+    try {
+      // 检查数据是否属于当前登录的账号
+      if (momentsData.isNotEmpty) {
+        final firstItem = momentsData[0] as Map<String, dynamic>;
+        final weChatId = firstItem['we_chat_id'] ?? firstItem['weChatId'];
+        if (weChatId != null && weChatId.toString() != _currentWeChatId) {
+          print('跳过不属于当前账号的朋友圈数据: weChatId=$weChatId, currentWeChatId=$_currentWeChatId');
+          return;
+        }
+      }
+      
+      _moments = momentsData
+          .map((json) => MomentsModel.fromJson(json as Map<String, dynamic>))
+          .toList();
+      notifyListeners();
+    } catch (e) {
+      print('处理朋友圈同步失败: $e');
+    }
   }
 
   /// 处理命令执行结果

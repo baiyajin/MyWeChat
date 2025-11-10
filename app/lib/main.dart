@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 import 'ui/pages/home_page.dart';
+import 'ui/pages/login_page.dart';
 import 'ui/pages/settings_page.dart';
 import 'ui/pages/about_page.dart';
 import 'ui/pages/collections_page.dart';
@@ -132,7 +133,7 @@ class MyWeChatApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => WebSocketService()),
         ChangeNotifierProvider(create: (_) => ApiService()),
       ],
-        child: MaterialApp(
+      child: MaterialApp(
         title: 'MyWeChat',
         theme: ThemeData(
           primaryColor: const Color(0xFF07C160), // 微信绿色
@@ -142,7 +143,7 @@ class MyWeChatApp extends StatelessWidget {
           ),
           useMaterial3: true,
         ),
-        home: const HomePage(),
+        home: const _AuthWrapper(),
         debugShowCheckedModeBanner: false,
         routes: {
           '/settings': (context) => const SettingsPage(),
@@ -151,6 +152,91 @@ class MyWeChatApp extends StatelessWidget {
         },
       ),
     );
+  }
+}
+
+/// 登录状态检查包装器
+class _AuthWrapper extends StatefulWidget {
+  const _AuthWrapper();
+
+  @override
+  State<_AuthWrapper> createState() => _AuthWrapperState();
+}
+
+class _AuthWrapperState extends State<_AuthWrapper> {
+  bool _isLoading = true;
+  bool _isLoggedIn = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkLoginState();
+  }
+
+  /// 检查登录状态
+  Future<void> _checkLoginState() async {
+    try {
+      final wsService = Provider.of<WebSocketService>(context, listen: false);
+      final apiService = Provider.of<ApiService>(context, listen: false);
+      
+      // 先建立WebSocket连接（无论是否登录都需要）
+      if (!wsService.isConnected) {
+        // 将HTTP URL转换为WebSocket URL
+        String wsUrl = apiService.serverUrl.replaceFirst('http://', 'ws://').replaceFirst('https://', 'wss://');
+        if (!wsUrl.endsWith('/ws')) {
+          wsUrl = wsUrl.endsWith('/') ? '${wsUrl}ws' : '$wsUrl/ws';
+        }
+        
+        print('正在建立WebSocket连接: $wsUrl');
+        final connected = await wsService.connect(wsUrl);
+        if (!connected) {
+          print('WebSocket连接失败');
+          // 即使连接失败，也继续检查登录状态，允许用户使用登录页面
+        }
+      } else {
+        print('WebSocket已连接，跳过重复连接');
+      }
+      
+      // 检查登录状态
+      final wxid = await wsService.loadLoginState();
+      
+      if (wxid != null && wxid.isNotEmpty) {
+        // 已登录，尝试快速登录
+        final success = await wsService.quickLogin(wxid);
+        if (success && wsService.myInfo != null) {
+          setState(() {
+            _isLoggedIn = true;
+            _isLoading = false;
+          });
+          return;
+        }
+      }
+      
+      // 未登录或登录失败
+      setState(() {
+        _isLoggedIn = false;
+        _isLoading = false;
+      });
+    } catch (e) {
+      print('检查登录状态失败: $e');
+      setState(() {
+        _isLoggedIn = false;
+        _isLoading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+    
+    return _isLoggedIn ? const HomePage() : const LoginPage();
   }
 }
 

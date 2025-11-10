@@ -35,27 +35,31 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
-  /// 从服务器加载联系人数据
-  Future<void> _loadContactsFromServer(ApiService apiService, WebSocketService wsService) async {
+  /// 通过WebSocket请求同步联系人数据
+  void _requestSyncContacts(WebSocketService wsService) {
     try {
       final weChatId = wsService.currentWeChatId;
-      final contacts = await apiService.getContacts(weChatId: weChatId);
-      // 更新WebSocketService中的联系人数据
-      wsService.updateContacts(contacts);
+      if (weChatId != null && weChatId.isNotEmpty) {
+        wsService.requestSyncContacts(weChatId);
+      } else {
+        print('无法请求同步联系人数据，微信账号ID为空');
+      }
     } catch (e) {
-      print('从服务器加载联系人数据失败: $e');
+      print('请求同步联系人数据失败: $e');
     }
   }
 
-  /// 从服务器加载朋友圈数据
-  Future<void> _loadMomentsFromServer(ApiService apiService, WebSocketService wsService) async {
+  /// 通过WebSocket请求同步朋友圈数据
+  void _requestSyncMoments(WebSocketService wsService) {
     try {
       final weChatId = wsService.currentWeChatId;
-      final moments = await apiService.getMoments(weChatId: weChatId);
-      // 更新WebSocketService中的朋友圈数据
-      wsService.updateMoments(moments);
+      if (weChatId != null && weChatId.isNotEmpty) {
+        wsService.requestSyncMoments(weChatId);
+      } else {
+        print('无法请求同步朋友圈数据，微信账号ID为空');
+      }
     } catch (e) {
-      print('从服务器加载朋友圈数据失败: $e');
+      print('请求同步朋友圈数据失败: $e');
     }
   }
 
@@ -77,6 +81,14 @@ class _HomePageState extends State<HomePage> {
     if (_isInitialized) return;
     
     final wsService = Provider.of<WebSocketService>(context, listen: false);
+    
+    // 如果WebSocket已连接，跳过重复连接
+    if (wsService.isConnected) {
+      print('WebSocket已连接，跳过重复连接');
+      _isInitialized = true;
+      return;
+    }
+    
     final apiService = Provider.of<ApiService>(context, listen: false);
     
     // 将HTTP URL转换为WebSocket URL
@@ -101,18 +113,18 @@ class _HomePageState extends State<HomePage> {
             _currentIndex = index;
           });
           
-          // 点击tabbar时，从数据库获取相应的数据
+          // 点击tabbar时，通过WebSocket实时同步数据（除了"我"tab从数据库获取）
           final wsService = Provider.of<WebSocketService>(context, listen: false);
           final apiService = Provider.of<ApiService>(context, listen: false);
           switch (index) {
-            case 0: // 微信（聊天）- 从数据库获取联系人
-              _loadContactsFromServer(apiService, wsService);
+            case 0: // 微信（聊天）- 通过WebSocket实时同步联系人
+              _requestSyncContacts(wsService);
               break;
-            case 1: // 通讯录（好友）- 从数据库获取联系人
-              _loadContactsFromServer(apiService, wsService);
+            case 1: // 通讯录（好友）- 通过WebSocket实时同步联系人
+              _requestSyncContacts(wsService);
               break;
-            case 2: // 发现（朋友圈）- 从数据库获取朋友圈
-              _loadMomentsFromServer(apiService, wsService);
+            case 2: // 发现（朋友圈）- 通过WebSocket实时同步朋友圈
+              _requestSyncMoments(wsService);
               break;
             case 3: // 我（从数据库获取账号信息）
               _loadAccountInfoFromServer(apiService, wsService);
