@@ -84,29 +84,53 @@ class _HomePageState extends State<HomePage> {
         type: BottomNavigationBarType.fixed,
         selectedItemColor: const Color(0xFF07C160), // 微信绿色
         unselectedItemColor: Colors.grey,
-        items: const [
-          BottomNavigationBarItem(
+        items: [
+          const BottomNavigationBarItem(
             icon: Icon(Icons.chat_bubble_outline),
             activeIcon: Icon(Icons.chat_bubble),
             label: '微信',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.people_outline),
-            activeIcon: Icon(Icons.people),
+            icon: _buildContactsIcon(false),
+            activeIcon: _buildContactsIcon(true),
             label: '通讯录',
           ),
-          BottomNavigationBarItem(
+          const BottomNavigationBarItem(
             icon: Icon(Icons.explore_outlined),
             activeIcon: Icon(Icons.explore),
             label: '发现',
           ),
-          BottomNavigationBarItem(
+          const BottomNavigationBarItem(
             icon: Icon(Icons.person_outline),
             activeIcon: Icon(Icons.person),
             label: '我',
           ),
         ],
       ),
+    );
+  }
+
+  /// 构建通讯录图标（用户图标 + 右上角三条横线）
+  Widget _buildContactsIcon(bool isActive) {
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        // 用户图标
+        Icon(
+          isActive ? Icons.person : Icons.person_outline,
+          size: 24,
+        ),
+        // 右上角三条横线图标
+        Positioned(
+          right: -4,
+          top: -2,
+          child: Icon(
+            Icons.menu,
+            size: 12,
+            color: isActive ? const Color(0xFF07C160) : Colors.grey,
+          ),
+        ),
+      ],
     );
   }
 }
