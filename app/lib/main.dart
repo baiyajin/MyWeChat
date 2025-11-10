@@ -309,8 +309,23 @@ class _AuthWrapperState extends State<_AuthWrapper> {
           // 静默处理错误
         }
       }
+      
+      // 无论成功与否，都要结束加载状态
+      // 如果没有登录成功，显示登录页面
+      if (mounted) {
+        setState(() {
+          _isLoggedIn = false;
+          _isLoading = false;
+        });
+      }
     } catch (e) {
-      // 静默处理错误
+      // 静默处理错误，但确保结束加载状态
+      if (mounted) {
+        setState(() {
+          _isLoggedIn = false;
+          _isLoading = false;
+        });
+      }
     }
   }
 
