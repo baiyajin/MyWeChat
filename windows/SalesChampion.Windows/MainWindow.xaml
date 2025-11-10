@@ -1,7 +1,7 @@
 <Window x:Class="SalesChampion.Windows.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="MyWeChat" Height="600" Width="900" Icon="Resources/favicon.ico"
+        Title="MyWeChat" Height="300" Width="400" Icon="Resources/favicon.ico"
         WindowStartupLocation="CenterScreen"
         Background="#F5F5F5"
         Loaded="MainWindow_Loaded">
