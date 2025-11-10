@@ -7,7 +7,8 @@ from typing import List, Dict, Set
 import json
 import asyncio
 from sqlalchemy import select
-from app.models.database import AsyncSessionLocal, AccountInfo
+from app.models.database import AsyncSessionLocal, AccountInfo, Contact, Moment
+from app.models.schemas import ContactSyncItem, MomentsSyncItem
 
 
 class WebSocketManager:
@@ -47,13 +48,15 @@ class WebSocketManager:
             print(f"收到WebSocket消息，类型: {message_type}, 来源: {websocket}")
             
             if message_type == "sync_contacts":
-                # Windows端同步联系人数据，实时转发到App端
-                print(f"转发好友列表同步到App端，数据数量: {len(message.get('data', []))}")
+                # Windows端同步联系人数据，保存到数据库并转发到App端
+                print(f"收到联系人数据同步，保存到数据库并转发到App端，数据数量: {len(message.get('data', []))}")
+                await self._save_contacts_to_db(message.get("data", []))
                 await self.broadcast_to_app_clients(message)
             
             elif message_type == "sync_moments":
-                # Windows端同步朋友圈数据，实时转发到App端
-                print(f"转发朋友圈同步到App端，数据数量: {len(message.get('data', []))}")
+                # Windows端同步朋友圈数据，保存到数据库并转发到App端
+                print(f"收到朋友圈数据同步，保存到数据库并转发到App端，数据数量: {len(message.get('data', []))}")
+                await self._save_moments_to_db(message.get("data", []))
                 await self.broadcast_to_app_clients(message)
             
             elif message_type == "sync_tags":
@@ -203,6 +206,136 @@ class WebSocketManager:
                 print(f"账号信息已保存到数据库: wxid={wxid}")
         except Exception as e:
             print(f"保存账号信息到数据库失败: {e}")
+            import traceback
+            traceback.print_exc()
+
+    async def _save_contacts_to_db(self, contacts_data: List[Dict]):
+        """保存联系人数据到数据库"""
+        try:
+            if not contacts_data:
+                print("联系人数据为空，跳过保存")
+                return
+
+            async with AsyncSessionLocal() as session:
+                saved_count = 0
+                updated_count = 0
+                
+                for contact_data in contacts_data:
+                    try:
+                        we_chat_id = contact_data.get("we_chat_id") or contact_data.get("weChatId") or ""
+                        friend_id = contact_data.get("friend_id") or contact_data.get("friendId") or ""
+                        
+                        if not we_chat_id or not friend_id:
+                            continue
+                        
+                        # 检查是否已存在
+                        stmt = select(Contact).where(
+                            Contact.we_chat_id == we_chat_id,
+                            Contact.friend_id == friend_id
+                        )
+                        result = await session.execute(stmt)
+                        existing = result.scalar_one_or_none()
+
+                        if existing:
+                            # 更新现有记录
+                            existing.nick_name = contact_data.get("nick_name") or contact_data.get("nickName") or existing.nick_name
+                            existing.remark = contact_data.get("remark") or existing.remark
+                            existing.avatar = contact_data.get("avatar") or existing.avatar
+                            existing.city = contact_data.get("city") or existing.city
+                            existing.province = contact_data.get("province") or existing.province
+                            existing.country = contact_data.get("country") or existing.country
+                            existing.sex = contact_data.get("sex", existing.sex)
+                            existing.label_ids = contact_data.get("label_ids") or contact_data.get("labelIds") or existing.label_ids
+                            existing.friend_no = contact_data.get("friend_no") or contact_data.get("friendNo") or existing.friend_no
+                            existing.is_new_friend = contact_data.get("is_new_friend") or contact_data.get("isNewFriend") or existing.is_new_friend
+                            updated_count += 1
+                        else:
+                            # 创建新记录
+                            contact = Contact(
+                                we_chat_id=we_chat_id,
+                                friend_id=friend_id,
+                                nick_name=contact_data.get("nick_name") or contact_data.get("nickName") or "",
+                                remark=contact_data.get("remark") or "",
+                                avatar=contact_data.get("avatar") or "",
+                                city=contact_data.get("city") or "",
+                                province=contact_data.get("province") or "",
+                                country=contact_data.get("country") or "",
+                                sex=contact_data.get("sex", 0),
+                                label_ids=contact_data.get("label_ids") or contact_data.get("labelIds") or "",
+                                friend_no=contact_data.get("friend_no") or contact_data.get("friendNo") or "",
+                                is_new_friend=contact_data.get("is_new_friend") or contact_data.get("isNewFriend") or "0"
+                            )
+                            session.add(contact)
+                            saved_count += 1
+                    except Exception as e:
+                        print(f"保存单个联系人数据失败: {e}")
+                        continue
+
+                await session.commit()
+                print(f"联系人数据已保存到数据库: 新增 {saved_count} 条，更新 {updated_count} 条")
+        except Exception as e:
+            print(f"保存联系人数据到数据库失败: {e}")
+            import traceback
+            traceback.print_exc()
+
+    async def _save_moments_to_db(self, moments_data: List[Dict]):
+        """保存朋友圈数据到数据库"""
+        try:
+            if not moments_data:
+                print("朋友圈数据为空，跳过保存")
+                return
+
+            async with AsyncSessionLocal() as session:
+                saved_count = 0
+                updated_count = 0
+                
+                for moment_data in moments_data:
+                    try:
+                        we_chat_id = moment_data.get("we_chat_id") or moment_data.get("weChatId") or ""
+                        moment_id = moment_data.get("moment_id") or moment_data.get("momentId") or ""
+                        
+                        if not we_chat_id or not moment_id:
+                            continue
+                        
+                        # 检查是否已存在
+                        stmt = select(Moment).where(
+                            Moment.we_chat_id == we_chat_id,
+                            Moment.moment_id == moment_id
+                        )
+                        result = await session.execute(stmt)
+                        existing = result.scalar_one_or_none()
+
+                        if existing:
+                            # 更新现有记录
+                            existing.friend_id = moment_data.get("friend_id") or moment_data.get("friendId") or existing.friend_id
+                            existing.nick_name = moment_data.get("nick_name") or moment_data.get("nickName") or existing.nick_name
+                            existing.content = moment_data.get("content") or moment_data.get("moments") or existing.content
+                            existing.release_time = moment_data.get("release_time") or moment_data.get("releaseTime") or existing.release_time
+                            existing.moment_type = moment_data.get("moment_type") or moment_data.get("type") or existing.moment_type
+                            existing.json_text = moment_data.get("json_text") or moment_data.get("jsonText") or existing.json_text
+                            updated_count += 1
+                        else:
+                            # 创建新记录
+                            moment = Moment(
+                                we_chat_id=we_chat_id,
+                                moment_id=moment_id,
+                                friend_id=moment_data.get("friend_id") or moment_data.get("friendId") or "",
+                                nick_name=moment_data.get("nick_name") or moment_data.get("nickName") or "",
+                                content=moment_data.get("content") or moment_data.get("moments") or "",
+                                release_time=moment_data.get("release_time") or moment_data.get("releaseTime") or "",
+                                moment_type=moment_data.get("moment_type") or moment_data.get("type") or 0,
+                                json_text=moment_data.get("json_text") or moment_data.get("jsonText") or ""
+                            )
+                            session.add(moment)
+                            saved_count += 1
+                    except Exception as e:
+                        print(f"保存单个朋友圈数据失败: {e}")
+                        continue
+
+                await session.commit()
+                print(f"朋友圈数据已保存到数据库: 新增 {saved_count} 条，更新 {updated_count} 条")
+        except Exception as e:
+            print(f"保存朋友圈数据到数据库失败: {e}")
             import traceback
             traceback.print_exc()
 

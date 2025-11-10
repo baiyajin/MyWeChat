@@ -1,10 +1,8 @@
-将微信账号数据保存到数据库，移除本地文件保存，三端交互统一走数据库
+修改所有tabbar点击逻辑，统一从数据库获取数据
 
-- 服务器端：添加账号信息表（AccountInfo）到数据库模型
-- 服务器端：修改WebSocket处理逻辑，将sync_my_info消息保存到数据库
-- 服务器端：添加账号信息API接口（/api/account），支持查询账号信息
-- Windows客户端：移除本地文件保存逻辑（SaveAccountInfoToLocal、LoadAccountInfoFromLocal）
-- Windows客户端：移除SyncLocalAccountInfoToServer方法，不再从本地文件同步
-- App客户端：添加从服务器获取账号信息的API方法（getAccountInfo）
-- App客户端：点击"我"tab时从服务器获取账号信息并更新显示
-- App客户端：添加updateMyInfo方法用于更新账号信息
+- 修改home_page.dart：所有tab点击时都从数据库获取数据，不再通过WebSocket请求Windows客户端同步
+- 修改chat_tab.dart：从数据库加载联系人数据，移除WebSocket连接检查
+- 修改contacts_tab.dart：从数据库加载联系人数据，移除WebSocket连接检查
+- 修改moments_tab.dart：从数据库加载朋友圈数据，移除WebSocket连接检查
+- 修改websocket_service.dart：添加updateContacts和updateMoments方法，用于从数据库获取后更新数据
+- 所有tab现在都统一从数据库获取数据，实现三端交互都走数据库
