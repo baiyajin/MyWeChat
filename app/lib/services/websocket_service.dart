@@ -86,8 +86,13 @@ class WebSocketService extends ChangeNotifier {
 
       // 等待连接建立，使用超时
       try {
+        // 在 Web 平台上，使用更短的等待时间，避免浏览器显示"响应时间太长"
+        final isWeb = kIsWeb;
+        final initialDelay = isWeb ? const Duration(milliseconds: 100) : const Duration(milliseconds: 200);
+        final checkDelay = isWeb ? const Duration(milliseconds: 150) : const Duration(milliseconds: 300);
+        
         // 先等待一小段时间，让连接有机会建立（在浏览器中，连接是异步的）
-        await Future.delayed(const Duration(milliseconds: 200));
+        await Future.delayed(initialDelay);
         
         // 检查是否已经连接失败
         if (connectionFailed) {
@@ -122,7 +127,7 @@ class WebSocketService extends ChangeNotifier {
         }
         
         // 再等待一小段时间，检查是否有错误
-        await Future.delayed(const Duration(milliseconds: 300));
+        await Future.delayed(checkDelay);
         
         // 如果连接失败，直接返回
         if (connectionFailed) {
@@ -144,14 +149,16 @@ class WebSocketService extends ChangeNotifier {
         // 使用超时等待，但即使超时，如果发送成功且没有错误，也认为连接成功
         bool connected = false;
         try {
+          // 在 Web 平台上，使用更短的超时时间
+          final waitTimeout = isWeb ? const Duration(milliseconds: 1000) : const Duration(milliseconds: 2000);
           connected = await connectionCompleter.future.timeout(
-            const Duration(milliseconds: 2000),
+            waitTimeout,
             onTimeout: () {
               // 超时不一定意味着连接失败
               // 如果发送消息成功且没有错误，连接可能已经建立
               // 服务器可能不会立即响应，所以超时也视为成功（如果发送成功）
               print('等待服务器响应超时，但发送消息成功，认为连接已建立');
-              return true; // 发送成功且没有错误，认为连接成功
+              return !connectionFailed; // 如果发送成功且没有错误，认为连接成功
             },
           );
         } catch (e) {
