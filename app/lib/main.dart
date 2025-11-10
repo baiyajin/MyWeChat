@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
-import 'package:window_manager/window_manager.dart';
 import 'ui/pages/home_page.dart';
 import 'ui/pages/login_page.dart';
 import 'ui/pages/settings_page.dart';
@@ -13,6 +12,13 @@ import 'services/api_service.dart';
 // 条件导入：根据平台选择不同的实现
 import 'platform/platform_stub.dart'
     if (dart.library.html) 'platform/platform_web.dart';
+
+// 条件导入 window_manager：Web 平台使用 stub，其他平台使用 window_manager
+// 注意：window_manager 在 Web 平台不支持，会导致编译错误
+// 使用条件导入避免在 Web 平台导入 window_manager
+import 'platform/window_manager_stub.dart'
+    if (dart.library.html) 'platform/window_manager_stub.dart'
+    if (dart.library.io) 'package:window_manager/window_manager.dart';
 
 // 全局变量，用于存储链接信息
 String? _appUrl;
