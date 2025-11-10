@@ -453,9 +453,14 @@ namespace MyWeChat.Windows
         /// </summary>
         private void PhoneTextBox_GotFocus(object sender, RoutedEventArgs e)
         {
-            if (sender is TextBox textBox && textBox.Parent is Border border)
+            if (sender is TextBox textBox)
             {
-                border.BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#07C160"));
+                // 找到父级Border
+                Border? border = FindParent<Border>(textBox);
+                if (border != null)
+                {
+                    border.BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#07C160"));
+                }
             }
         }
 
@@ -464,9 +469,13 @@ namespace MyWeChat.Windows
         /// </summary>
         private void PhoneTextBox_LostFocus(object sender, RoutedEventArgs e)
         {
-            if (sender is TextBox textBox && textBox.Parent is Border border)
+            if (sender is TextBox textBox)
             {
-                border.BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#E5E5E5"));
+                Border? border = FindParent<Border>(textBox);
+                if (border != null)
+                {
+                    border.BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#E5E5E5"));
+                }
             }
         }
 
@@ -475,9 +484,13 @@ namespace MyWeChat.Windows
         /// </summary>
         private void CodeTextBox_GotFocus(object sender, RoutedEventArgs e)
         {
-            if (sender is TextBox textBox && textBox.Parent is Border border)
+            if (sender is TextBox textBox)
             {
-                border.BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#07C160"));
+                Border? border = FindParent<Border>(textBox);
+                if (border != null)
+                {
+                    border.BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#07C160"));
+                }
             }
         }
 
@@ -486,10 +499,25 @@ namespace MyWeChat.Windows
         /// </summary>
         private void CodeTextBox_LostFocus(object sender, RoutedEventArgs e)
         {
-            if (sender is TextBox textBox && textBox.Parent is Border border)
+            if (sender is TextBox textBox)
             {
-                border.BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#E5E5E5"));
+                Border? border = FindParent<Border>(textBox);
+                if (border != null)
+                {
+                    border.BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#E5E5E5"));
+                }
             }
+        }
+
+        /// <summary>
+        /// 查找父级元素
+        /// </summary>
+        private T? FindParent<T>(DependencyObject child) where T : DependencyObject
+        {
+            DependencyObject parentObject = VisualTreeHelper.GetParent(child);
+            if (parentObject == null) return null;
+            if (parentObject is T parent) return parent;
+            return FindParent<T>(parentObject);
         }
 
         /// <summary>

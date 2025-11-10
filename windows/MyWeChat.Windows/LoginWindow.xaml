@@ -1,175 +1,45 @@
 <Window x:Class="MyWeChat.Windows.LoginWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="微信" Height="500" Width="420"
+        Title="MyWeChat" Height="600" Width="400"
         WindowStartupLocation="CenterScreen"
-        Background="#F7F7F7"
+        Background="#EDEDED"
         ResizeMode="NoResize">
     <Grid>
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="200"/>
-            <ColumnDefinition Width="*"/>
-        </Grid.ColumnDefinitions>
-        
-        <!-- 左侧Logo区域 - 微信电脑端风格 -->
-        <Border Grid.Column="0" Background="White" BorderBrush="#E5E5E5" BorderThickness="0,0,1,0">
-            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
-                <Image Width="120" Height="120" 
-                       Margin="0,0,0,20"
-                       Stretch="Uniform">
-                    <Image.Source>
-                        <BitmapImage UriSource="pack://application:,,,/Resources/favicon.ico"/>
-                    </Image.Source>
-                </Image>
-                <TextBlock Text="微信" 
-                           FontSize="24" 
-                           FontWeight="Light"
-                           Foreground="#333333"
-                           HorizontalAlignment="Center"
-                           Margin="0,0,0,10"/>
-                <TextBlock Text="请使用手机号登录" 
-                           FontSize="12" 
-                           Foreground="#999999"
-                           HorizontalAlignment="Center"/>
-            </StackPanel>
-        </Border>
-        
-        <!-- 右侧登录表单 - 微信电脑端风格 -->
-        <StackPanel Grid.Column="1" Margin="40,60,40,40" VerticalAlignment="Top">
-            <!-- 登录历史 - 微信电脑端风格 -->
-            <TextBlock Name="HistoryTitleTextBlock"
-                       Text="最近登录" 
-                       FontSize="12" 
-                       Margin="0,0,0,12"
-                       Foreground="#999999"
-                       Visibility="Collapsed"/>
-            
-            <!-- 登录表单容器 -->
-            <Border Background="White" 
-                    BorderBrush="#E5E5E5" 
-                    BorderThickness="1" 
-                    CornerRadius="2"
-                    Padding="20"
-                    Margin="0,0,0,20">
-                <StackPanel>
-                    <!-- 手机号输入 - 微信电脑端风格（下划线输入框） -->
-                    <Border BorderThickness="0,0,0,1" BorderBrush="#E5E5E5" Margin="0,0,0,20">
-                        <TextBox Name="PhoneTextBox" 
-                                 FontSize="14" 
-                                 Padding="0,8"
-                                 BorderThickness="0"
-                                 Background="Transparent"
-                                 GotFocus="PhoneTextBox_GotFocus"
-                                 LostFocus="PhoneTextBox_LostFocus"/>
-                    </Border>
-                    
-                    <!-- 验证码输入 - 微信电脑端风格 -->
-                    <Grid Margin="0,0,0,30">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-                        <Border Grid.Column="0" BorderThickness="0,0,0,1" BorderBrush="#E5E5E5" Margin="0,0,10,0">
-                            <TextBox Name="CodeTextBox" 
-                                     FontSize="14" 
-                                     Padding="0,8"
-                                     BorderThickness="0"
-                                     Background="Transparent"
-                                     GotFocus="CodeTextBox_GotFocus"
-                                     LostFocus="CodeTextBox_LostFocus"/>
-                        </Border>
-                        <Button Name="GetCodeButton" 
-                                Grid.Column="1"
-                                Content="获取验证码" 
-                                Padding="12,6"
-                                Background="Transparent"
-                                Foreground="#07C160"
-                                BorderThickness="0"
-                                Cursor="Hand"
-                                Click="GetCodeButton_Click"
-                                FontSize="12"
-                                IsEnabled="True">
-                            <Button.Style>
-                                <Style TargetType="Button">
-                                    <Setter Property="Template">
-                                        <Setter.Value>
-                                            <ControlTemplate TargetType="Button">
-                                                <Border Background="{TemplateBinding Background}" 
-                                                        BorderThickness="0"
-                                                        Padding="{TemplateBinding Padding}">
-                                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                                </Border>
-                                            </ControlTemplate>
-                                        </Setter.Value>
-                                    </Setter>
-                                    <Style.Triggers>
-                                        <Trigger Property="IsMouseOver" Value="True">
-                                            <Setter Property="Foreground" Value="#06AD56"/>
-                                        </Trigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </Button.Style>
-                        </Button>
-                    </Grid>
-                    
-                    <!-- 错误提示 -->
-                    <TextBlock Name="ErrorTextBlock" 
-                               Text="" 
-                               FontSize="12" 
-                               Foreground="#FF3B30"
-                               Margin="0,0,0,20"
-                               TextWrapping="Wrap"
-                               Visibility="Collapsed"
-                               HorizontalAlignment="Center"/>
-                    
-                    <!-- 登录按钮 - 微信电脑端风格（绿色按钮） -->
-                    <Button Name="LoginButton" 
-                            Content="登录" 
-                            FontSize="14" 
-                            Padding="0,10"
-                            Background="#07C160"
-                            Foreground="White"
-                            BorderThickness="0"
-                            Cursor="Hand"
-                            Click="LoginButton_Click"
-                            IsEnabled="True">
-                        <Button.Style>
-                            <Style TargetType="Button">
-                                <Setter Property="Template">
-                                    <Setter.Value>
-                                        <ControlTemplate TargetType="Button">
-                                            <Border Background="{TemplateBinding Background}" 
-                                                    CornerRadius="2"
-                                                    Padding="{TemplateBinding Padding}">
-                                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                            </Border>
-                                        </ControlTemplate>
-                                    </Setter.Value>
-                                </Setter>
-                                <Style.Triggers>
-                                    <Trigger Property="IsMouseOver" Value="True">
-                                        <Setter Property="Background" Value="#06AD56"/>
-                                    </Trigger>
-                                    <Trigger Property="IsEnabled" Value="False">
-                                        <Setter Property="Background" Value="#B2E5B8"/>
-                                    </Trigger>
-                                </Style.Triggers>
-                            </Style>
-                        </Button.Style>
-                    </Button>
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <StackPanel Margin="20">
+                <StackPanel HorizontalAlignment="Center" Margin="0,60,0,60">
+                    <!-- Logo - 无背景 -->
+                    <Image Width="80" Height="80" 
+                           Margin="0,0,0,20"
+                           Stretch="Uniform">
+                        <Image.Source>
+                            <BitmapImage UriSource="pack://application:,,,/Resources/favicon.ico"/>
+                        </Image.Source>
+                    </Image>
+                    <TextBlock Text="MyWeChat" 
+                               FontSize="28" 
+                               FontWeight="Light"
+                               Foreground="#333333"
+                               HorizontalAlignment="Center"
+                               LetterSpacing="2"/>
                 </StackPanel>
-            </Border>
-            
-            <!-- 登录历史列表 -->
-            <ScrollViewer MaxHeight="200" 
-                          VerticalScrollBarVisibility="Auto">
-                <ItemsControl Name="HistoryItemsControl">
+                
+                <!-- 登录历史列表 - App端风格 -->
+                <TextBlock Name="HistoryTitleTextBlock"
+                           Text="最近登录" 
+                           FontSize="14" 
+                           Margin="0,0,0,12"
+                           Foreground="#999999"
+                           Visibility="Collapsed"/>
+                
+                <ItemsControl Name="HistoryItemsControl" Margin="0,0,0,20">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
                             <Border Background="White" 
                                     BorderBrush="#E5E5E5" 
                                     BorderThickness="0,0,0,1"
-                                    Padding="12" 
+                                    Padding="12,12,12,12" 
                                     Margin="0,0,0,0"
                                     Cursor="Hand"
                                     MouseLeftButtonUp="HistoryItem_MouseLeftButtonUp"
@@ -190,7 +60,7 @@
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
                                     <Ellipse Grid.Column="0" 
-                                             Width="40" Height="40" 
+                                             Width="45" Height="45" 
                                              Margin="0,0,12,0">
                                         <Ellipse.Fill>
                                             <ImageBrush>
@@ -202,16 +72,16 @@
                                     </Ellipse>
                                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                         <TextBlock Text="{Binding Nickname}" 
-                                                   FontSize="14" 
+                                                   FontSize="16" 
                                                    Foreground="#333333"/>
                                         <TextBlock Text="{Binding Phone}" 
-                                                   FontSize="12" 
+                                                   FontSize="14" 
                                                    Foreground="#999999"
                                                    Margin="0,4,0,0"/>
                                     </StackPanel>
                                     <TextBlock Grid.Column="2" 
                                                Text="›" 
-                                               FontSize="18" 
+                                               FontSize="20" 
                                                Foreground="#C7C7CC"
                                                VerticalAlignment="Center"/>
                                 </Grid>
@@ -219,8 +89,160 @@
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
-            </ScrollViewer>
-        </StackPanel>
+                
+                <!-- 登录表单容器 - App端风格 -->
+                <Border Background="White" 
+                        BorderBrush="#E5E5E5" 
+                        BorderThickness="0"
+                        CornerRadius="4"
+                        Padding="20"
+                        Margin="0,0,0,0">
+                    <StackPanel>
+                        <!-- 手机号输入 - App端风格（下划线输入框） -->
+                        <Border BorderThickness="0,0,0,1" BorderBrush="#E5E5E5" Margin="0,0,0,20">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="📱" FontSize="20" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                <TextBox Name="PhoneTextBox" 
+                                         FontSize="16" 
+                                         Padding="0,8"
+                                         BorderThickness="0"
+                                         Background="Transparent"
+                                         GotFocus="PhoneTextBox_GotFocus"
+                                         LostFocus="PhoneTextBox_LostFocus"
+                                         VerticalContentAlignment="Center"/>
+                            </StackPanel>
+                        </Border>
+                        
+                        <!-- 验证码输入 - App端风格 -->
+                        <Grid Margin="0,0,0,30">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox Name="CodeTextBox" 
+                                     Grid.Column="0"
+                                     FontSize="16" 
+                                     Padding="0,8"
+                                     Margin="0,0,12,0"
+                                     BorderThickness="0,0,0,1"
+                                     BorderBrush="#E5E5E5"
+                                     Background="Transparent"
+                                     GotFocus="CodeTextBox_GotFocus"
+                                     LostFocus="CodeTextBox_LostFocus"
+                                     VerticalContentAlignment="Center">
+                                <TextBox.Style>
+                                    <Style TargetType="TextBox">
+                                        <Setter Property="Template">
+                                            <Setter.Value>
+                                                <ControlTemplate TargetType="TextBox">
+                                                    <Border BorderThickness="0,0,0,1" BorderBrush="#E5E5E5">
+                                                        <Grid>
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="Auto"/>
+                                                                <ColumnDefinition Width="*"/>
+                                                            </Grid.ColumnDefinitions>
+                                                            <TextBlock Grid.Column="0" 
+                                                                       Text="🔒" 
+                                                                       FontSize="20" 
+                                                                       Margin="0,0,8,0" 
+                                                                       VerticalAlignment="Center"/>
+                                                            <ScrollViewer Grid.Column="1" 
+                                                                          x:Name="PART_ContentHost" 
+                                                                          Margin="0,8"/>
+                                                        </Grid>
+                                                    </Border>
+                                                </ControlTemplate>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </Style>
+                                </TextBox.Style>
+                            </TextBox>
+                            <Button Name="GetCodeButton" 
+                                    Grid.Column="1"
+                                    Content="获取验证码" 
+                                    Padding="16,12"
+                                    Background="Transparent"
+                                    Foreground="#07C160"
+                                    BorderThickness="0"
+                                    Cursor="Hand"
+                                    Click="GetCodeButton_Click"
+                                    FontSize="14"
+                                    VerticalAlignment="Top"
+                                    Margin="0,0,0,0"
+                                    IsEnabled="True">
+                                <Button.Style>
+                                    <Style TargetType="Button">
+                                        <Setter Property="Template">
+                                            <Setter.Value>
+                                                <ControlTemplate TargetType="Button">
+                                                    <Border Background="{TemplateBinding Background}" 
+                                                            BorderThickness="0"
+                                                            Padding="{TemplateBinding Padding}">
+                                                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                    </Border>
+                                                </ControlTemplate>
+                                            </Setter.Value>
+                                        </Setter>
+                                        <Style.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter Property="Foreground" Value="#06AD56"/>
+                                            </Trigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                            </Button>
+                        </Grid>
+                        
+                        <!-- 错误提示 -->
+                        <TextBlock Name="ErrorTextBlock" 
+                                   Text="" 
+                                   FontSize="12" 
+                                   Foreground="Red"
+                                   Margin="0,0,0,16"
+                                   TextWrapping="Wrap"
+                                   Visibility="Collapsed"
+                                   TextAlignment="Center"/>
+                        
+                        <!-- 登录按钮 - App端风格（绿色圆角按钮） -->
+                        <Button Name="LoginButton" 
+                                Content="登录" 
+                                FontSize="16" 
+                                Padding="0,12"
+                                Height="44"
+                                Background="#07C160"
+                                Foreground="White"
+                                BorderThickness="0"
+                                Cursor="Hand"
+                                Click="LoginButton_Click"
+                                IsEnabled="True">
+                            <Button.Style>
+                                <Style TargetType="Button">
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="Button">
+                                                <Border Background="{TemplateBinding Background}" 
+                                                        CornerRadius="4"
+                                                        Padding="{TemplateBinding Padding}">
+                                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                </Border>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                    <Style.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter Property="Background" Value="#06AD56"/>
+                                        </Trigger>
+                                        <Trigger Property="IsEnabled" Value="False">
+                                            <Setter Property="Background" Value="#B2E5B8"/>
+                                        </Trigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                        </Button>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
     </Grid>
 </Window>
 
