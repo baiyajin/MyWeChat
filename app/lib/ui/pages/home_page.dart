@@ -20,10 +20,10 @@ class _HomePageState extends State<HomePage> {
   bool _isInitialized = false;
 
   final List<Widget> _tabs = [
-    const ContactsTab(),
-    const MomentsTab(),
-    const ChatTab(),
-    const ProfileTab(),
+    const ChatTab(),        // 微信（第一个）
+    const ContactsTab(),    // 通讯录（第二个）
+    const MomentsTab(),      // 发现（第三个）
+    const ProfileTab(),     // 我（第四个）
   ];
 
   @override
@@ -68,16 +68,16 @@ class _HomePageState extends State<HomePage> {
           final wsService = Provider.of<WebSocketService>(context, listen: false);
           if (wsService.isConnected) {
             switch (index) {
-              case 0: // 好友
+              case 0: // 微信（聊天）
                 wsService.requestSyncContacts();
                 break;
-              case 1: // 朋友圈
+              case 1: // 通讯录（好友）
+                wsService.requestSyncContacts();
+                break;
+              case 2: // 发现（朋友圈）
                 wsService.requestSyncMoments();
                 break;
-              case 2: // 聊天（使用好友列表数据）
-                wsService.requestSyncContacts();
-                break;
-              // case 3: // 我的（不需要同步）
+              // case 3: // 我（不需要同步）
             }
           }
         },
@@ -86,20 +86,24 @@ class _HomePageState extends State<HomePage> {
         unselectedItemColor: Colors.grey,
         items: const [
           BottomNavigationBarItem(
-            icon: Icon(Icons.contacts),
-            label: '好友',
+            icon: Icon(Icons.chat_bubble_outline),
+            activeIcon: Icon(Icons.chat_bubble),
+            label: '微信',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.photo_library),
-            label: '朋友圈',
+            icon: Icon(Icons.contacts_outlined),
+            activeIcon: Icon(Icons.contacts),
+            label: '通讯录',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.chat),
-            label: '聊天',
+            icon: Icon(Icons.explore_outlined),
+            activeIcon: Icon(Icons.explore),
+            label: '发现',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: '我的',
+            icon: Icon(Icons.person_outline),
+            activeIcon: Icon(Icons.person),
+            label: '我',
           ),
         ],
       ),
