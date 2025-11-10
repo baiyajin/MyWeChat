@@ -85,7 +85,7 @@ MyWeChat 是一个基于微信客户端的Hook工具集，通过三端协同工�
 │  │                   数据库层 (SQLAlchemy)                            │   │
 │  │                    ┌──────────────┐                              │   │
 │  │                    │ SQLite/PostgreSQL │                         │   │
-│  │                    │  (sales_champion.db) │                      │   │
+│  │                    │  (my_wechat.db) │                      │   │
 │  │                    └──────────────┘                              │   │
 │  └──────────────────────────────────────────────────────────────────┘   │
 └──────────────────────────────────────────────────────────────────────────┘
@@ -299,7 +299,7 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
 默认配置：
 - 服务器地址：`0.0.0.0:8000`
-- 数据库：SQLite（`sales_champion.db`）
+- 数据库：SQLite（`my_wechat.db`）
 
 如需修改配置，编辑 `server/run.py`：
 ```python
@@ -562,7 +562,7 @@ flutter build windows --release
 A: 修改 `server/run.py` 中的端口号，或关闭占用端口的程序。
 
 **Q: 数据库文件在哪里？**
-A: 默认在 `server/sales_champion.db`，SQLite数据库文件。
+A: 默认在 `server/my_wechat.db`，SQLite数据库文件。
 
 **Q: 如何查看API文档？**
 A: 启动服务器后访问 http://localhost:8000/docs
