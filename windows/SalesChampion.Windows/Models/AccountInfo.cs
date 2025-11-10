@@ -40,6 +40,36 @@ namespace SalesChampion.Windows.Models
         /// 头像URL
         /// </summary>
         public string Avatar { get; set; } = string.Empty;
+
+        /// <summary>
+        /// 设备ID
+        /// </summary>
+        public string DeviceId { get; set; } = string.Empty;
+
+        /// <summary>
+        /// 手机号
+        /// </summary>
+        public string Phone { get; set; } = string.Empty;
+
+        /// <summary>
+        /// 微信用户目录
+        /// </summary>
+        public string WxUserDir { get; set; } = string.Empty;
+
+        /// <summary>
+        /// 未读消息数
+        /// </summary>
+        public int UnreadMsgCount { get; set; } = 0;
+
+        /// <summary>
+        /// 是否为假设备ID
+        /// </summary>
+        public int IsFakeDeviceId { get; set; } = 0;
+
+        /// <summary>
+        /// 进程ID
+        /// </summary>
+        public int Pid { get; set; } = 0;
     }
 }
 

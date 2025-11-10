@@ -1566,6 +1566,71 @@ namespace SalesChampion.Windows
                                 account = loginInfo.Account?.ToString() ?? wxid;  // 尝试Account（首字母大写）
                             }
                             
+                            // 提取其他字段
+                            string deviceId = loginInfo.device_id?.ToString() ?? "";
+                            if (string.IsNullOrEmpty(deviceId))
+                            {
+                                deviceId = loginInfo.deviceId?.ToString() ?? "";
+                            }
+                            if (string.IsNullOrEmpty(deviceId))
+                            {
+                                deviceId = loginInfo.DeviceId?.ToString() ?? "";
+                            }
+                            
+                            string phone = loginInfo.phone?.ToString() ?? "";
+                            if (string.IsNullOrEmpty(phone))
+                            {
+                                phone = loginInfo.Phone?.ToString() ?? "";
+                            }
+                            
+                            string wxUserDir = loginInfo.wx_user_dir?.ToString() ?? "";
+                            if (string.IsNullOrEmpty(wxUserDir))
+                            {
+                                wxUserDir = loginInfo.wxUserDir?.ToString() ?? "";
+                            }
+                            if (string.IsNullOrEmpty(wxUserDir))
+                            {
+                                wxUserDir = loginInfo.WxUserDir?.ToString() ?? "";
+                            }
+                            
+                            int unreadMsgCount = 0;
+                            if (loginInfo.unread_msg_count != null)
+                            {
+                                int.TryParse(loginInfo.unread_msg_count.ToString(), out unreadMsgCount);
+                            }
+                            else if (loginInfo.unreadMsgCount != null)
+                            {
+                                int.TryParse(loginInfo.unreadMsgCount.ToString(), out unreadMsgCount);
+                            }
+                            else if (loginInfo.UnreadMsgCount != null)
+                            {
+                                int.TryParse(loginInfo.UnreadMsgCount.ToString(), out unreadMsgCount);
+                            }
+                            
+                            int isFakeDeviceId = 0;
+                            if (loginInfo.is_fake_device_id != null)
+                            {
+                                int.TryParse(loginInfo.is_fake_device_id.ToString(), out isFakeDeviceId);
+                            }
+                            else if (loginInfo.isFakeDeviceId != null)
+                            {
+                                int.TryParse(loginInfo.isFakeDeviceId.ToString(), out isFakeDeviceId);
+                            }
+                            else if (loginInfo.IsFakeDeviceId != null)
+                            {
+                                int.TryParse(loginInfo.IsFakeDeviceId.ToString(), out isFakeDeviceId);
+                            }
+                            
+                            int pid = 0;
+                            if (loginInfo.pid != null)
+                            {
+                                int.TryParse(loginInfo.pid.ToString(), out pid);
+                            }
+                            else if (loginInfo.Pid != null)
+                            {
+                                int.TryParse(loginInfo.Pid.ToString(), out pid);
+                            }
+                            
                             // 如果wxid为空，记录警告但不使用clientId作为fallback
                             // wxid应该是真正的微信ID，而不是进程ID（纯数字）
                             if (string.IsNullOrEmpty(wxid))
@@ -1579,7 +1644,7 @@ namespace SalesChampion.Windows
                                 wxid = string.Empty; // 清空，等待真正的wxid
                             }
                             
-                            Logger.LogInfo($"解析登录信息: wxid={(!string.IsNullOrEmpty(wxid) ? wxid : "空")}, nickname={nickname}, avatar={(!string.IsNullOrEmpty(avatar) ? "有头像" : "无头像")}, account={account}");
+                            Logger.LogInfo($"解析登录信息: wxid={(!string.IsNullOrEmpty(wxid) ? wxid : "空")}, nickname={nickname}, avatar={(!string.IsNullOrEmpty(avatar) ? "有头像" : "无头像")}, account={account}, deviceId={deviceId}, phone={phone}, pid={pid}");
 
                             // 如果wxid为空，不创建账号信息（等待真正的wxid）
                             if (string.IsNullOrEmpty(wxid))
@@ -1625,11 +1690,30 @@ namespace SalesChampion.Windows
                             {
                                 accountInfo.NickName = nickname;
                                 }
-                            }
                             
-                            if (accountInfo != null && !string.IsNullOrEmpty(avatar))
+                            if (!string.IsNullOrEmpty(avatar))
                             {
                                 accountInfo.Avatar = avatar;
+                            }
+                            
+                            if (!string.IsNullOrEmpty(deviceId))
+                            {
+                                accountInfo.DeviceId = deviceId;
+                            }
+                            
+                            if (!string.IsNullOrEmpty(phone))
+                            {
+                                accountInfo.Phone = phone;
+                            }
+                            
+                            if (!string.IsNullOrEmpty(wxUserDir))
+                            {
+                                accountInfo.WxUserDir = wxUserDir;
+                            }
+                            
+                            accountInfo.UnreadMsgCount = unreadMsgCount;
+                            accountInfo.IsFakeDeviceId = isFakeDeviceId;
+                            accountInfo.Pid = pid;
                             }
 
                             Logger.LogInfo($"收到登录回调: wxid={wxid}, nickname={nickname}, avatar={(!string.IsNullOrEmpty(avatar) ? "有头像" : "无头像")}, account={account}");
@@ -1844,7 +1928,7 @@ namespace SalesChampion.Windows
 
                 Logger.LogInfo($"保存账号信息到本地: {_accountInfoFilePath}");
 
-                // 创建账号信息对象（只保存关键字段）
+                // 创建账号信息对象（保存所有字段）
                 var accountData = new
                 {
                     wxid = accountInfo.WeChatId,
@@ -1852,6 +1936,12 @@ namespace SalesChampion.Windows
                     avatar = accountInfo.Avatar,
                     account = accountInfo.BoundAccount,
                     client = accountInfo.Client,
+                    device_id = accountInfo.DeviceId,
+                    phone = accountInfo.Phone,
+                    wx_user_dir = accountInfo.WxUserDir,
+                    unread_msg_count = accountInfo.UnreadMsgCount,
+                    is_fake_device_id = accountInfo.IsFakeDeviceId,
+                    pid = accountInfo.Pid,
                     saveTime = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")
                 };
 
@@ -1921,6 +2011,24 @@ namespace SalesChampion.Windows
                 string avatar = accountData.avatar?.ToString() ?? "";
                 string account = accountData.account?.ToString() ?? "";
                 string client = accountData.client?.ToString() ?? "";
+                string deviceId = accountData.device_id?.ToString() ?? "";
+                string phone = accountData.phone?.ToString() ?? "";
+                string wxUserDir = accountData.wx_user_dir?.ToString() ?? "";
+                int unreadMsgCount = 0;
+                if (accountData.unread_msg_count != null)
+                {
+                    int.TryParse(accountData.unread_msg_count.ToString(), out unreadMsgCount);
+                }
+                int isFakeDeviceId = 0;
+                if (accountData.is_fake_device_id != null)
+                {
+                    int.TryParse(accountData.is_fake_device_id.ToString(), out isFakeDeviceId);
+                }
+                int pid = 0;
+                if (accountData.pid != null)
+                {
+                    int.TryParse(accountData.pid.ToString(), out pid);
+                }
 
                 if (string.IsNullOrEmpty(wxid) || IsProcessId(wxid))
                 {
@@ -1949,7 +2057,13 @@ namespace SalesChampion.Windows
                             NickName = nickname,
                             Avatar = avatar,
                             BoundAccount = account,
-                            Client = client
+                            Client = client,
+                            DeviceId = deviceId,
+                            Phone = phone,
+                            WxUserDir = wxUserDir,
+                            UnreadMsgCount = unreadMsgCount,
+                            IsFakeDeviceId = isFakeDeviceId,
+                            Pid = pid
                         };
                         _accountList.Add(accountInfo);
                     }
@@ -1968,6 +2082,21 @@ namespace SalesChampion.Windows
                         {
                             accountInfo.BoundAccount = account;
                         }
+                        if (!string.IsNullOrEmpty(deviceId))
+                        {
+                            accountInfo.DeviceId = deviceId;
+                        }
+                        if (!string.IsNullOrEmpty(phone))
+                        {
+                            accountInfo.Phone = phone;
+                        }
+                        if (!string.IsNullOrEmpty(wxUserDir))
+                        {
+                            accountInfo.WxUserDir = wxUserDir;
+                        }
+                        accountInfo.UnreadMsgCount = unreadMsgCount;
+                        accountInfo.IsFakeDeviceId = isFakeDeviceId;
+                        accountInfo.Pid = pid;
                     }
                 }
 
