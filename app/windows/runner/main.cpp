@@ -26,9 +26,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
 
   FlutterWindow window(project);
   Win32Window::Point origin(10, 10);
-  // 设置为 iPhone 15 Pro Max 尺寸：430 x 932 (逻辑分辨率)
-  // iPhone 15 Pro Max: 6.7 英寸，逻辑分辨率 430 x 932 points
-  Win32Window::Size size(430, 932);
+  Win32Window::Size size(1280, 720);
   if (!window.Create(L"MyWeChat", origin, size)) {
     return EXIT_FAILURE;
   }

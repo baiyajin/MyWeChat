@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
+import 'package:window_manager/window_manager.dart';
 import 'ui/pages/home_page.dart';
 import 'ui/pages/login_page.dart';
 import 'ui/pages/settings_page.dart';
@@ -18,13 +19,48 @@ String? _appUrl;
 String? _webSocketUrl;
 bool _linksDisplayed = false; // 标记是否已显示链接
 
-void main() {
+void main() async {
   // 收集访问链接（仅 Web 平台）
   if (kIsWeb) {
     _collectAccessUrl();
   }
   
+  // 设置窗口大小（仅 Windows 平台）
+  if (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows) {
+    WidgetsFlutterBinding.ensureInitialized();
+    await _setWindowSize();
+  }
+  
   runApp(const MyWeChatApp());
+}
+
+/// 设置窗口大小为 iPhone 15 Pro Max 尺寸（仅 Windows 平台）
+Future<void> _setWindowSize() async {
+  // iPhone 15 Pro Max: 430 x 932 (逻辑分辨率)
+  const double width = 430.0;
+  const double height = 932.0;
+  
+  try {
+    // 使用 window_manager 设置窗口大小
+    await windowManager.ensureInitialized();
+    
+    WindowOptions windowOptions = const WindowOptions(
+      size: Size(width, height),
+      minimumSize: Size(width, height),
+      maximumSize: Size(width, height),
+      center: true,
+      backgroundColor: Colors.transparent,
+      skipTaskbar: false,
+      titleBarStyle: TitleBarStyle.normal,
+    );
+    
+    windowManager.waitUntilReadyToShow(windowOptions, () async {
+      await windowManager.show();
+      await windowManager.focus();
+    });
+  } catch (e) {
+    print('无法设置窗口大小: $e');
+  }
 }
 
 /// 收集访问链接
