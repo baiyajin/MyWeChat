@@ -196,7 +196,10 @@ class _AuthWrapperState extends State<_AuthWrapper> {
   @override
   void initState() {
     super.initState();
-    _checkLoginState();
+    // 使用 Future.microtask 确保在 build 之后执行
+    Future.microtask(() {
+      _checkLoginState();
+    });
   }
 
   /// 检查登录状态
