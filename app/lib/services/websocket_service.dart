@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/contact_model.dart';
 import '../models/moments_model.dart';
 import '../main.dart' as main_app;
@@ -66,6 +67,9 @@ class WebSocketService extends ChangeNotifier {
         
         // 发送客户端类型
         _sendClientType();
+        
+        // 加载本地保存的账号信息
+        await _loadMyInfoFromLocal();
       }
 
       return true;
@@ -234,12 +238,50 @@ class WebSocketService extends ChangeNotifier {
       _currentWeChatId = myInfoData['wxid']?.toString() ?? myInfoData['account']?.toString();
       print('我的信息已更新: $_myInfo');
       print('当前微信账号ID: $_currentWeChatId');
+      
+      // 保存账号信息到本地
+      _saveMyInfoToLocal(myInfoData);
+      
       notifyListeners();
       print('已通知监听器更新UI');
       print('========== 我的信息同步完成 ==========');
     } catch (e) {
       print('处理我的信息同步失败: $e');
       print('堆栈跟踪: ${StackTrace.current}');
+    }
+  }
+
+  /// 保存账号信息到本地
+  Future<void> _saveMyInfoToLocal(Map<String, dynamic> myInfoData) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      // 将Map转换为JSON字符串保存
+      final jsonString = jsonEncode(myInfoData);
+      await prefs.setString('my_info', jsonString);
+      print('账号信息已保存到本地');
+    } catch (e) {
+      print('保存账号信息到本地失败: $e');
+    }
+  }
+
+  /// 从本地加载账号信息
+  Future<void> _loadMyInfoFromLocal() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final jsonString = prefs.getString('my_info');
+      if (jsonString != null && jsonString.isNotEmpty) {
+        final myInfoData = jsonDecode(jsonString) as Map<String, dynamic>;
+        _myInfo = myInfoData;
+        // 更新当前微信账号ID
+        _currentWeChatId = myInfoData['wxid']?.toString() ?? myInfoData['account']?.toString();
+        print('从本地加载账号信息成功: $_myInfo');
+        print('当前微信账号ID: $_currentWeChatId');
+        notifyListeners();
+      } else {
+        print('本地没有保存的账号信息');
+      }
+    } catch (e) {
+      print('从本地加载账号信息失败: $e');
     }
   }
 
