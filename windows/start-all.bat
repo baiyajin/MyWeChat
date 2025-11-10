@@ -721,13 +721,19 @@ if !BUILD_ERROR! neq 0 (
     
     if !BUILD_ERROR! neq 0 (
         echo.
+        echo ========================================
         echo [X] 错误: 重试编译仍然失败
+        echo ========================================
         echo.
         echo 解决方法:
         echo   1. 关闭Visual Studio或其他IDE
         echo   2. 关闭所有MyWeChat.Windows.exe进程
         echo   3. 关闭微信进程（如果正在使用注入的DLL）
         echo   4. 重新运行编译
+        echo.
+        echo 编译失败，不会执行后续步骤：
+        echo   [X] 步骤3: 关闭程序（已跳过）
+        echo   [X] 步骤4: 运行程序（已跳过）
         echo.
         pause
         exit /b 1
@@ -741,7 +747,13 @@ if !BUILD_ERROR! neq 0 (
 REM 检查编译是否真的成功
 if !BUILD_ERROR! neq 0 (
     echo.
+    echo ========================================
     echo [X] 错误: 编译失败，停止执行后续步骤
+    echo ========================================
+    echo.
+    echo 编译失败，不会执行后续步骤：
+    echo   [X] 步骤3: 关闭程序（已跳过）
+    echo   [X] 步骤4: 运行程序（已跳过）
     echo.
     pause
     exit /b 1

@@ -497,7 +497,11 @@ namespace MyWeChat.Windows
         /// </summary>
         protected override void OnClosed(EventArgs e)
         {
-            _webSocketService?.Disconnect();
+            if (_webSocketService != null)
+            {
+                // 异步断开连接，不等待完成
+                _ = _webSocketService.DisconnectAsync();
+            }
             base.OnClosed(e);
         }
     }
