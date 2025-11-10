@@ -34,14 +34,15 @@ void main() async {
   runApp(const MyWeChatApp());
 }
 
-/// 设置窗口大小为 iPhone 15 Pro Max 尺寸（仅 Windows 平台）
+/// 设置窗口大小为 iPhone 15 Pro 尺寸（仅 Windows 平台）
 Future<void> _setWindowSize() async {
-  // iPhone 15 Pro Max: 430 x 932 (逻辑分辨率)
-  const double width = 430.0;
-  const double height = 932.0;
+  // iPhone 15 Pro: 393 x 852 (逻辑分辨率 points)
+  // 物理分辨率: 2556 x 1179 pixels (@3x 缩放)
+  const double width = 393.0;
+  const double height = 852.0;
   
   try {
-    // 使用 window_manager 设置窗口大小
+    // 使用 window_manager 设置窗口大小（仅 Windows 平台）
     await windowManager.ensureInitialized();
     
     WindowOptions windowOptions = const WindowOptions(
