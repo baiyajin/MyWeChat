@@ -463,6 +463,7 @@ echo.
 echo 正在清理编译文件...
 echo.
 
+set "CLEAN_ERROR=0"
 if exist "bin" (
     echo [1.1] 删除 bin 目录...
     rmdir /s /q "bin" 2>nul
@@ -471,6 +472,7 @@ if exist "bin" (
         echo [OK] bin 目录已删除
     ) else (
         echo [X] bin 目录删除失败（可能被占用）
+        set "CLEAN_ERROR=1"
     )
 ) else (
     echo [OK] bin 目录不存在，无需清理
@@ -484,9 +486,23 @@ if exist "obj" (
         echo [OK] obj 目录已删除
     ) else (
         echo [X] obj 目录删除失败（可能被占用）
+        set "CLEAN_ERROR=1"
     )
 ) else (
     echo [OK] obj 目录不存在，无需清理
+)
+
+if !CLEAN_ERROR! equ 1 (
+    echo.
+    echo [X] 警告: 清理过程中有错误，可能影响编译
+    echo 建议: 手动关闭可能占用文件的程序后重试
+    echo.
+    set /p "CONTINUE_CLEAN=是否继续执行编译？(Y/N): "
+    if /i not "!CONTINUE_CLEAN!"=="Y" (
+        echo [X] 用户取消，退出执行
+        pause
+        exit /b 1
+    )
 )
 
 echo.
@@ -718,8 +734,18 @@ if !BUILD_ERROR! neq 0 (
     ) else (
         echo [OK] 重试编译成功！
     )
+) else (
+    echo [OK] 编译成功！
 )
-echo [OK] 编译成功！
+
+REM 检查编译是否真的成功
+if !BUILD_ERROR! neq 0 (
+    echo.
+    echo [X] 错误: 编译失败，停止执行后续步骤
+    echo.
+    pause
+    exit /b 1
+)
 
 echo.
 echo ========================================
@@ -773,12 +799,23 @@ if "!PROCESS_FOUND!"=="0" (
         echo 进程PID: !PROCESS_PID!
     )
     echo 请手动在任务管理器中结束进程 "%PROCESS_NAME%" 后重试
+    echo.
+    set /p "CONTINUE_CLOSE=是否继续执行运行程序？(Y/N): "
+    if /i not "!CONTINUE_CLOSE!"=="Y" (
+        echo [X] 用户取消，退出执行
+        pause
+        exit /b 1
+    )
 )
 :process_closed4
-echo [OK] 程序已关闭
-echo [等待] 等待文件句柄释放（3秒）...
-timeout /t 3 /nobreak >nul 2>&1
-echo [OK] 文件句柄已释放，可以继续
+if "!PROCESS_FOUND!"=="0" (
+    echo [OK] 程序未运行，无需关闭
+) else (
+    echo [OK] 程序已关闭
+    echo [等待] 等待文件句柄释放（3秒）...
+    timeout /t 3 /nobreak >nul 2>&1
+    echo [OK] 文件句柄已释放，可以继续
+)
 
 echo.
 echo ========================================
@@ -819,6 +856,9 @@ if !START_ERROR! equ 0 (
     echo [OK] 程序已启动
 ) else (
     echo [X] 程序启动失败，可能需要管理员权限
+    echo [X] 步骤4执行失败，退出
+    pause
+    exit /b 1
 )
 
 echo.
