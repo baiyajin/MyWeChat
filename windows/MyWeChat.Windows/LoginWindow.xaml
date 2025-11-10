@@ -99,19 +99,43 @@
                         Margin="0,0,0,0">
                     <StackPanel>
                         <!-- 手机号输入 - App端风格（下划线输入框） -->
-                        <Border BorderThickness="0,0,0,1" BorderBrush="#E5E5E5" Margin="0,0,0,20">
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="📱" FontSize="20" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                <TextBox Name="PhoneTextBox" 
-                                         FontSize="16" 
-                                         Padding="0,8"
-                                         BorderThickness="0"
-                                         Background="Transparent"
-                                         GotFocus="PhoneTextBox_GotFocus"
-                                         LostFocus="PhoneTextBox_LostFocus"
-                                         VerticalContentAlignment="Center"/>
-                            </StackPanel>
-                        </Border>
+                        <TextBox Name="PhoneTextBox" 
+                                 FontSize="16" 
+                                 Padding="0,8"
+                                 Margin="0,0,0,20"
+                                 BorderThickness="0,0,0,1"
+                                 BorderBrush="#E5E5E5"
+                                 Background="Transparent"
+                                 GotFocus="PhoneTextBox_GotFocus"
+                                 LostFocus="PhoneTextBox_LostFocus"
+                                 VerticalContentAlignment="Center">
+                            <TextBox.Style>
+                                <Style TargetType="TextBox">
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="TextBox">
+                                                <Border BorderThickness="0,0,0,1" BorderBrush="#E5E5E5">
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="Auto"/>
+                                                            <ColumnDefinition Width="*"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        <TextBlock Grid.Column="0" 
+                                                                   Text="📱" 
+                                                                   FontSize="20" 
+                                                                   Margin="0,0,8,0" 
+                                                                   VerticalAlignment="Center"/>
+                                                        <ScrollViewer Grid.Column="1" 
+                                                                      x:Name="PART_ContentHost" 
+                                                                      Margin="0,8"/>
+                                                    </Grid>
+                                                </Border>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                </Style>
+                            </TextBox.Style>
+                        </TextBox>
                         
                         <!-- 验证码输入 - App端风格 -->
                         <Grid Margin="0,0,0,30">
