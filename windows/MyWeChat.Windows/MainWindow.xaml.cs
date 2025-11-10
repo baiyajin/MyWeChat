@@ -147,7 +147,7 @@ namespace MyWeChat.Windows
             try
             {
                 // 延迟初始化连接管理器，避免在UI线程中直接初始化导致崩溃
-                Task.Run(async () =>
+                Task.Run(() =>
                 {
                     try
                     {
@@ -162,7 +162,7 @@ namespace MyWeChat.Windows
                         }
 
                         // 使用 BeginInvoke 异步调用，避免阻塞后台线程
-                        Dispatcher.BeginInvoke(new Action(() =>
+                        _ = Dispatcher.BeginInvoke(new Action(() =>
                         {
                             AddLog("正在初始化连接管理器...", "INFO");
                         }));
@@ -190,7 +190,7 @@ namespace MyWeChat.Windows
                         if (!connectionManager.Initialize())
                         {
                             Logger.LogError("连接管理器初始化失败");
-                            Dispatcher.BeginInvoke(new Action(() =>
+                            _ = Dispatcher.BeginInvoke(new Action(() =>
                             {
                                 UpdateUI(); // 即使初始化失败，也更新UI显示
                             }));
@@ -198,7 +198,7 @@ namespace MyWeChat.Windows
                         }
                         
                         // 初始化成功，立即更新UI显示版本号
-                        Dispatcher.BeginInvoke(new Action(() =>
+                        _ = Dispatcher.BeginInvoke(new Action(() =>
                         {
                             UpdateUI();
                         }));
@@ -241,7 +241,7 @@ namespace MyWeChat.Windows
                         Logger.LogInfo("服务初始化完成");
                         
                         // 启动定时器检测微信进程
-                        Dispatcher.BeginInvoke(new Action(() =>
+                        _ = Dispatcher.BeginInvoke(new Action(() =>
                         {
                             StartWeChatProcessCheckTimer();
                         }));
@@ -249,7 +249,7 @@ namespace MyWeChat.Windows
                     catch (Exception ex)
                     {
                         Logger.LogError($"初始化服务失败: {ex.Message}", ex);
-                        Dispatcher.BeginInvoke(new Action(() =>
+                        _ = Dispatcher.BeginInvoke(new Action(() =>
                         {
                             MessageBox.Show($"初始化失败: {ex.Message}\n\n堆栈跟踪:\n{ex.StackTrace}", 
                                 "错误", MessageBoxButton.OK, MessageBoxImage.Error);
@@ -614,7 +614,7 @@ namespace MyWeChat.Windows
                                 if (accountInfo != null)
                                 {
                                     // 更新UI显示账号信息
-                                    Dispatcher.BeginInvoke(new Action(() =>
+                                    _ = Dispatcher.BeginInvoke(new Action(() =>
                                     {
                                         if (_accountList != null)
                                         {

@@ -83,10 +83,10 @@ namespace MyWeChat.Windows.Core.Hook
                                 return normalized;
                             }
                         }
-                        catch (Exception ex)
+                        catch (Exception)
                         {
                             // 只在调试时输出警告
-                            // Utils.Logger.LogWarning($"从WeChat.exe获取版本失败: {ex.Message}");
+                            // 忽略异常，继续尝试其他方法
                         }
                     }
                 }
@@ -111,10 +111,10 @@ namespace MyWeChat.Windows.Core.Hook
                         }
                     }
                 }
-                catch (Exception ex)
+                catch (Exception)
                 {
                     // 忽略进程获取失败（可能是架构不匹配），不输出日志
-                    // Utils.Logger.LogWarning($"从进程获取版本失败（可能架构不匹配）: {ex.Message}");
+                    // 继续尝试其他方法
                 }
             }
             catch (Exception ex)
@@ -185,10 +185,10 @@ namespace MyWeChat.Windows.Core.Hook
                                 }
                             }
                         }
-                        catch (Exception ex)
+                        catch (Exception)
                         {
                             // 减少日志输出，只在调试时输出
-                            // Utils.Logger.LogWarning($"访问注册表路径失败: {ex.Message}");
+                            // 忽略异常，继续尝试其他路径
                         }
                     }
                 }
