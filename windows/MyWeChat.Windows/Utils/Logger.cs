@@ -145,16 +145,6 @@ namespace MyWeChat.Windows.Utils
 
                     // 写入文件
                     File.AppendAllText(filePath, logEntry);
-
-                    // 触发UI日志事件（传递 level 和 message，避免在事件处理中再次解析）
-                    try
-                    {
-                        OnLogMessage?.Invoke(level, message);
-                    }
-                    catch
-                    {
-                        // 忽略UI日志输出失败
-                    }
                 }
                 catch
                 {

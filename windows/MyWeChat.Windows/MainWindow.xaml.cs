@@ -39,9 +39,6 @@ namespace MyWeChat.Windows
         private CommandService? _commandService;
         private ObservableCollection<AccountInfo>? _accountList;
         
-        // 保存事件订阅的委托引用，以便在关闭时取消订阅
-        private Action<string, string>? _loggerEventHandler; // 改为接收 level 和 message
-        
         // 定时器：检测微信进程
         private DispatcherTimer? _weChatProcessCheckTimer;
         
@@ -151,15 +148,6 @@ namespace MyWeChat.Windows
             
             try
             {
-                // 订阅Logger日志事件，用于UI显示（如果需要）
-                // 注意：当前UI日志显示已移除，这里保留事件订阅以便将来扩展
-                _loggerEventHandler = (level, message) =>
-                {
-                    // 如果需要UI显示日志，可以在这里实现
-                    // 当前不实现，避免不必要的复杂度
-                };
-                Logger.OnLogMessage += _loggerEventHandler;
-
                 // 延迟初始化连接管理器，避免在UI线程中直接初始化导致崩溃
                 Task.Run(async () =>
                 {
@@ -2803,13 +2791,6 @@ namespace MyWeChat.Windows
                     {
                         Dispatcher.Invoke(() =>
                         {
-                            // 取消Logger事件订阅
-                            if (_loggerEventHandler != null)
-                            {
-                                Logger.OnLogMessage -= _loggerEventHandler;
-                                _loggerEventHandler = null;
-                            }
-                            
                             // 取消连接管理器事件订阅
                             if (_connectionManager != null)
                             {
@@ -3029,9 +3010,6 @@ namespace MyWeChat.Windows
                     _accountList.Clear();
                     _accountList = null;
                 }
-                
-                // 清空事件处理程序引用
-                _loggerEventHandler = null;
                 
                 Logger.LogInfo("窗口已关闭，所有资源已清理");
                 Logger.LogInfo("========== 资源清理完成 ==========");
