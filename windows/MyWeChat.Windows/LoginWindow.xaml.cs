@@ -392,6 +392,12 @@ namespace MyWeChat.Windows
                     {
                         _loginHistory = history;
                         HistoryItemsControl.ItemsSource = _loginHistory;
+                        
+                        // 显示/隐藏登录历史标题
+                        if (HistoryTitleTextBlock != null)
+                        {
+                            HistoryTitleTextBlock.Visibility = _loginHistory.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+                        }
                     }
                 }
             }
@@ -428,6 +434,12 @@ namespace MyWeChat.Windows
                 HistoryItemsControl.ItemsSource = null;
                 HistoryItemsControl.ItemsSource = _loginHistory;
                 
+                // 显示/隐藏登录历史标题
+                if (HistoryTitleTextBlock != null)
+                {
+                    HistoryTitleTextBlock.Visibility = _loginHistory.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+                }
+                
                 Logger.LogInfo($"登录历史已保存: {accountInfo.WeChatId}");
             }
             catch (Exception ex)
@@ -441,9 +453,9 @@ namespace MyWeChat.Windows
         /// </summary>
         private void PhoneTextBox_GotFocus(object sender, RoutedEventArgs e)
         {
-            if (sender is TextBox textBox)
+            if (sender is TextBox textBox && textBox.Parent is Border border)
             {
-                textBox.BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#07C160"));
+                border.BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#07C160"));
             }
         }
 
@@ -452,9 +464,9 @@ namespace MyWeChat.Windows
         /// </summary>
         private void PhoneTextBox_LostFocus(object sender, RoutedEventArgs e)
         {
-            if (sender is TextBox textBox)
+            if (sender is TextBox textBox && textBox.Parent is Border border)
             {
-                textBox.BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#CCCCCC"));
+                border.BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#E5E5E5"));
             }
         }
 
@@ -463,9 +475,9 @@ namespace MyWeChat.Windows
         /// </summary>
         private void CodeTextBox_GotFocus(object sender, RoutedEventArgs e)
         {
-            if (sender is TextBox textBox)
+            if (sender is TextBox textBox && textBox.Parent is Border border)
             {
-                textBox.BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#07C160"));
+                border.BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#07C160"));
             }
         }
 
@@ -474,9 +486,9 @@ namespace MyWeChat.Windows
         /// </summary>
         private void CodeTextBox_LostFocus(object sender, RoutedEventArgs e)
         {
-            if (sender is TextBox textBox)
+            if (sender is TextBox textBox && textBox.Parent is Border border)
             {
-                textBox.BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#CCCCCC"));
+                border.BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#E5E5E5"));
             }
         }
 

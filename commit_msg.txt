@@ -1,6 +1,0 @@
-添加导入账号信息脚本，将account_info.json中的数据保存到数据库
-
-- 添加import_account_info.py脚本：从account_info.json文件读取账号信息并保存到数据库
-- 支持自动查找account_info.json文件（多个可能路径）
-- 支持更新已存在的账号信息或创建新记录
-- 已成功将account_info.json中的账号数据导入到数据库
