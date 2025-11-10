@@ -25,7 +25,7 @@ String? _appUrl;
 String? _webSocketUrl;
 bool _linksDisplayed = false; // 标记是否已显示链接
 
-void main() async {
+void main() {
   // 确保 Flutter 绑定已初始化（所有平台都需要）
   WidgetsFlutterBinding.ensureInitialized();
   
@@ -42,13 +42,20 @@ void main() async {
   // 设置窗口大小（仅 Windows 平台）
   if (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows) {
     print('Windows 平台：设置窗口大小...');
-    await _setWindowSize();
-    print('Windows 平台：窗口大小设置完成');
+    _setWindowSizeAsync();
+    print('Windows 平台：窗口大小设置完成（异步）');
   }
   
   print('正在启动应用...');
   runApp(const MyWeChatApp());
   print('应用已启动');
+}
+
+/// 异步设置窗口大小（仅 Windows 平台）
+void _setWindowSizeAsync() {
+  _setWindowSize().catchError((error) {
+    print('设置窗口大小失败: $error');
+  });
 }
 
 /// 设置窗口大小为 iPhone 15 Pro 尺寸（仅 Windows 平台）
