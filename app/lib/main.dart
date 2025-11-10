@@ -8,7 +8,10 @@ import 'ui/pages/about_page.dart';
 import 'ui/pages/collections_page.dart';
 import 'services/websocket_service.dart';
 import 'services/api_service.dart';
-import 'dart:html' as html;
+
+// 条件导入：根据平台选择不同的实现
+import 'platform/platform_stub.dart'
+    if (dart.library.html) 'platform/platform_web.dart';
 
 // 全局变量，用于存储链接信息
 String? _appUrl;
@@ -26,46 +29,8 @@ void main() {
 
 /// 收集访问链接
 void _collectAccessUrl() {
-  try {
-    final uri = html.window.location;
-    
-    // 直接使用 uri.href，然后修复端口重复问题
-    String href = uri.href ?? '';
-    
-    // 修复端口重复问题：匹配 localhost:端口:端口 的模式
-    // 例如：http://localhost:57625:57625 -> http://localhost:57625
-    if (href.contains('://')) {
-      // 使用正则表达式修复重复的端口号
-      _appUrl = href.replaceAll(RegExp(r':(\d+):\1(?=/|$)'), ':\$1');
-      
-      // 如果仍有重复（更复杂的情况），使用更通用的方法
-      final parts = _appUrl!.split(':');
-      if (parts.length > 3) {
-        // 有重复端口，只保留第一个
-        final protocol = parts[0];
-        final host = parts[1].replaceAll('//', '');
-        final port = parts[2];
-        final rest = parts.sublist(3).join(':');
-        _appUrl = '$protocol://$host:$port$rest';
-      }
-    } else {
-      // 如果 href 为空，手动构建
-      String port = '';
-      final portNum = uri.port;
-      if (portNum != 0 && portNum != 80 && portNum != 443) {
-        port = ':${portNum}';
-      }
-      
-      String pathname = uri.pathname ?? '';
-      if (pathname.isEmpty || pathname == '/') {
-        pathname = '';
-      }
-      
-      _appUrl = '${uri.protocol}//${uri.host}$port$pathname';
-    }
-  } catch (e) {
-    print('无法获取访问链接: $e');
-  }
+  // 使用平台特定的实现
+  _appUrl = getCurrentUrl();
 }
 
 /// 设置WebSocket链接
