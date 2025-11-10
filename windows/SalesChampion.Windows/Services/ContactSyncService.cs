@@ -17,6 +17,7 @@ namespace SalesChampion.Windows.Services
     {
         private readonly WeChatConnectionManager _connectionManager;
         private readonly WebSocketService _webSocketService;
+        private readonly Func<string>? _getWeChatIdFunc;
         private readonly Dictionary<int, List<ContactInfo>> _pendingContacts = new Dictionary<int, List<ContactInfo>>();
 
         // 命令ID定义
@@ -90,15 +91,15 @@ namespace SalesChampion.Windows.Services
                 // 转换为ContactInfo模型
                 List<ContactInfo> contacts = new List<ContactInfo>();
                 // 优先使用真正的wxid，如果没有则使用ClientId（进程ID）作为fallback
-                string weChatId = _getWeChatIdFunc?.Invoke() ?? _connectionManager.ClientId.ToString();
-                if (string.IsNullOrEmpty(weChatId))
+                string? realWxid = _getWeChatIdFunc?.Invoke();
+                string weChatId = !string.IsNullOrEmpty(realWxid) ? realWxid : _connectionManager.ClientId.ToString();
+                if (!string.IsNullOrEmpty(realWxid))
                 {
-                    weChatId = _connectionManager.ClientId.ToString();
-                    Logger.LogWarning("未获取到真正的wxid，使用ClientId（进程ID）作为fallback");
+                    Logger.LogInfo($"使用真正的wxid进行同步: {weChatId}");
                 }
                 else
                 {
-                    Logger.LogInfo($"使用真正的wxid进行同步: {weChatId}");
+                    Logger.LogWarning("未获取到真正的wxid，使用ClientId（进程ID）作为fallback");
                 }
 
                 foreach (var friend in friendList)
