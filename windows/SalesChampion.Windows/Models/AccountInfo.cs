@@ -7,11 +7,6 @@ namespace SalesChampion.Windows.Models
     public class AccountInfo
     {
         /// <summary>
-        /// 客户端ID
-        /// </summary>
-        public string Client { get; set; } = string.Empty;
-
-        /// <summary>
         /// 公司名称
         /// </summary>
         public string CompanyName { get; set; } = string.Empty;

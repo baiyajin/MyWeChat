@@ -1671,7 +1671,6 @@ namespace SalesChampion.Windows
                             {
                                 accountInfo = new AccountInfo
                                 {
-                                    Client = $"客户端{clientId}",
                                     WeChatId = wxid,
                                     BoundAccount = account
                                 };
@@ -1682,7 +1681,6 @@ namespace SalesChampion.Windows
                             // 更新账号信息
                             if (accountInfo != null)
                             {
-                            accountInfo.Client = $"客户端{clientId}";
                             accountInfo.WeChatId = wxid;
                             accountInfo.BoundAccount = account;
                             
@@ -1824,7 +1822,6 @@ namespace SalesChampion.Windows
                         {
                             account = new AccountInfo
                             {
-                                Client = $"客户端{clientId}",
                                 WeChatId = weChatId,
                                 BoundAccount = weChatId
                             };
@@ -1935,7 +1932,6 @@ namespace SalesChampion.Windows
                     nickname = accountInfo.NickName,
                     avatar = accountInfo.Avatar,
                     account = accountInfo.BoundAccount,
-                    client = accountInfo.Client,
                     device_id = accountInfo.DeviceId,
                     phone = accountInfo.Phone,
                     wx_user_dir = accountInfo.WxUserDir,
@@ -2010,7 +2006,6 @@ namespace SalesChampion.Windows
                 string nickname = accountData.nickname?.ToString() ?? "";
                 string avatar = accountData.avatar?.ToString() ?? "";
                 string account = accountData.account?.ToString() ?? "";
-                string client = accountData.client?.ToString() ?? "";
                 string deviceId = accountData.device_id?.ToString() ?? "";
                 string phone = accountData.phone?.ToString() ?? "";
                 string wxUserDir = accountData.wx_user_dir?.ToString() ?? "";
@@ -2057,7 +2052,6 @@ namespace SalesChampion.Windows
                             NickName = nickname,
                             Avatar = avatar,
                             BoundAccount = account,
-                            Client = client,
                             DeviceId = deviceId,
                             Phone = phone,
                             WxUserDir = wxUserDir,
@@ -2297,7 +2291,6 @@ namespace SalesChampion.Windows
                                         // 创建新账号信息（只使用真正的wxid，不使用clientId）
                                     accountInfo = new AccountInfo
                                     {
-                                        Client = $"客户端{clientId}",
                                             WeChatId = wxid,
                                         BoundAccount = !string.IsNullOrEmpty(account) ? account : wxid
                                     };
