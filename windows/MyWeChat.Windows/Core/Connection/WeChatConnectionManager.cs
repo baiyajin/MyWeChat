@@ -13,6 +13,7 @@ namespace MyWeChat.Windows.Core.Connection
         private WeChatHookManager? _hookManager;
         private string? _weChatVersion;
         private bool _isConnected;
+        private bool _isInitialized = false;
 
         /// <summary>
         /// 连接状态
@@ -44,14 +45,20 @@ namespace MyWeChat.Windows.Core.Connection
         /// </summary>
         public bool Initialize()
         {
+            // 防止重复初始化
+            if (_isInitialized)
+            {
+                Logger.LogWarning("连接管理器已初始化，跳过重复初始化");
+                return true;
+            }
+            
             try
             {
                 Logger.LogInfo("========== 开始初始化连接管理器 ==========");
                 
-                // 检测微信版本
-                Logger.LogInfo("步骤1: 检测微信版本...");
+                // 检测微信版本（减少日志输出）
                 _weChatVersion = WeChatVersionDetector.DetectWeChatVersion();
-                Logger.LogInfo($"检测结果: {(_weChatVersion ?? "未检测到")}");
+                Logger.LogInfo($"检测微信版本: {(_weChatVersion ?? "未检测到")}");
                 
                 if (string.IsNullOrEmpty(_weChatVersion))
                 {
@@ -64,9 +71,11 @@ namespace MyWeChat.Windows.Core.Connection
                 }
 
                 // 尝试标准化版本号（如果找不到精确匹配，会自动选择最接近的版本）
-                Logger.LogInfo("步骤2: 标准化版本号...");
                 string? normalizedVersion = WeChatVersionDetector.DetectWeChatVersion();
-                Logger.LogInfo($"标准化结果: {normalizedVersion ?? "未找到匹配版本"}");
+                if (normalizedVersion != _weChatVersion)
+                {
+                    Logger.LogInfo($"微信版本标准化: {_weChatVersion} -> {normalizedVersion}");
+                }
                 
                 if (string.IsNullOrEmpty(normalizedVersion))
                 {
@@ -82,13 +91,10 @@ namespace MyWeChat.Windows.Core.Connection
                     _weChatVersion = normalizedVersion;
                 }
 
-                Logger.LogInfo($"最终使用的微信版本: {_weChatVersion}");
+                Logger.LogInfo($"使用微信版本: {_weChatVersion}");
 
                 // 检查DLL目录
                 string? dllDirectory = WeChatVersionDetector.GetDllDirectoryPath(_weChatVersion);
-                Logger.LogInfo($"步骤3: 检查DLL目录...");
-                Logger.LogInfo($"DLL目录路径: {dllDirectory ?? "未找到"}");
-                
                 if (string.IsNullOrEmpty(dllDirectory) || !System.IO.Directory.Exists(dllDirectory))
                 {
                     Logger.LogError($"DLL目录不存在: {dllDirectory ?? "null"}");
@@ -97,16 +103,12 @@ namespace MyWeChat.Windows.Core.Connection
 
                 // 检查关键DLL文件
                 string wxHelpPath = System.IO.Path.Combine(dllDirectory, "WxHelp.dll");
-                Logger.LogInfo($"WxHelp.dll路径: {wxHelpPath}");
-                Logger.LogInfo($"WxHelp.dll是否存在: {System.IO.File.Exists(wxHelpPath)}");
-                
                 if (!System.IO.File.Exists(wxHelpPath))
                 {
-                    Logger.LogWarning($"WxHelp.dll不存在，将尝试从其他位置查找");
+                    Logger.LogWarning($"WxHelp.dll不存在: {wxHelpPath}");
                 }
 
                 // 初始化Hook管理器
-                Logger.LogInfo("步骤4: 初始化Hook管理器...");
                 _hookManager = new WeChatHookManager();
                 
                 // 在初始化之前订阅Hook事件，确保不会丢失消息
@@ -132,20 +134,13 @@ namespace MyWeChat.Windows.Core.Connection
                     OnMessageReceived?.Invoke(this, message);
                 };
                 
-                Logger.LogInfo("已订阅Hook管理器的事件");
-                
                 if (!_hookManager.Initialize(_weChatVersion))
                 {
                     Logger.LogError("Hook管理器初始化失败");
-                    Logger.LogError("可能的原因:");
-                    Logger.LogError("  1. WxHelp.dll文件不存在或路径不正确");
-                    Logger.LogError("  2. DLL版本与微信版本不匹配");
-                    Logger.LogError("  3. DLL文件损坏");
                     return false;
                 }
 
-                Logger.LogInfo("Hook管理器初始化成功");
-
+                _isInitialized = true;
                 Logger.LogInfo("========== 连接管理器初始化完成 ==========");
                 return true;
             }

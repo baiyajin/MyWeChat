@@ -118,6 +118,13 @@ namespace MyWeChat.Windows
         /// </summary>
         private void InitializeServices()
         {
+            // 防止重复初始化
+            if (_connectionManager != null)
+            {
+                Logger.LogWarning("连接管理器已初始化，跳过重复初始化");
+                return;
+            }
+            
             try
             {
                 // 订阅Logger日志事件，输出到UI（带颜色）

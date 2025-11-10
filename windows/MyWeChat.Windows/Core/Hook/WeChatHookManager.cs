@@ -731,9 +731,8 @@ namespace MyWeChat.Windows.Core.Hook
         {
             try
             {
-                Logger.LogInfo($"========== OnReceiveCallback被调用 ==========");
-                Logger.LogInfo($"clientId={clientId}, length={length}");
-                Logger.LogInfo($"调用时间: {DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}");
+                // 减少回调日志输出，避免日志过多（只在调试时输出）
+                // Logger.LogInfo($"OnReceiveCallback: clientId={clientId}, length={length}");
                 
                 if (message == IntPtr.Zero || length <= 0)
                 {
@@ -745,12 +744,14 @@ namespace MyWeChat.Windows.Core.Hook
                 Marshal.Copy(message, buffer, 0, length);
                 string jsonMessage = Encoding.UTF8.GetString(buffer);
 
-                Logger.LogInfo($"收到微信消息: {jsonMessage}");
+                // 只在重要消息时输出日志（如登录回调）
+                if (jsonMessage.Contains("\"type\":1112") || jsonMessage.Contains("\"messageType\":1112"))
+                {
+                    Logger.LogInfo($"收到微信登录回调消息");
+                }
                 
                 if (OnMessageReceived != null)
                 {
-                    int subscriberCount = OnMessageReceived.GetInvocationList().Length;
-                    Logger.LogInfo($"触发OnMessageReceived事件，订阅者数量: {subscriberCount}");
                     OnMessageReceived.Invoke(this, jsonMessage);
                 }
                 else
