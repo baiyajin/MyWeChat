@@ -7,7 +7,7 @@ from sqlalchemy import Column, Integer, String, Text, DateTime
 from datetime import datetime
 
 # 数据库配置
-DATABASE_URL = "sqlite+aiosqlite:///./sales_champion.db"
+DATABASE_URL = "sqlite+aiosqlite:///./my_wechat.db"
 
 # 创建异步引擎
 engine = create_async_engine(DATABASE_URL, echo=True)

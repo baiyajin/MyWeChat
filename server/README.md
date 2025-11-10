@@ -90,7 +90,7 @@ fastapi dev app/main.py
 ## 配置说明
 
 ### 数据库配置
-默认使用SQLite，数据库文件：`sales_champion.db`
+默认使用SQLite，数据库文件：`my_wechat.db`
 
 如需使用PostgreSQL，修改 `app/models/database.py`：
 ```python
