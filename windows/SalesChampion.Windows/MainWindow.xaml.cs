@@ -1150,6 +1150,13 @@ namespace SalesChampion.Windows
             Dispatcher.Invoke(() =>
             {
                 AddLog(isConnected ? "App连接: 已连接" : "App连接: 未连接", isConnected ? "SUCCESS" : "WARN");
+                
+                // WebSocket连接成功后，如果本地有账号信息，主动同步到app端
+                if (isConnected)
+                {
+                    Logger.LogInfo("WebSocket连接成功，检查本地是否有账号信息需要同步");
+                    SyncLocalAccountInfoToServer();
+                }
             });
         }
 
@@ -1966,6 +1973,88 @@ namespace SalesChampion.Windows
             catch (Exception ex)
             {
                 Logger.LogError($"从本地加载账号信息失败: {ex.Message}", ex);
+            }
+        }
+
+        /// <summary>
+        /// 同步本地账号信息到服务器（如果WebSocket已连接）
+        /// </summary>
+        private void SyncLocalAccountInfoToServer()
+        {
+            try
+            {
+                // 检查WebSocket是否已连接
+                if (_webSocketService == null || !_webSocketService.IsConnected)
+                {
+                    Logger.LogWarning("WebSocket未连接，无法同步本地账号信息");
+                    return;
+                }
+
+                // 检查账号列表是否为空
+                if (_accountList == null || _accountList.Count == 0)
+                {
+                    Logger.LogInfo("账号列表为空，无需同步");
+                    return;
+                }
+
+                // 查找有真正wxid的账号信息
+                AccountInfo? accountInfo = null;
+                foreach (var acc in _accountList)
+                {
+                    if (IsRealWeChatId(acc.WeChatId))
+                    {
+                        accountInfo = acc;
+                        break;
+                    }
+                }
+
+                // 如果没找到，尝试查找任何有昵称的账号
+                if (accountInfo == null)
+                {
+                    foreach (var acc in _accountList)
+                    {
+                        if (!string.IsNullOrEmpty(acc.NickName) && !string.IsNullOrEmpty(acc.WeChatId))
+                        {
+                            if (!IsProcessId(acc.WeChatId))
+                            {
+                                accountInfo = acc;
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                if (accountInfo == null)
+                {
+                    Logger.LogInfo("未找到有效的账号信息，无需同步");
+                    return;
+                }
+
+                // 检查账号信息是否完整（至少要有wxid和nickname）
+                if (string.IsNullOrEmpty(accountInfo.WeChatId) || IsProcessId(accountInfo.WeChatId))
+                {
+                    Logger.LogWarning($"账号信息wxid无效（{accountInfo.WeChatId}），无法同步");
+                    return;
+                }
+
+                if (string.IsNullOrEmpty(accountInfo.NickName) && string.IsNullOrEmpty(accountInfo.BoundAccount))
+                {
+                    Logger.LogWarning("账号信息不完整（缺少nickname和account），无法同步");
+                    return;
+                }
+
+                // 同步账号信息到服务器
+                Logger.LogInfo($"主动同步本地账号信息到服务器: wxid={accountInfo.WeChatId}, nickname={accountInfo.NickName}");
+                SyncMyInfoToServer(
+                    accountInfo.WeChatId,
+                    accountInfo.NickName ?? "",
+                    accountInfo.Avatar ?? "",
+                    accountInfo.BoundAccount ?? accountInfo.WeChatId
+                );
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError($"同步本地账号信息到服务器失败: {ex.Message}", ex);
             }
         }
 
