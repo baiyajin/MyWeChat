@@ -199,6 +199,11 @@ class _AuthWrapperState extends State<_AuthWrapper> {
       final wsService = Provider.of<WebSocketService>(context, listen: false);
       final apiService = Provider.of<ApiService>(context, listen: false);
       
+      // 在 Web 平台上，使用更短的超时时间，避免浏览器显示"响应时间太长"
+      final isWeb = kIsWeb;
+      final wsTimeout = isWeb ? const Duration(seconds: 2) : const Duration(seconds: 5);
+      final wsTotalTimeout = isWeb ? const Duration(seconds: 3) : const Duration(seconds: 6);
+      
       // 先建立WebSocket连接（无论是否登录都需要），使用超时
       if (!wsService.isConnected) {
         // 将HTTP URL转换为WebSocket URL
@@ -207,23 +212,30 @@ class _AuthWrapperState extends State<_AuthWrapper> {
           wsUrl = wsUrl.endsWith('/') ? '${wsUrl}ws' : '$wsUrl/ws';
         }
         
-        // 使用超时连接，最多等待5秒
-        final connected = await wsService.connect(wsUrl, timeout: const Duration(seconds: 5))
-            .timeout(
-              const Duration(seconds: 6),
-              onTimeout: () {
-                return false;
-              },
-            );
-        // 即使连接失败，也继续检查登录状态，允许用户使用登录页面
+        // 使用超时连接，在 Web 平台上使用更短的超时时间
+        try {
+          final connected = await wsService.connect(wsUrl, timeout: wsTimeout)
+              .timeout(
+                wsTotalTimeout,
+                onTimeout: () {
+                  print('WebSocket连接超时（Web平台）');
+                  return false;
+                },
+              );
+          // 即使连接失败，也继续检查登录状态，允许用户使用登录页面
+        } catch (e) {
+          print('WebSocket连接失败: $e');
+          // 连接失败，继续显示登录页面
+        }
       }
       
       // 检查登录状态（使用超时）
       String? wxid;
       try {
+        final loadTimeout = isWeb ? const Duration(seconds: 1) : const Duration(seconds: 2);
         wxid = await wsService.loadLoginState()
             .timeout(
-              const Duration(seconds: 2),
+              loadTimeout,
               onTimeout: () {
                 return null;
               },
@@ -235,9 +247,10 @@ class _AuthWrapperState extends State<_AuthWrapper> {
       if (wxid != null && wxid.isNotEmpty) {
         // 已登录，尝试快速登录（使用超时）
         try {
+          final quickLoginTimeout = isWeb ? const Duration(seconds: 3) : const Duration(seconds: 5);
           final success = await wsService.quickLogin(wxid)
               .timeout(
-                const Duration(seconds: 5),
+                quickLoginTimeout,
                 onTimeout: () {
                   return false;
                 },
