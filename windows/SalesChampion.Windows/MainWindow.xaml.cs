@@ -197,10 +197,10 @@ namespace SalesChampion.Windows
                         _webSocketService.OnConnectionStateChanged += OnWebSocketConnectionStateChanged;
 
                         // 初始化同步服务
-                        _contactSyncService = new ContactSyncService(_connectionManager, _webSocketService);
-                        _momentsSyncService = new MomentsSyncService(_connectionManager, _webSocketService);
-                        _tagSyncService = new TagSyncService(_connectionManager, _webSocketService);
-                        _chatMessageSyncService = new ChatMessageSyncService(_connectionManager, _webSocketService);
+                        _contactSyncService = new ContactSyncService(_connectionManager, _webSocketService, GetCurrentWeChatId);
+                        _momentsSyncService = new MomentsSyncService(_connectionManager, _webSocketService, GetCurrentWeChatId);
+                        _tagSyncService = new TagSyncService(_connectionManager, _webSocketService, GetCurrentWeChatId);
+                        _chatMessageSyncService = new ChatMessageSyncService(_connectionManager, _webSocketService, GetCurrentWeChatId);
 
                         // 初始化命令服务
                         _commandService = new CommandService(_connectionManager);
@@ -793,6 +793,54 @@ namespace SalesChampion.Windows
             }
         }
         
+        /// <summary>
+        /// 获取当前登录账号的真正wxid
+        /// </summary>
+        /// <returns>返回真正的wxid，如果未找到则返回空字符串</returns>
+        private string GetCurrentWeChatId()
+        {
+            try
+            {
+                if (_accountList == null || _accountList.Count == 0)
+                {
+                    Logger.LogWarning("账号列表为空，无法获取真正的wxid");
+                    return string.Empty;
+                }
+
+                // 优先查找有真正wxid的账号（不是进程ID）
+                foreach (var account in _accountList)
+                {
+                    if (IsRealWeChatId(account.WeChatId))
+                    {
+                        Logger.LogInfo($"获取到真正的wxid: {account.WeChatId}");
+                        return account.WeChatId;
+                    }
+                }
+
+                // 如果没找到，尝试查找任何有昵称的账号（可能是从WebSocket同步的）
+                foreach (var account in _accountList)
+                {
+                    if (!string.IsNullOrEmpty(account.NickName) && !string.IsNullOrEmpty(account.WeChatId))
+                    {
+                        // 检查是否是真正的wxid（不是进程ID）
+                        if (!IsProcessId(account.WeChatId))
+                        {
+                            Logger.LogInfo($"获取到真正的wxid（从有昵称的账号）: {account.WeChatId}");
+                            return account.WeChatId;
+                        }
+                    }
+                }
+
+                Logger.LogWarning("未找到真正的wxid，账号列表中可能只有进程ID");
+                return string.Empty;
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError($"获取当前微信ID失败: {ex.Message}", ex);
+                return string.Empty;
+            }
+        }
+
         /// <summary>
         /// 更新账号信息显示
         /// </summary>

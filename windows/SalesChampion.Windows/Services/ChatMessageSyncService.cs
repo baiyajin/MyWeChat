@@ -15,6 +15,7 @@ namespace SalesChampion.Windows.Services
     {
         private readonly WeChatConnectionManager _connectionManager;
         private readonly WebSocketService _webSocketService;
+        private Func<string>? _getWeChatIdFunc; // 获取真正的wxid的函数
 
         // 消息类型定义
         private const int MSG_TYPE_TEXT = 11132; // 文本消息
@@ -23,10 +24,11 @@ namespace SalesChampion.Windows.Services
         /// <summary>
         /// 构造函数
         /// </summary>
-        public ChatMessageSyncService(WeChatConnectionManager connectionManager, WebSocketService webSocketService)
+        public ChatMessageSyncService(WeChatConnectionManager connectionManager, WebSocketService webSocketService, Func<string>? getWeChatIdFunc = null)
         {
             _connectionManager = connectionManager;
             _webSocketService = webSocketService;
+            _getWeChatIdFunc = getWeChatIdFunc;
         }
 
         /// <summary>
@@ -48,12 +50,21 @@ namespace SalesChampion.Windows.Services
                     return;
                 }
 
-                // 获取当前登录的微信ID
-                string weChatId = _connectionManager?.ClientId.ToString() ?? "";
+                // 获取当前登录的微信ID（优先使用真正的wxid）
+                string weChatId = _getWeChatIdFunc?.Invoke() ?? _connectionManager?.ClientId.ToString() ?? "";
                 if (string.IsNullOrEmpty(weChatId))
                 {
-                    Logger.LogWarning("无法获取微信ID，跳过消息同步");
-                    return;
+                    weChatId = _connectionManager?.ClientId.ToString() ?? "";
+                    if (string.IsNullOrEmpty(weChatId))
+                    {
+                        Logger.LogWarning("无法获取微信ID，跳过消息同步");
+                        return;
+                    }
+                    Logger.LogWarning("未获取到真正的wxid，使用ClientId（进程ID）作为fallback");
+                }
+                else
+                {
+                    Logger.LogInfo($"使用真正的wxid进行消息同步: {weChatId}");
                 }
 
                 // 根据消息类型处理

@@ -17,6 +17,7 @@ namespace SalesChampion.Windows.Services
     {
         private readonly WeChatConnectionManager _connectionManager;
         private readonly WebSocketService _webSocketService;
+        private Func<string>? _getWeChatIdFunc; // 获取真正的wxid的函数
 
         // 命令ID定义
         private const int CMD_GET_MOMENTS_LIST = 11241;
@@ -24,10 +25,11 @@ namespace SalesChampion.Windows.Services
         /// <summary>
         /// 构造函数
         /// </summary>
-        public MomentsSyncService(WeChatConnectionManager connectionManager, WebSocketService webSocketService)
+        public MomentsSyncService(WeChatConnectionManager connectionManager, WebSocketService webSocketService, Func<string>? getWeChatIdFunc = null)
         {
             _connectionManager = connectionManager;
             _webSocketService = webSocketService;
+            _getWeChatIdFunc = getWeChatIdFunc;
         }
 
         /// <summary>
@@ -88,7 +90,17 @@ namespace SalesChampion.Windows.Services
 
                 // 转换为MomentsInfo模型
                 List<MomentsInfo> moments = new List<MomentsInfo>();
-                string weChatId = _connectionManager.ClientId.ToString();
+                // 优先使用真正的wxid，如果没有则使用ClientId（进程ID）作为fallback
+                string weChatId = _getWeChatIdFunc?.Invoke() ?? _connectionManager.ClientId.ToString();
+                if (string.IsNullOrEmpty(weChatId))
+                {
+                    weChatId = _connectionManager.ClientId.ToString();
+                    Logger.LogWarning("未获取到真正的wxid，使用ClientId（进程ID）作为fallback");
+                }
+                else
+                {
+                    Logger.LogInfo($"使用真正的wxid进行同步: {weChatId}");
+                }
 
                 foreach (var moment in momentsList)
                 {
