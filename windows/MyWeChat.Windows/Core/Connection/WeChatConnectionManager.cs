@@ -127,10 +127,14 @@ namespace MyWeChat.Windows.Core.Connection
                     Logger.LogInfo("微信连接已断开");
                 };
 
-                // 订阅Hook消息事件，转发到外部
+                // 订阅Hook消息事件，转发到外部（减少日志输出）
                 _hookManager.OnMessageReceived += (sender, message) =>
                 {
-                    Logger.LogInfo($"连接管理器收到Hook消息: {message}");
+                    // 只在重要消息时输出日志
+                    if (message.Contains("\"type\":1112") || message.Contains("\"messageType\":1112"))
+                    {
+                        Logger.LogInfo($"连接管理器收到微信登录回调");
+                    }
                     OnMessageReceived?.Invoke(this, message);
                 };
                 
