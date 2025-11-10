@@ -26,18 +26,27 @@ String? _webSocketUrl;
 bool _linksDisplayed = false; // 标记是否已显示链接
 
 void main() async {
+  print('========== 应用启动 ==========');
+  print('平台: ${kIsWeb ? "Web" : defaultTargetPlatform}');
+  
   // 收集访问链接（仅 Web 平台）
   if (kIsWeb) {
+    print('Web 平台：收集访问链接...');
     _collectAccessUrl();
+    print('Web 平台：访问链接收集完成');
   }
   
   // 设置窗口大小（仅 Windows 平台）
   if (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows) {
+    print('Windows 平台：设置窗口大小...');
     WidgetsFlutterBinding.ensureInitialized();
     await _setWindowSize();
+    print('Windows 平台：窗口大小设置完成');
   }
   
+  print('正在启动应用...');
   runApp(const MyWeChatApp());
+  print('应用已启动');
 }
 
 /// 设置窗口大小为 iPhone 15 Pro 尺寸（仅 Windows 平台）
