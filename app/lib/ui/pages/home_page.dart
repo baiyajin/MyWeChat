@@ -35,6 +35,19 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
+  /// 从服务器加载账号信息
+  Future<void> _loadAccountInfoFromServer(ApiService apiService, WebSocketService wsService) async {
+    try {
+      final accountInfo = await apiService.getAccountInfo();
+      if (accountInfo != null) {
+        // 更新WebSocketService中的账号信息
+        wsService.updateMyInfo(accountInfo);
+      }
+    } catch (e) {
+      print('从服务器加载账号信息失败: $e');
+    }
+  }
+
   /// 初始化WebSocket连接
   Future<void> _initializeWebSocket() async {
     if (_isInitialized) return;
@@ -66,6 +79,7 @@ class _HomePageState extends State<HomePage> {
           
           // 点击tabbar时，请求同步相应的数据
           final wsService = Provider.of<WebSocketService>(context, listen: false);
+          final apiService = Provider.of<ApiService>(context, listen: false);
           if (wsService.isConnected) {
             switch (index) {
               case 0: // 微信（聊天）
@@ -77,7 +91,9 @@ class _HomePageState extends State<HomePage> {
               case 2: // 发现（朋友圈）
                 wsService.requestSyncMoments();
                 break;
-              // case 3: // 我（不需要同步）
+              case 3: // 我（从服务器获取账号信息）
+                _loadAccountInfoFromServer(apiService, wsService);
+                break;
             }
           }
         },

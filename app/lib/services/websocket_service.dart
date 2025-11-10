@@ -288,6 +288,21 @@ class WebSocketService extends ChangeNotifier {
   /// 获取当前微信账号ID
   String? get currentWeChatId => _currentWeChatId;
 
+  /// 更新账号信息（用于从服务器获取后更新）
+  void updateMyInfo(Map<String, dynamic> myInfoData) {
+    try {
+      _myInfo = myInfoData;
+      // 更新当前微信账号ID
+      _currentWeChatId = myInfoData['wxid']?.toString() ?? myInfoData['account']?.toString();
+      // 保存账号信息到本地
+      _saveMyInfoToLocal(myInfoData);
+      notifyListeners();
+      print('账号信息已更新: $_myInfo');
+    } catch (e) {
+      print('更新账号信息失败: $e');
+    }
+  }
+
   /// 处理朋友圈同步
   void _handleMomentsSync(List<dynamic> momentsData) {
     _moments = momentsData

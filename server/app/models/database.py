@@ -102,6 +102,25 @@ class Command(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, comment="更新时间")
 
 
+class AccountInfo(Base):
+    """账号信息表"""
+    __tablename__ = "account_info"
+
+    id = Column(Integer, primary_key=True, index=True)
+    wxid = Column(String(100), unique=True, index=True, comment="微信ID")
+    nickname = Column(String(200), comment="昵称")
+    avatar = Column(String(500), comment="头像URL")
+    account = Column(String(100), comment="账号")
+    device_id = Column(String(200), comment="设备ID")
+    phone = Column(String(50), comment="手机号")
+    wx_user_dir = Column(String(500), comment="微信用户目录")
+    unread_msg_count = Column(Integer, default=0, comment="未读消息数")
+    is_fake_device_id = Column(Integer, default=0, comment="是否为假设备ID")
+    pid = Column(Integer, default=0, comment="进程ID")
+    created_at = Column(DateTime, default=datetime.utcnow, comment="创建时间")
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, comment="更新时间")
+
+
 async def init_db():
     """初始化数据库"""
     async with engine.begin() as conn:

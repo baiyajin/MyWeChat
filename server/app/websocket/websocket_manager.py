@@ -6,6 +6,8 @@ from fastapi import WebSocket
 from typing import List, Dict, Set
 import json
 import asyncio
+from sqlalchemy import select
+from app.models.database import AsyncSessionLocal, AccountInfo
 
 
 class WebSocketManager:
@@ -65,8 +67,9 @@ class WebSocketManager:
                 await self.broadcast_to_app_clients(message)
             
             elif message_type == "sync_my_info":
-                # Windows端同步我的信息，实时转发到App端
-                print("转发我的信息同步到App端")
+                # Windows端同步我的信息，保存到数据库并转发到App端
+                print("收到账号信息同步，保存到数据库并转发到App端")
+                await self._save_account_info_to_db(message.get("data", {}))
                 await self.broadcast_to_app_clients(message)
             
             elif message_type == "command":
@@ -148,6 +151,60 @@ class WebSocketManager:
         # 移除断开的连接
         for client in disconnected:
             self.disconnect(client)
+
+    async def _save_account_info_to_db(self, account_data: Dict):
+        """保存账号信息到数据库"""
+        try:
+            if not account_data:
+                print("账号信息数据为空，跳过保存")
+                return
+
+            wxid = account_data.get("wxid") or account_data.get("wxId") or account_data.get("WxId")
+            if not wxid:
+                print("账号信息缺少wxid，跳过保存")
+                return
+
+            async with AsyncSessionLocal() as session:
+                # 检查是否已存在
+                stmt = select(AccountInfo).where(AccountInfo.wxid == wxid)
+                result = await session.execute(stmt)
+                existing = result.scalar_one_or_none()
+
+                if existing:
+                    # 更新现有记录
+                    existing.nickname = account_data.get("nickname", existing.nickname)
+                    existing.avatar = account_data.get("avatar", existing.avatar)
+                    existing.account = account_data.get("account", existing.account)
+                    existing.device_id = account_data.get("device_id", existing.device_id)
+                    existing.phone = account_data.get("phone", existing.phone)
+                    existing.wx_user_dir = account_data.get("wx_user_dir", existing.wx_user_dir)
+                    existing.unread_msg_count = account_data.get("unread_msg_count", existing.unread_msg_count)
+                    existing.is_fake_device_id = account_data.get("is_fake_device_id", existing.is_fake_device_id)
+                    existing.pid = account_data.get("pid", existing.pid)
+                    print(f"更新账号信息到数据库: wxid={wxid}")
+                else:
+                    # 创建新记录
+                    account_info = AccountInfo(
+                        wxid=wxid,
+                        nickname=account_data.get("nickname", ""),
+                        avatar=account_data.get("avatar", ""),
+                        account=account_data.get("account", ""),
+                        device_id=account_data.get("device_id", ""),
+                        phone=account_data.get("phone", ""),
+                        wx_user_dir=account_data.get("wx_user_dir", ""),
+                        unread_msg_count=account_data.get("unread_msg_count", 0),
+                        is_fake_device_id=account_data.get("is_fake_device_id", 0),
+                        pid=account_data.get("pid", 0)
+                    )
+                    session.add(account_info)
+                    print(f"保存账号信息到数据库: wxid={wxid}")
+
+                await session.commit()
+                print(f"账号信息已保存到数据库: wxid={wxid}")
+        except Exception as e:
+            print(f"保存账号信息到数据库失败: {e}")
+            import traceback
+            traceback.print_exc()
 
 
 # 全局WebSocket管理器实例
