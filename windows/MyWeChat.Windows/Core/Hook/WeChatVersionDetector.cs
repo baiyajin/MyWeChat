@@ -228,13 +228,11 @@ namespace MyWeChat.Windows.Core.Hook
                     return null;
                 }
 
-                Utils.Logger.LogInfo($"检查安装路径下的子目录: {installPath}");
                 string[] subDirs = Directory.GetDirectories(installPath);
                 
                 foreach (string subDir in subDirs)
                 {
                     string dirName = Path.GetFileName(subDir);
-                    Utils.Logger.LogInfo($"  检查子目录: {dirName}");
                     
                     // 方法1: 检查 [版本号] 格式（如 [4.1.0.34]）
                     if (dirName.StartsWith("[") && dirName.EndsWith("]"))

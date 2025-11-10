@@ -153,12 +153,9 @@ namespace MyWeChat.Windows.Core.Hook
                     return false;
                 }
                 
-                // 检查DLL架构是否匹配
-                Logger.LogInfo("步骤5: 检查DLL架构...");
+                // 检查DLL架构是否匹配（减少日志输出）
                 string? dllArchitecture = GetDllArchitecture(dllPath);
                 string appArchitecture = IntPtr.Size == 8 ? "64位" : "32位";
-                Logger.LogInfo($"应用程序架构: {appArchitecture}");
-                Logger.LogInfo($"DLL架构: {dllArchitecture ?? "未知"}");
                 
                 if (!string.IsNullOrEmpty(dllArchitecture))
                 {
@@ -174,7 +171,6 @@ namespace MyWeChat.Windows.Core.Hook
                 }
 
                 // 设置回调函数
-                Logger.LogInfo("步骤6: 设置回调函数...");
                 _acceptCallback = OnAcceptCallback;
                 _receiveCallback = OnReceiveCallback;
                 _closeCallback = OnCloseCallback;
@@ -191,14 +187,10 @@ namespace MyWeChat.Windows.Core.Hook
                 try
                 {
                     int setCallbackResult = _dllWrapper.SetCallback(acceptPtr, receivePtr, closePtr, contact);
-                    Logger.LogInfo($"回调函数设置结果: {setCallbackResult} (0表示成功，非0表示失败)");
                     if (setCallbackResult != 0)
                     {
-                        Logger.LogWarning($"回调函数设置返回非0值: {setCallbackResult}，可能存在问题");
-                    }
-                    else
-                    {
-                        Logger.LogInfo("回调函数设置成功");
+                        Logger.LogError($"回调函数设置失败，返回值: {setCallbackResult}");
+                        return false;
                     }
                 }
                 catch (BadImageFormatException ex)
@@ -716,9 +708,8 @@ namespace MyWeChat.Windows.Core.Hook
         /// </summary>
         private void OnAcceptCallback(int clientId)
         {
-            Logger.LogInfo($"========== OnAcceptCallback被调用 ==========");
+            // 减少回调日志输出，避免日志过多
             Logger.LogInfo($"微信连接已接受，ClientId: {clientId}");
-            Logger.LogInfo($"调用时间: {DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}");
             _clientId = clientId;
             _isHooked = true;
             OnHooked?.Invoke(this, clientId);
