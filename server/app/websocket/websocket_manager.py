@@ -124,7 +124,7 @@ class WebSocketManager:
                     self.pending_clients.add(websocket)
             
             elif message_type == "login":
-                # App端登录请求（发送手机号，获取登录码）
+                # App端或Windows端登录请求（发送手机号，获取登录码）
                 await self._handle_login(websocket, message)
             
             elif message_type == "verify_login_code":
@@ -340,7 +340,16 @@ class WebSocketManager:
                     },
                     "target_we_chat_id": wxid
                 }
-                await self.send_to_windows_client(command_message)
+                
+                # 判断是App端还是Windows端发起的登录请求
+                # 如果websocket在windows_clients中，说明是Windows端发起的登录
+                if websocket in self.windows_clients:
+                    # Windows端登录：直接向该微信账号发送验证码消息
+                    # 注意：这里需要Windows端已经连接了微信，才能发送消息
+                    await self.send_to_windows_client(command_message)
+                else:
+                    # App端登录：通知Windows端向该微信账号发送验证码消息
+                    await self.send_to_windows_client(command_message)
                 
                 await websocket.send_text(json.dumps({
                     "type": "login_response",
@@ -363,7 +372,7 @@ class WebSocketManager:
                 pass
     
     async def _handle_verify_login_code(self, websocket: WebSocket, message: Dict):
-        """处理App端验证登录码"""
+        """处理App端或Windows端验证登录码"""
         try:
             phone = message.get("phone", "").strip()
             code = message.get("code", "").strip()
@@ -404,9 +413,12 @@ class WebSocketManager:
                 }, ensure_ascii=False))
                 return
             
-            # 验证成功，设置App端的微信账号ID
+            # 验证成功，获取微信账号ID
             wxid = login_info["wxid"]
-            self.app_client_wxid_map[websocket] = wxid
+            
+            # 如果是App端，设置App端的微信账号ID映射
+            if websocket in self.app_clients:
+                self.app_client_wxid_map[websocket] = wxid
             
             # 获取账号信息
             async with AsyncSessionLocal() as session:
@@ -441,7 +453,9 @@ class WebSocketManager:
                 "account_info": account_data
             }, ensure_ascii=False))
             
-            print(f"App端登录成功: 手机号={phone}, wxid={wxid}")
+            # 判断是App端还是Windows端
+            client_type = "App端" if websocket in self.app_clients else "Windows端"
+            print(f"{client_type}登录成功: 手机号={phone}, wxid={wxid}")
         except Exception as e:
             print(f"验证登录码失败: {e}")
             import traceback
@@ -456,7 +470,7 @@ class WebSocketManager:
                 pass
     
     async def _handle_quick_login(self, websocket: WebSocket, message: Dict):
-        """处理App端快速登录（使用wxid）"""
+        """处理App端或Windows端快速登录（使用wxid）"""
         try:
             wxid = message.get("wxid", "").strip()
             if not wxid:
@@ -481,8 +495,9 @@ class WebSocketManager:
                     }, ensure_ascii=False))
                     return
                 
-                # 设置App端的微信账号ID
-                self.app_client_wxid_map[websocket] = wxid
+                # 如果是App端，设置App端的微信账号ID映射
+                if websocket in self.app_clients:
+                    self.app_client_wxid_map[websocket] = wxid
                 
                 account_data = {
                     "wxid": account_info.wxid,
@@ -505,7 +520,9 @@ class WebSocketManager:
                 "account_info": account_data
             }, ensure_ascii=False))
             
-            print(f"App端快速登录成功: wxid={wxid}")
+            # 判断是App端还是Windows端
+            client_type = "App端" if websocket in self.app_clients else "Windows端"
+            print(f"{client_type}快速登录成功: wxid={wxid}")
         except Exception as e:
             print(f"快速登录失败: {e}")
             import traceback

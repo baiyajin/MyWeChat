@@ -1,7 +1,6 @@
-修改服务器端WebSocket处理逻辑，Windows端获取到微信数据后立即保存到数据库并实时通知App端
+添加导入账号信息脚本，将account_info.json中的数据保存到数据库
 
-- 修改websocket_manager.py：接收到sync_contacts消息时，保存联系人数据到数据库并转发给App端
-- 修改websocket_manager.py：接收到sync_moments消息时，保存朋友圈数据到数据库并转发给App端
-- 添加_save_contacts_to_db方法：保存联系人数据到数据库（支持新增和更新）
-- 添加_save_moments_to_db方法：保存朋友圈数据到数据库（支持新增和更新）
-- 现在Windows端一获取到微信数据就会存到数据库，并且会实时通知App端显示
+- 添加import_account_info.py脚本：从account_info.json文件读取账号信息并保存到数据库
+- 支持自动查找account_info.json文件（多个可能路径）
+- 支持更新已存在的账号信息或创建新记录
+- 已成功将account_info.json中的账号数据导入到数据库

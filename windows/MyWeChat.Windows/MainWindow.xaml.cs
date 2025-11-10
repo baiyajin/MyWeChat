@@ -37,6 +37,7 @@ namespace MyWeChat.Windows
         private ChatMessageSyncService? _chatMessageSyncService;
         private CommandService? _commandService;
         private ObservableCollection<AccountInfo>? _accountList;
+        private ApiService? _apiService;
         
         // 定时器：检测微信进程
         private DispatcherTimer? _weChatProcessCheckTimer;
@@ -78,13 +79,16 @@ namespace MyWeChat.Windows
             return !IsProcessId(value);
         }
 
+        private string? _loggedInWxid; // 当前登录的微信账号ID
+
         /// <summary>
         /// 构造函数
         /// </summary>
-        public MainWindow()
+        public MainWindow(string? wxid = null)
         {
             InitializeComponent();
             _accountList = new ObservableCollection<AccountInfo>();
+            _loggedInWxid = wxid;
             
             // 延迟初始化服务，避免在构造函数中初始化导致崩溃
             UpdateUI();
@@ -204,6 +208,10 @@ namespace MyWeChat.Windows
                         _webSocketService = new WebSocketService(webSocketUrl);
                         _webSocketService.OnMessageReceived += OnWebSocketMessageReceived;
                         _webSocketService.OnConnectionStateChanged += OnWebSocketConnectionStateChanged;
+
+                        // 初始化API服务（用于查询数据库中的账号信息）
+                        string serverUrl = ConfigHelper.GetServerUrl();
+                        _apiService = new ApiService(serverUrl);
 
                         // 再次检查连接管理器是否仍然有效
                         lock (_initLock)
@@ -590,10 +598,74 @@ namespace MyWeChat.Windows
                     }
                 }
 
-                // 只检查是否已收到账号信息，不主动请求
-                // 账号信息应该通过微信发送的 1112 回调消息获取
-                // 数据格式为: {"data":{"account":"...","avatar":"...","nickname":"...","wxid":"..."},"type":1112}
-                if (!hasAccountInfo)
+                // 如果已登录但未获取到账号信息，从数据库查询
+                if (!hasAccountInfo && !string.IsNullOrEmpty(_loggedInWxid))
+                {
+                    Logger.LogInfo($"[定时器] 已登录但未获取到账号信息，从数据库查询: wxid={_loggedInWxid}");
+                    
+                    // 从数据库查询账号信息
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            if (_apiService != null)
+                            {
+                                var accountInfo = await _apiService.GetAccountInfoAsync(_loggedInWxid);
+                                if (accountInfo != null)
+                                {
+                                    // 更新UI显示账号信息
+                                    Dispatcher.BeginInvoke(new Action(() =>
+                                    {
+                                        if (_accountList != null)
+                                        {
+                                            // 检查是否已存在该账号
+                                            bool exists = false;
+                                            foreach (var acc in _accountList)
+                                            {
+                                                if (acc.WeChatId == accountInfo.WeChatId)
+                                                {
+                                                    // 更新现有账号信息
+                                                    acc.NickName = accountInfo.NickName;
+                                                    acc.Avatar = accountInfo.Avatar;
+                                                    acc.BoundAccount = accountInfo.BoundAccount;
+                                                    acc.Phone = accountInfo.Phone;
+                                                    acc.DeviceId = accountInfo.DeviceId;
+                                                    acc.WxUserDir = accountInfo.WxUserDir;
+                                                    acc.UnreadMsgCount = accountInfo.UnreadMsgCount;
+                                                    acc.IsFakeDeviceId = accountInfo.IsFakeDeviceId;
+                                                    acc.Pid = accountInfo.Pid;
+                                                    exists = true;
+                                                    break;
+                                                }
+                                            }
+                                            
+                                            if (!exists)
+                                            {
+                                                // 添加新账号信息
+                                                _accountList.Add(accountInfo);
+                                            }
+                                            
+                                            // 更新显示
+                                            UpdateAccountInfoDisplay();
+                                            StopTimersAfterAccountInfoReceived();
+                                            
+                                            Logger.LogInfo($"[定时器] 从数据库成功获取账号信息: wxid={accountInfo.WeChatId}, nickname={accountInfo.NickName}");
+                                        }
+                                    }));
+                                }
+                                else
+                                {
+                                    Logger.LogWarning($"[定时器] 从数据库未找到账号信息: wxid={_loggedInWxid}");
+                                }
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Logger.LogError($"[定时器] 从数据库查询账号信息失败: {ex.Message}", ex);
+                        }
+                    });
+                }
+                else if (!hasAccountInfo)
                 {
                     // 还没有账号信息，继续等待 1112 回调消息
                     Logger.LogInfo("[定时器] 尚未收到账号信息，继续等待1112回调消息...");
