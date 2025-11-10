@@ -50,6 +50,8 @@ namespace SalesChampion.Windows
         // 标记是否正在关闭
         private bool _isClosing = false;
         
+        // 账号信息保存路径
+        private readonly string _accountInfoFilePath;
         
 
         /// <summary>
@@ -85,6 +87,9 @@ namespace SalesChampion.Windows
         {
             InitializeComponent();
             _accountList = new ObservableCollection<AccountInfo>();
+            
+            // 初始化账号信息保存路径：bin/x86/Debug/net9.0-windows/account_info.json
+            _accountInfoFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "account_info.json");
             
             // 延迟初始化服务，避免在构造函数中初始化导致崩溃
             UpdateUI();
@@ -150,6 +155,9 @@ namespace SalesChampion.Windows
                     }
                 };
                 Logger.OnLogMessage += _loggerEventHandler;
+
+                // 从本地加载账号信息
+                LoadAccountInfoFromLocal();
 
                 // 延迟初始化连接管理器，避免在UI线程中直接初始化导致崩溃
                 Task.Run(() =>
@@ -1572,6 +1580,9 @@ namespace SalesChampion.Windows
                             // 更新UI显示
                             UpdateAccountInfoDisplay();
                             
+                            // 保存账号信息到本地
+                            SaveAccountInfoToLocal(accountInfo);
+                            
                             // 实时同步我的信息到服务器
                             SyncMyInfoToServer(wxid, nickname, avatar, account);
                             
@@ -1754,6 +1765,163 @@ namespace SalesChampion.Windows
 
 
         /// <summary>
+        /// 保存账号信息到本地文件
+        /// </summary>
+        private void SaveAccountInfoToLocal(AccountInfo? accountInfo)
+        {
+            try
+            {
+                if (accountInfo == null)
+                {
+                    Logger.LogWarning("账号信息为空，无法保存到本地");
+                    return;
+                }
+
+                // 只保存有真正wxid的账号信息
+                if (string.IsNullOrEmpty(accountInfo.WeChatId) || IsProcessId(accountInfo.WeChatId))
+                {
+                    Logger.LogWarning($"账号信息wxid无效（{accountInfo.WeChatId}），不保存到本地");
+                    return;
+                }
+
+                Logger.LogInfo($"保存账号信息到本地: {_accountInfoFilePath}");
+
+                // 创建账号信息对象（只保存关键字段）
+                var accountData = new
+                {
+                    wxid = accountInfo.WeChatId,
+                    nickname = accountInfo.NickName,
+                    avatar = accountInfo.Avatar,
+                    account = accountInfo.BoundAccount,
+                    client = accountInfo.Client,
+                    saveTime = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")
+                };
+
+                // 序列化为JSON
+                string json = Newtonsoft.Json.JsonConvert.SerializeObject(accountData, Newtonsoft.Json.Formatting.Indented);
+
+                // 异步写入文件，避免阻塞UI线程
+                _ = Task.Run(() =>
+                {
+                    try
+                    {
+                        // 使用文件流写入，支持文件共享
+                        using (var fileStream = new FileStream(_accountInfoFilePath, FileMode.Create, FileAccess.Write, FileShare.Read))
+                        using (var writer = new StreamWriter(fileStream, new System.Text.UTF8Encoding(true))) // UTF-8 with BOM
+                        {
+                            writer.Write(json);
+                            writer.Flush();
+                        }
+
+                        Logger.LogInfo("账号信息已保存到本地");
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.LogError($"保存账号信息到本地失败: {ex.Message}", ex);
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError($"保存账号信息到本地失败: {ex.Message}", ex);
+            }
+        }
+
+        /// <summary>
+        /// 从本地文件加载账号信息
+        /// </summary>
+        private void LoadAccountInfoFromLocal()
+        {
+            try
+            {
+                if (!File.Exists(_accountInfoFilePath))
+                {
+                    Logger.LogInfo("本地账号信息文件不存在，跳过加载");
+                    return;
+                }
+
+                Logger.LogInfo($"从本地加载账号信息: {_accountInfoFilePath}");
+
+                // 读取JSON文件
+                string json = File.ReadAllText(_accountInfoFilePath, System.Text.Encoding.UTF8);
+                if (string.IsNullOrEmpty(json))
+                {
+                    Logger.LogWarning("账号信息文件为空");
+                    return;
+                }
+
+                // 反序列化
+                var accountData = Newtonsoft.Json.JsonConvert.DeserializeObject<dynamic>(json);
+                if (accountData == null)
+                {
+                    Logger.LogWarning("账号信息解析失败");
+                    return;
+                }
+
+                string wxid = accountData.wxid?.ToString() ?? "";
+                string nickname = accountData.nickname?.ToString() ?? "";
+                string avatar = accountData.avatar?.ToString() ?? "";
+                string account = accountData.account?.ToString() ?? "";
+                string client = accountData.client?.ToString() ?? "";
+
+                if (string.IsNullOrEmpty(wxid) || IsProcessId(wxid))
+                {
+                    Logger.LogWarning($"本地保存的账号信息wxid无效（{wxid}），跳过加载");
+                    return;
+                }
+
+                // 更新或创建账号信息
+                AccountInfo? accountInfo = null;
+                if (_accountList != null)
+                {
+                    foreach (var acc in _accountList)
+                    {
+                        if (acc.WeChatId == wxid)
+                        {
+                            accountInfo = acc;
+                            break;
+                        }
+                    }
+
+                    if (accountInfo == null)
+                    {
+                        accountInfo = new AccountInfo
+                        {
+                            WeChatId = wxid,
+                            NickName = nickname,
+                            Avatar = avatar,
+                            BoundAccount = account,
+                            Client = client
+                        };
+                        _accountList.Add(accountInfo);
+                    }
+                    else
+                    {
+                        // 更新现有账号信息（如果本地保存的信息更完整）
+                        if (!string.IsNullOrEmpty(nickname))
+                        {
+                            accountInfo.NickName = nickname;
+                        }
+                        if (!string.IsNullOrEmpty(avatar))
+                        {
+                            accountInfo.Avatar = avatar;
+                        }
+                        if (!string.IsNullOrEmpty(account))
+                        {
+                            accountInfo.BoundAccount = account;
+                        }
+                    }
+                }
+
+                Logger.LogInfo($"从本地加载账号信息成功: wxid={wxid}, nickname={nickname}");
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError($"从本地加载账号信息失败: {ex.Message}", ex);
+            }
+        }
+
+        /// <summary>
         /// 同步我的信息到服务器
         /// </summary>
         private void SyncMyInfoToServer(string wxid, string nickname, string avatar, string account)
@@ -1894,6 +2062,9 @@ namespace SalesChampion.Windows
                                 
                                 // 更新UI显示
                                 UpdateAccountInfoDisplay();
+                                
+                                // 保存账号信息到本地
+                                SaveAccountInfoToLocal(accountInfo);
                                 
                                 Logger.LogInfo($"账号信息已更新: wxid={accountInfo.WeChatId}, nickname={accountInfo.NickName}");
                                 }
