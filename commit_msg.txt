@@ -1,1 +1,1 @@
-完善账号信息同步：在SyncMyInfoToServer中添加WebSocket连接检查和重试机制
+完善账号信息同步：在SyncLocalAccountInfoToServer中添加延迟，确保WebSocket连接稳定

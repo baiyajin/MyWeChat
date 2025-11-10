@@ -26,11 +26,6 @@ namespace MyWeChat.Windows.Utils
         private const long SizeCheckTimeInterval = 60000; // 每60秒检查一次文件大小
 
         /// <summary>
-        /// 日志输出事件（用于输出到UI）
-        /// </summary>
-        public static event Action<string, string>? OnLogMessage; // 改为传递 level 和 message
-
-        /// <summary>
         /// 初始化日志目录
         /// </summary>
         static Logger()

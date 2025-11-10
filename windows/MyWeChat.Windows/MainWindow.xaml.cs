@@ -2269,7 +2269,11 @@ namespace MyWeChat.Windows
 
                 // 同步账号信息到服务器（发送所有字段）
                 Logger.LogInfo($"主动同步本地账号信息到服务器: wxid={accountInfo.WeChatId}, nickname={accountInfo.NickName}");
-                SyncMyInfoToServer(accountInfo);
+                // 延迟一点时间，确保WebSocket连接稳定
+                Task.Delay(500).ContinueWith(_ =>
+                {
+                    SyncMyInfoToServer(accountInfo);
+                });
             }
             catch (Exception ex)
             {
