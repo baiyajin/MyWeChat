@@ -26,6 +26,9 @@ class WebSocketService extends ChangeNotifier {
 
   /// 连接WebSocket服务器
   Future<bool> connect(String serverUrl, {Duration timeout = const Duration(seconds: 5)}) async {
+    Completer<bool> connectionCompleter = Completer<bool>();
+    bool connectionFailed = false;
+    
     try {
       // 如果已经连接，先断开
       if (_isConnected) {
@@ -34,9 +37,10 @@ class WebSocketService extends ChangeNotifier {
 
       _serverUrl = serverUrl;
       
-      // 创建连接，使用超时包装
+      // 创建连接
       try {
         _channel = WebSocketChannel.connect(Uri.parse(serverUrl));
+        print('正在尝试连接WebSocket: $serverUrl');
       } catch (e) {
         print('创建WebSocket通道失败: $e');
         _isConnected = false;
@@ -45,42 +49,132 @@ class WebSocketService extends ChangeNotifier {
       }
 
       // 设置消息监听器
-      bool connectionEstablished = false;
-      _channel!.stream.listen(
+      StreamSubscription? subscription;
+      bool firstMessageReceived = false;
+      
+      subscription = _channel!.stream.listen(
         (message) {
-          if (!connectionEstablished) {
-            connectionEstablished = true;
+          // 收到第一条消息，说明连接成功
+          if (!firstMessageReceived) {
+            firstMessageReceived = true;
+            print('WebSocket连接成功，收到第一条消息');
+            if (!connectionCompleter.isCompleted) {
+              connectionCompleter.complete(true);
+            }
           }
           _handleMessage(message);
         },
         onError: (error) {
-          print('WebSocket错误: $error');
+          print('WebSocket连接错误: $error');
+          connectionFailed = true;
           _isConnected = false;
           notifyListeners();
+          if (!connectionCompleter.isCompleted) {
+            connectionCompleter.complete(false);
+          }
         },
         onDone: () {
           print('WebSocket连接已关闭');
           _isConnected = false;
           notifyListeners();
+          if (!connectionCompleter.isCompleted && !connectionFailed) {
+            connectionCompleter.complete(false);
+          }
         },
+        cancelOnError: false,
       );
 
       // 等待连接建立，使用超时
       try {
-        // 尝试发送一个测试消息来验证连接，或者等待一段时间
-        await Future.delayed(const Duration(milliseconds: 500)).timeout(
-          timeout,
-          onTimeout: () {
-            throw TimeoutException('WebSocket连接超时', timeout);
-          },
-        );
+        // 先等待一小段时间，让连接有机会建立（在浏览器中，连接是异步的）
+        await Future.delayed(const Duration(milliseconds: 200));
         
-        // 检查连接是否仍然有效
-        if (_channel == null) {
-          throw Exception('WebSocket通道已关闭');
+        // 检查是否已经连接失败
+        if (connectionFailed) {
+          print('WebSocket连接已失败');
+          subscription?.cancel();
+          if (_channel != null) {
+            try {
+              _channel!.sink.close();
+            } catch (_) {}
+            _channel = null;
+          }
+          _isConnected = false;
+          notifyListeners();
+          return false;
         }
         
-        // 连接建立后，设置状态并发送客户端类型
+        // 尝试发送客户端类型消息来验证连接
+        // 如果连接成功，发送消息不会抛出异常
+        // 如果连接失败，onError 会被调用，connectionFailed 会被设置为 true
+        try {
+          _channel!.sink.add(jsonEncode({
+            'type': 'client_type',
+            'client_type': 'app',
+          }));
+          print('已发送客户端类型消息');
+        } catch (e) {
+          print('发送客户端类型消息失败: $e');
+          connectionFailed = true;
+          if (!connectionCompleter.isCompleted) {
+            connectionCompleter.complete(false);
+          }
+        }
+        
+        // 再等待一小段时间，检查是否有错误
+        await Future.delayed(const Duration(milliseconds: 300));
+        
+        // 如果连接失败，直接返回
+        if (connectionFailed) {
+          print('WebSocket连接失败（检测到错误）');
+          subscription?.cancel();
+          if (_channel != null) {
+            try {
+              _channel!.sink.close();
+            } catch (_) {}
+            _channel = null;
+          }
+          _isConnected = false;
+          notifyListeners();
+          return false;
+        }
+        
+        // 如果收到第一条消息，说明连接成功
+        // 否则，如果发送消息成功且没有错误，也认为连接成功
+        // 使用超时等待，但即使超时，如果发送成功且没有错误，也认为连接成功
+        bool connected = false;
+        try {
+          connected = await connectionCompleter.future.timeout(
+            const Duration(milliseconds: 2000),
+            onTimeout: () {
+              // 超时不一定意味着连接失败
+              // 如果发送消息成功且没有错误，连接可能已经建立
+              // 服务器可能不会立即响应，所以超时也视为成功（如果发送成功）
+              print('等待服务器响应超时，但发送消息成功，认为连接已建立');
+              return true; // 发送成功且没有错误，认为连接成功
+            },
+          );
+        } catch (e) {
+          print('等待连接确认时出错: $e');
+          // 如果发送消息成功且没有错误，仍然认为连接成功
+          connected = !connectionFailed;
+        }
+        
+        if (!connected) {
+          print('WebSocket连接失败或超时');
+          subscription?.cancel();
+          if (_channel != null) {
+            try {
+              _channel!.sink.close();
+            } catch (_) {}
+            _channel = null;
+          }
+          _isConnected = false;
+          notifyListeners();
+          return false;
+        }
+        
+        // 连接成功
         _isConnected = true;
         notifyListeners();
         
@@ -89,27 +183,29 @@ class WebSocketService extends ChangeNotifier {
           main_app.setWebSocketUrl(_serverUrl);
         }
         
-        // 发送客户端类型
-        _sendClientType();
-        
         // 加载本地保存的账号信息
         await _loadMyInfoFromLocal();
         
+        print('WebSocket连接已成功建立');
         return true;
-      } on TimeoutException {
-        print('WebSocket连接超时');
-        _isConnected = false;
+      } on TimeoutException catch (e) {
+        print('WebSocket连接超时: $e');
+        subscription?.cancel();
         if (_channel != null) {
           try {
             _channel!.sink.close();
           } catch (_) {}
           _channel = null;
         }
+        _isConnected = false;
         notifyListeners();
         return false;
       }
     } catch (e) {
       print('WebSocket连接失败: $e');
+      if (!connectionCompleter.isCompleted) {
+        connectionCompleter.complete(false);
+      }
       _isConnected = false;
       if (_channel != null) {
         try {
