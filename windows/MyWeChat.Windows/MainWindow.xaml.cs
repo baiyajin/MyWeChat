@@ -2297,6 +2297,22 @@ namespace MyWeChat.Windows
                     return;
                 }
 
+                // 检查WebSocket是否已连接
+                if (_webSocketService == null || !_webSocketService.IsConnected)
+                {
+                    Logger.LogWarning("WebSocket未连接，无法同步账号信息到服务器，将在连接后重试");
+                    // 如果WebSocket未连接，延迟重试
+                    Task.Delay(1000).ContinueWith(_ =>
+                    {
+                        if (_webSocketService != null && _webSocketService.IsConnected)
+                        {
+                            Logger.LogInfo("WebSocket已连接，重试同步账号信息");
+                            SyncMyInfoToServer(accountInfo);
+                        }
+                    });
+                    return;
+                }
+
                 Logger.LogInfo($"开始同步我的信息到服务器: wxid={accountInfo.WeChatId}, nickname={accountInfo.NickName}");
 
                 // 通过WebSocket发送到服务器（发送所有字段）

@@ -1,1 +1,1 @@
-修复账号信息同步问题：添加WebSocket连接检查和延迟重试机制，确保账号信息能正确同步到app端
+完善账号信息同步：在SyncMyInfoToServer中添加WebSocket连接检查和重试机制
