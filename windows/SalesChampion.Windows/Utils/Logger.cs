@@ -62,6 +62,14 @@ namespace SalesChampion.Windows.Utils
         }
 
         /// <summary>
+        /// 记录成功日志
+        /// </summary>
+        public static void LogSuccess(string message)
+        {
+            WriteLog("SUCCESS", message);
+        }
+
+        /// <summary>
         /// 写入日志文件
         /// </summary>
         private static void WriteLog(string level, string message)

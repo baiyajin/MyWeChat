@@ -51,8 +51,6 @@ namespace SalesChampion.Windows
         private bool _isClosing = false;
         
         
-        // 日志文件路径
-        private readonly string _logFilePath;
 
         /// <summary>
         /// 判断是否是进程ID（纯数字），而不是真正的微信ID
@@ -87,64 +85,6 @@ namespace SalesChampion.Windows
         {
             InitializeComponent();
             _accountList = new ObservableCollection<AccountInfo>();
-            
-            // 初始化日志文件路径：MyWeChat/windows.log
-            try
-            {
-                // 获取当前程序所在目录（bin\x86\Debug\net9.0-windows）
-                string currentDir = AppDomain.CurrentDomain.BaseDirectory;
-                
-                // 向上查找 MyWeChat 目录
-                // 路径结构：MyWeChat/windows/SalesChampion.Windows/bin/x86/Debug/net9.0-windows/
-                // 需要向上4级才能到 MyWeChat
-                DirectoryInfo? dir = new DirectoryInfo(currentDir);
-                string? myWeChatDir = null;
-                
-                // 向上查找，直到找到包含 "MyWeChat" 的目录或到达根目录
-                for (int i = 0; i < 10 && dir != null; i++)
-                {
-                    if (dir.Name.Equals("MyWeChat", StringComparison.OrdinalIgnoreCase))
-                    {
-                        myWeChatDir = dir.FullName;
-                        break;
-                    }
-                    dir = dir.Parent;
-                }
-                
-                // 如果找不到 MyWeChat 目录，使用当前目录向上4级（假设标准结构）
-                if (string.IsNullOrEmpty(myWeChatDir))
-                {
-                    dir = new DirectoryInfo(currentDir);
-                    for (int i = 0; i < 4 && dir != null; i++)
-                    {
-                        dir = dir.Parent;
-                    }
-                    myWeChatDir = dir?.FullName ?? currentDir;
-                }
-                
-                _logFilePath = Path.Combine(myWeChatDir, "windows.log");
-                Logger.LogInfo($"日志文件路径: {_logFilePath}");
-                
-                // 每次启动时清空日志文件（覆盖模式）
-                try
-                {
-                    if (File.Exists(_logFilePath))
-                    {
-                        File.Delete(_logFilePath);
-                        Logger.LogInfo("已清空旧日志文件");
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Logger.LogWarning($"清空日志文件失败: {ex.Message}");
-                }
-            }
-            catch (Exception ex)
-            {
-                // 如果初始化失败，使用默认路径
-                _logFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "windows.log");
-                Logger.LogError($"初始化日志文件路径失败: {ex.Message}", ex);
-            }
             
             // 延迟初始化服务，避免在构造函数中初始化导致崩溃
             UpdateUI();
@@ -1975,68 +1915,28 @@ namespace SalesChampion.Windows
         }
 
         /// <summary>
-        /// 添加日志（带颜色）
+        /// 添加日志（统一使用Logger输出到Logs目录）
         /// </summary>
         private void AddLog(string message, string level = "INFO")
         {
-            // 格式化日志文本（用于文件保存）
-            string logText = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] [{level}] {message}";
-            
-            // 异步写入日志文件，避免阻塞UI线程
-            _ = Task.Run(() =>
+            // 根据日志级别调用对应的Logger方法
+            switch (level.ToUpper())
             {
-                try
-                {
-                    // 使用文件流写入，支持文件共享，避免文件被锁定
-                    // 最多重试3次，每次间隔100ms
-                    int retryCount = 0;
-                    int maxRetries = 3;
-                    bool success = false;
-                    
-                    while (!success && retryCount < maxRetries)
-                    {
-                        try
-                        {
-                            // 使用 FileShare.ReadWrite 允许其他进程读取和写入
-                            // 使用 UTF8 with BOM 编码，确保中文字符正确显示
-                            using (var fileStream = new FileStream(_logFilePath, FileMode.Append, FileAccess.Write, FileShare.ReadWrite))
-                            using (var writer = new StreamWriter(fileStream, new System.Text.UTF8Encoding(true))) // true = with BOM
-                            {
-                                writer.WriteLine(logText);
-                                writer.Flush();
-                            }
-                            success = true;
-                        }
-                        catch (IOException ioEx) when (ioEx.Message.Contains("being used by another process"))
-                        {
-                            retryCount++;
-                            if (retryCount < maxRetries)
-                            {
-                                // 等待一段时间后重试
-                                System.Threading.Thread.Sleep(100);
-                            }
-                            else
-                            {
-                                // 最后一次重试失败，记录错误但不抛出异常
-                                Logger.LogError($"写入日志文件失败（已重试{maxRetries}次）: {ioEx.Message}", ioEx);
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            // 其他异常，记录错误但不抛出
-                            Logger.LogError($"写入日志文件失败: {ex.Message}", ex);
-                            success = true; // 避免无限重试
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    // 文件写入失败不影响UI显示，只记录错误
-                    Logger.LogError($"写入日志文件失败: {ex.Message}", ex);
-                }
-            });
-            
-            // UI日志显示已移除，只保留文件日志输出
+                case "ERROR":
+                    Logger.LogError(message);
+                    break;
+                case "WARN":
+                case "WARNING":
+                    Logger.LogWarning(message);
+                    break;
+                case "SUCCESS":
+                    Logger.LogSuccess(message);
+                    break;
+                case "INFO":
+                default:
+                    Logger.LogInfo(message);
+                    break;
+            }
         }
 
         // UI日志显示已移除，相关按钮事件处理已删除
