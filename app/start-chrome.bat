@@ -44,12 +44,12 @@ flutter run -d chrome --web-port=%WEB_PORT% --web-hostname=127.0.0.1 --device-ti
 
 if %ERRORLEVEL% NEQ 0 (
     echo.
-    echo Chrome浏览器启动失败！
+    echo Chrome browser startup failed!
     echo.
-    echo 请检查：
-    echo   1. 是否已安装Google Chrome浏览器
-    echo   2. 是否已配置Web平台支持
-    echo   3. 运行 flutter doctor 检查环境配置
+    echo Please check:
+    echo   1. Is Google Chrome browser installed?
+    echo   2. Is Web platform support configured?
+    echo   3. Run flutter doctor to check environment configuration
     echo.
     pause
 )
