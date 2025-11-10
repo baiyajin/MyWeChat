@@ -91,8 +91,8 @@ class _HomePageState extends State<HomePage> {
             label: '微信',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.contacts_outlined),
-            activeIcon: Icon(Icons.contacts),
+            icon: Icon(Icons.people_outline),
+            activeIcon: Icon(Icons.people),
             label: '通讯录',
           ),
           BottomNavigationBarItem(
