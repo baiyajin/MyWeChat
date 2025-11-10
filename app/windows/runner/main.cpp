@@ -26,9 +26,9 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
 
   FlutterWindow window(project);
   Win32Window::Point origin(10, 10);
-  // 设置为常见手机尺寸：414 x 896 (iPhone 11 Pro Max / 大部分 Android 手机)
-  // 这个尺寸与大部分流行手机的逻辑分辨率一致
-  Win32Window::Size size(414, 896);
+  // 设置为 iPhone 15 Pro Max 尺寸：430 x 932 (逻辑分辨率)
+  // iPhone 15 Pro Max: 6.7 英寸，逻辑分辨率 430 x 932 points
+  Win32Window::Size size(430, 932);
   if (!window.Create(L"MyWeChat", origin, size)) {
     return EXIT_FAILURE;
   }
