@@ -3,7 +3,6 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="MyWeChat" Height="600" Width="900" Icon="Resources/favicon.ico"
         WindowStartupLocation="CenterScreen"
-        WindowState="Maximized"
         Background="#F5F5F5"
         Loaded="MainWindow_Loaded">
     <Grid>
@@ -42,37 +41,6 @@
             
             <!-- 右侧内容区 -->
             <Grid Grid.Row="1">
-                <!-- windows端命令执行日志 -->
-                <Border Background="White" Padding="15" CornerRadius="5">
-                    <Grid>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="*"/>
-                        </Grid.RowDefinitions>
-                        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,10">
-                            <TextBlock Text="windows端命令执行日志" FontWeight="Bold" VerticalAlignment="Center"/>
-                            <Button Name="BtnCopyLog" Content="复制日志" Click="BtnCopyLog_Click" 
-                                    Margin="10,0,0,0" Padding="5,2" Background="#07C160" Foreground="White" 
-                                    BorderThickness="0" Cursor="Hand" FontSize="12" VerticalAlignment="Center"/>
-                            <Button Name="BtnClearLog" Content="清空日志" Click="BtnClearLog_Click" 
-                                    Margin="5,0,0,0" Padding="5,2" Background="#999999" Foreground="White" 
-                                    BorderThickness="0" Cursor="Hand" FontSize="12" VerticalAlignment="Center"/>
-                        </StackPanel>
-                        <ScrollViewer Grid.Row="1" 
-                                     VerticalScrollBarVisibility="Auto" 
-                                     HorizontalScrollBarVisibility="Visible">
-                            <RichTextBox Name="LogRichTextBox" IsReadOnly="True" 
-                                         FontFamily="Consolas" FontSize="11" Background="#F8F8F8"
-                                         BorderThickness="1" BorderBrush="#CCCCCC" 
-                                         VerticalScrollBarVisibility="Disabled"
-                                         HorizontalScrollBarVisibility="Disabled">
-                                <FlowDocument PageWidth="999999">
-                                    <Paragraph Margin="0"/>
-                                </FlowDocument>
-                            </RichTextBox>
-                        </ScrollViewer>
-                    </Grid>
-                </Border>
             </Grid>
         </Grid>
         
