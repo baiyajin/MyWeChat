@@ -1723,8 +1723,8 @@ namespace SalesChampion.Windows
                             // 保存账号信息到本地
                             SaveAccountInfoToLocal(accountInfo);
                             
-                            // 实时同步我的信息到服务器
-                            SyncMyInfoToServer(wxid, nickname, avatar, account);
+                            // 实时同步我的信息到服务器（发送所有字段）
+                            SyncMyInfoToServer(accountInfo);
                             
                             // 检查JSON消息中的账号信息字段是否完整（account、nickname等）
                             if (IsAccountInfoCompleteFromJson(loginInfo))
@@ -2169,14 +2169,9 @@ namespace SalesChampion.Windows
                     return;
                 }
 
-                // 同步账号信息到服务器
+                // 同步账号信息到服务器（发送所有字段）
                 Logger.LogInfo($"主动同步本地账号信息到服务器: wxid={accountInfo.WeChatId}, nickname={accountInfo.NickName}");
-                SyncMyInfoToServer(
-                    accountInfo.WeChatId,
-                    accountInfo.NickName ?? "",
-                    accountInfo.Avatar ?? "",
-                    accountInfo.BoundAccount ?? accountInfo.WeChatId
-                );
+                SyncMyInfoToServer(accountInfo);
             }
             catch (Exception ex)
             {
@@ -2185,31 +2180,50 @@ namespace SalesChampion.Windows
         }
 
         /// <summary>
-        /// 同步我的信息到服务器
+        /// 同步我的信息到服务器（发送所有字段）
         /// </summary>
-        private void SyncMyInfoToServer(string wxid, string nickname, string avatar, string account)
+        private void SyncMyInfoToServer(AccountInfo? accountInfo)
         {
             try
             {
-                Logger.LogInfo($"开始同步我的信息到服务器: wxid={wxid}, nickname={nickname}");
+                if (accountInfo == null)
+                {
+                    Logger.LogWarning("账号信息为空，无法同步到服务器");
+                    return;
+                }
 
-                // 通过WebSocket发送到服务器
+                // 只同步有真正wxid的账号信息
+                if (string.IsNullOrEmpty(accountInfo.WeChatId) || IsProcessId(accountInfo.WeChatId))
+                {
+                    Logger.LogWarning($"账号信息wxid无效（{accountInfo.WeChatId}），无法同步到服务器");
+                    return;
+                }
+
+                Logger.LogInfo($"开始同步我的信息到服务器: wxid={accountInfo.WeChatId}, nickname={accountInfo.NickName}");
+
+                // 通过WebSocket发送到服务器（发送所有字段）
                 var syncData = new
                 {
                     type = "sync_my_info",
                     data = new
                     {
-                        wxid = wxid,
-                        nickname = nickname,
-                        avatar = avatar,
-                        account = account,
+                        wxid = accountInfo.WeChatId,
+                        nickname = accountInfo.NickName ?? "",
+                        avatar = accountInfo.Avatar ?? "",
+                        account = accountInfo.BoundAccount ?? accountInfo.WeChatId,
+                        device_id = accountInfo.DeviceId ?? "",
+                        phone = accountInfo.Phone ?? "",
+                        wx_user_dir = accountInfo.WxUserDir ?? "",
+                        unread_msg_count = accountInfo.UnreadMsgCount,
+                        is_fake_device_id = accountInfo.IsFakeDeviceId,
+                        pid = accountInfo.Pid,
                         clientId = _connectionManager?.ClientId ?? 0
                     }
                 };
 
                 _ = _webSocketService?.SendMessageAsync(syncData);
 
-                Logger.LogInfo("我的信息同步完成");
+                Logger.LogInfo("我的信息同步完成（已发送所有字段）");
             }
             catch (Exception ex)
             {
