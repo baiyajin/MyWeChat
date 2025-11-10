@@ -244,6 +244,10 @@ namespace MyWeChat.Windows
                                 "错误", MessageBoxButton.OK, MessageBoxImage.Error);
                         });
                     }
+                    finally
+                    {
+                        _isInitializing = false;
+                    }
                 });
             }
             catch (Exception ex)
@@ -251,6 +255,7 @@ namespace MyWeChat.Windows
                 Logger.LogError($"初始化服务失败: {ex.Message}", ex);
                 MessageBox.Show($"初始化失败: {ex.Message}\n\n堆栈跟踪:\n{ex.StackTrace}", 
                     "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                _isInitializing = false;
             }
         }
         
