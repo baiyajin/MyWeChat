@@ -207,22 +207,15 @@ class _AuthWrapperState extends State<_AuthWrapper> {
           wsUrl = wsUrl.endsWith('/') ? '${wsUrl}ws' : '$wsUrl/ws';
         }
         
-        print('正在建立WebSocket连接: $wsUrl');
         // 使用超时连接，最多等待5秒
         final connected = await wsService.connect(wsUrl, timeout: const Duration(seconds: 5))
             .timeout(
               const Duration(seconds: 6),
               onTimeout: () {
-                print('WebSocket连接超时，继续启动应用');
                 return false;
               },
             );
-        if (!connected) {
-          print('WebSocket连接失败或超时，将显示登录页面');
-          // 即使连接失败，也继续检查登录状态，允许用户使用登录页面
-        }
-      } else {
-        print('WebSocket已连接，跳过重复连接');
+        // 即使连接失败，也继续检查登录状态，允许用户使用登录页面
       }
       
       // 检查登录状态（使用超时）
@@ -232,12 +225,10 @@ class _AuthWrapperState extends State<_AuthWrapper> {
             .timeout(
               const Duration(seconds: 2),
               onTimeout: () {
-                print('加载登录状态超时');
                 return null;
               },
             );
       } catch (e) {
-        print('加载登录状态失败: $e');
         wxid = null;
       }
       
@@ -248,7 +239,6 @@ class _AuthWrapperState extends State<_AuthWrapper> {
               .timeout(
                 const Duration(seconds: 5),
                 onTimeout: () {
-                  print('快速登录超时');
                   return false;
                 },
               );
@@ -260,7 +250,7 @@ class _AuthWrapperState extends State<_AuthWrapper> {
             return;
           }
         } catch (e) {
-          print('快速登录失败: $e');
+          // 静默处理错误
         }
       }
       
@@ -270,7 +260,7 @@ class _AuthWrapperState extends State<_AuthWrapper> {
         _isLoading = false;
       });
     } catch (e) {
-      print('检查登录状态失败: $e');
+      // 静默处理错误
       setState(() {
         _isLoggedIn = false;
         _isLoading = false;
