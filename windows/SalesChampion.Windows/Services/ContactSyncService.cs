@@ -21,9 +21,6 @@ namespace SalesChampion.Windows.Services
 
         // 命令ID定义
         private const int CMD_GET_FRIEND_LIST = 11126;
-        
-        // 账号信息提取事件（用于通知MainWindow）
-        public event EventHandler<(string wxid, string nickname, string avatar, string account)>? OnAccountInfoExtracted;
 
         /// <summary>
         /// 构造函数
@@ -92,50 +89,6 @@ namespace SalesChampion.Windows.Services
                 // 转换为ContactInfo模型
                 List<ContactInfo> contacts = new List<ContactInfo>();
                 string weChatId = _connectionManager.ClientId.ToString();
-                
-                // 尝试从好友列表中提取自己的信息
-                // 参考其他项目，好友列表中可能包含自己的信息
-                // 遍历所有好友，查找可能是自己的信息（通过account字段匹配，或者第一个好友）
-                string? extractedWxid = null;
-                string? extractedNickname = null;
-                string? extractedAvatar = null;
-                string? extractedAccount = null;
-                
-                foreach (var friend in friendList)
-                {
-                    try
-                    {
-                        string wxid = friend.wxid?.ToString() ?? "";
-                        string nickname = friend.nickname?.ToString() ?? "";
-                        string avatar = friend.avatar?.ToString() ?? "";
-                        string account = friend.account?.ToString() ?? "";
-                        
-                        // 如果wxid不是纯数字（不是进程ID），且account不为空，可能是自己的信息
-                        if (!string.IsNullOrEmpty(wxid) && !int.TryParse(wxid, out _) && !string.IsNullOrEmpty(account))
-                        {
-                            // 检查是否可能是自己的信息（account通常以字母开头，如"w99665230"）
-                            if (account.Length > 0 && char.IsLetter(account[0]))
-                            {
-                                extractedWxid = wxid;
-                                extractedNickname = nickname;
-                                extractedAvatar = avatar;
-                                extractedAccount = account;
-                                Logger.LogInfo($"从好友列表提取账号信息: wxid={wxid}, nickname={nickname}, account={account}");
-                                break; // 找到第一个可能的账号信息就退出
-                            }
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        Logger.LogError($"提取账号信息失败: {ex.Message}");
-                    }
-                }
-                
-                // 如果找到了账号信息，触发事件通知MainWindow
-                if (!string.IsNullOrEmpty(extractedWxid))
-                {
-                    OnAccountInfoExtracted?.Invoke(this, (extractedWxid, extractedNickname ?? "", extractedAvatar ?? "", extractedAccount ?? extractedWxid));
-                }
 
                 foreach (var friend in friendList)
                 {

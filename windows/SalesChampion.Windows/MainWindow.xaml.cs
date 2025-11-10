@@ -253,9 +253,6 @@ namespace SalesChampion.Windows
                         _momentsSyncService = new MomentsSyncService(_connectionManager, _webSocketService);
                         _tagSyncService = new TagSyncService(_connectionManager, _webSocketService);
                         _chatMessageSyncService = new ChatMessageSyncService(_connectionManager, _webSocketService);
-                        
-                        // 订阅好友列表回调中的账号信息提取事件
-                        _contactSyncService.OnAccountInfoExtracted += OnAccountInfoExtractedFromContacts;
 
                         // 初始化命令服务
                         _commandService = new CommandService(_connectionManager);
@@ -1815,79 +1812,6 @@ namespace SalesChampion.Windows
             });
         }
 
-        /// <summary>
-        /// 从好友列表回调中提取账号信息的事件处理
-        /// </summary>
-        private void OnAccountInfoExtractedFromContacts(object? sender, (string wxid, string nickname, string avatar, string account) accountInfo)
-        {
-            Dispatcher.Invoke(() =>
-            {
-                try
-                {
-                    Logger.LogInfo($"从好友列表回调提取到账号信息: wxid={accountInfo.wxid}, nickname={accountInfo.nickname}, account={accountInfo.account}");
-                    
-                    int clientId = _connectionManager?.ClientId ?? 0;
-                    
-                    // 更新或创建账号信息
-                    AccountInfo? accountInfoObj = null;
-                    if (_accountList != null)
-                    {
-                        foreach (var acc in _accountList)
-                        {
-                            if (IsRealWeChatId(acc.WeChatId) && acc.WeChatId == accountInfo.wxid)
-                            {
-                                accountInfoObj = acc;
-                                break;
-                            }
-                        }
-                        
-                        if (accountInfoObj == null)
-                        {
-                            accountInfoObj = new AccountInfo
-                            {
-                                Client = $"客户端{clientId}",
-                                WeChatId = accountInfo.wxid,
-                                BoundAccount = accountInfo.account
-                            };
-                            _accountList.Add(accountInfoObj);
-                        }
-                    }
-                    
-                    // 更新账号信息
-                    if (accountInfoObj != null)
-                    {
-                        if (!string.IsNullOrEmpty(accountInfo.nickname))
-                        {
-                            accountInfoObj.NickName = accountInfo.nickname;
-                        }
-                        
-                        if (!string.IsNullOrEmpty(accountInfo.avatar))
-                        {
-                            accountInfoObj.Avatar = accountInfo.avatar;
-                        }
-                        
-                        accountInfoObj.WeChatId = accountInfo.wxid;
-                        accountInfoObj.BoundAccount = accountInfo.account;
-                        
-                        Logger.LogInfo($"账号信息已更新: wxid={accountInfoObj.WeChatId}, nickname={accountInfoObj.NickName}");
-                        AddLog($"从好友列表获取到账号信息: wxid={accountInfoObj.WeChatId}, nickname={accountInfoObj.NickName}", "SUCCESS");
-                    }
-                    
-                    // 更新UI显示
-                    UpdateAccountInfoDisplay();
-                    
-                    // 同步到服务器
-                    SyncMyInfoToServer(accountInfo.wxid, accountInfo.nickname, accountInfo.avatar, accountInfo.account);
-                    
-                    // 获取到账号信息后，停止定时器
-                    StopTimersAfterAccountInfoReceived();
-                }
-                catch (Exception ex)
-                {
-                    Logger.LogError($"处理从好友列表提取的账号信息失败: {ex.Message}", ex);
-                }
-            });
-        }
 
         /// <summary>
         /// 同步我的信息到服务器
@@ -2434,11 +2358,6 @@ namespace SalesChampion.Windows
                                 _webSocketService.OnConnectionStateChanged -= OnWebSocketConnectionStateChanged;
                             }
                             
-                            // 取消联系人同步服务事件订阅
-                            if (_contactSyncService != null)
-                            {
-                                _contactSyncService.OnAccountInfoExtracted -= OnAccountInfoExtractedFromContacts;
-                            }
                         });
                         Logger.LogInfo("事件订阅已取消");
                     }
