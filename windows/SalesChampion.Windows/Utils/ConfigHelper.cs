@@ -1,6 +1,6 @@
 using System.Configuration;
 
-namespace SalesChampion.Windows.Utils
+namespace MyWeChat.Windows.Utils
 {
     /// <summary>
     /// 配置帮助类

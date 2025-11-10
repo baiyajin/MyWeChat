@@ -1,7 +1,7 @@
 using System;
-using SalesChampion.Windows.Utils;
+using MyWeChat.Windows.Utils;
 
-namespace SalesChampion.Windows.Core.DLLWrapper
+namespace MyWeChat.Windows.Core.DLLWrapper
 {
     /// <summary>
     /// 微信帮助DLL封装工厂类

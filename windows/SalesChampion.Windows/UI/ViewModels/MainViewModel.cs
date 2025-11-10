@@ -1,7 +1,7 @@
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 
-namespace SalesChampion.Windows.UI.ViewModels
+namespace MyWeChat.Windows.UI.ViewModels
 {
     /// <summary>
     /// 主窗口视图模型

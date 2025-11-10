@@ -6,10 +6,10 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using SalesChampion.Windows.Core.DLLWrapper;
-using SalesChampion.Windows.Utils;
+using MyWeChat.Windows.Core.DLLWrapper;
+using MyWeChat.Windows.Utils;
 
-namespace SalesChampion.Windows.Core.Hook
+namespace MyWeChat.Windows.Core.Hook
 {
     /// <summary>
     /// MyWeChat管理器

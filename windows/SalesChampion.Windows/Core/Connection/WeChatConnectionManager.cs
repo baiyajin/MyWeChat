@@ -1,8 +1,8 @@
 using System;
-using SalesChampion.Windows.Core.Hook;
-using SalesChampion.Windows.Utils;
+using MyWeChat.Windows.Core.Hook;
+using MyWeChat.Windows.Utils;
 
-namespace SalesChampion.Windows.Core.Connection
+namespace MyWeChat.Windows.Core.Connection
 {
     /// <summary>
     /// 微信连接管理器

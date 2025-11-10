@@ -13,13 +13,13 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
-using SalesChampion.Windows.Core.Connection;
-using SalesChampion.Windows.Models;
-using SalesChampion.Windows.Services;
-using SalesChampion.Windows.Services.WebSocket;
-using SalesChampion.Windows.Utils;
+using MyWeChat.Windows.Core.Connection;
+using MyWeChat.Windows.Models;
+using MyWeChat.Windows.Services;
+using MyWeChat.Windows.Services.WebSocket;
+using MyWeChat.Windows.Utils;
 
-namespace SalesChampion.Windows
+namespace MyWeChat.Windows
 {
     /// <summary>
     /// 主窗口

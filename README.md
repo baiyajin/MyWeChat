@@ -205,7 +205,7 @@ MyWeChat/
 │   └── requirements.txt   # Python依赖
 │
 ├── windows/                # WPF Windows应用（Windows端）
-│   └── SalesChampion.Windows/  # WPF项目
+│   └── MyWeChat.Windows/  # WPF项目
 │       ├── Core/          # 核心模块
 │       ├── Services/      # 业务服务
 │       └── Models/        # 数据模型
@@ -322,33 +322,33 @@ Windows端负责Hook微信客户端，同步数据到服务器，并接收App端
    - 验证安装：`dotnet --version`（应显示 9.0.x）
 
 2. **还原NuGet包**
-   - 在Visual Studio中打开 `windows/SalesChampion.Windows/SalesChampion.Windows.sln`
+   - 在Visual Studio中打开 `windows/MyWeChat.Windows/MyWeChat.Windows.sln`
    - 右键项目 → 选择"还原NuGet包"
    - 或使用命令行：`dotnet restore`
 
 #### 启动应用
 
 **方法1：Visual Studio运行（推荐开发）**
-1. 打开 `windows/SalesChampion.Windows/SalesChampion.Windows.sln`（解决方案文件）
+1. 打开 `windows/MyWeChat.Windows/MyWeChat.Windows.sln`（解决方案文件）
    - 推荐使用 `.sln` 文件，也可以打开 `.csproj` 文件
 2. 按 `F5` 运行（或菜单：调试 > 开始调试）
 3. **重要**：程序会自动请求管理员权限（通过 app.manifest 配置），按 F5 时会弹出 UAC 提示，点击"是"即可。Hook注入需要管理员权限。
 
 **方法2：直接运行exe**
 1. 编译项目（生成 > 重新生成解决方案）
-2. 找到 `windows/SalesChampion.Windows/bin/Debug/SalesChampion.Windows.exe`
+2. 找到 `windows/MyWeChat.Windows/bin/Debug/MyWeChat.Windows.exe`
 3. 右键以管理员身份运行
 
 **方法3：命令行运行**
 ```bash
-cd windows/SalesChampion.Windows/bin/Debug
+cd windows/MyWeChat.Windows/bin/Debug
 # 以管理员权限运行
-SalesChampion.Windows.exe
+MyWeChat.Windows.exe
 ```
 
 #### 配置说明
 
-编辑 `windows/SalesChampion.Windows/App.config` 配置服务器地址：
+编辑 `windows/MyWeChat.Windows/App.config` 配置服务器地址：
 ```xml
 <appSettings>
   <add key="ServerUrl" value="http://localhost:8000" />
@@ -447,7 +447,7 @@ static const String wsUrl = 'ws://localhost:8000/ws';
    确保服务器运行在 `http://localhost:8000`
 
 2. **启动Windows端**
-   - 以管理员权限运行 `SalesChampion.Windows.exe`
+   - 以管理员权限运行 `MyWeChat.Windows.exe`
    - 确保微信客户端已启动
    - Windows端会自动连接服务器并开始同步数据
 
@@ -499,21 +499,21 @@ gunicorn app.main:app -w 4 -k uvicorn.workers.UvicornWorker -b 0.0.0.0:8000
 
 2. **使用dotnet命令行（推荐）**
    ```bash
-   cd windows/SalesChampion.Windows
+   cd windows/MyWeChat.Windows
    dotnet publish -c Release -r win-x64 --self-contained false
    ```
 
 3. **使用MSBuild命令行**
    ```bash
    cd windows
-   dotnet build SalesChampion.Windows/SalesChampion.Windows.csproj -c Release
+   dotnet build MyWeChat.Windows/MyWeChat.Windows.csproj -c Release
    ```
 
 4. **手动打包**
    - 编译Release版本
    - 复制以下文件到目标目录：
-     - `bin/Release/SalesChampion.Windows.exe`
-     - `bin/Release/SalesChampion.Windows.exe.config`
+     - `bin/Release/MyWeChat.Windows.exe`
+     - `bin/Release/MyWeChat.Windows.exe.config`
      - `bin/Release/*.dll`（依赖的DLL）
 
 ### App端打包

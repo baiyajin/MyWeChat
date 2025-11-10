@@ -1,4 +1,4 @@
-namespace SalesChampion.Windows.Models
+namespace MyWeChat.Windows.Models
 {
     /// <summary>
     /// 命令信息模型

@@ -1,6 +1,6 @@
 using System.Windows;
 
-namespace SalesChampion.Windows
+namespace MyWeChat.Windows
 {
     /// <summary>
     /// 应用程序入口点

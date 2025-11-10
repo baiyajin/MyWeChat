@@ -1,6 +1,6 @@
 using System;
 
-namespace SalesChampion.Windows.Models
+namespace MyWeChat.Windows.Models
 {
     /// <summary>
     /// 聊天消息模型

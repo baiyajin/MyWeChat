@@ -1,11 +1,11 @@
 using System;
 using Newtonsoft.Json;
-using SalesChampion.Windows.Core.Connection;
-using SalesChampion.Windows.Models;
-using SalesChampion.Windows.Services.WebSocket;
-using SalesChampion.Windows.Utils;
+using MyWeChat.Windows.Core.Connection;
+using MyWeChat.Windows.Models;
+using MyWeChat.Windows.Services.WebSocket;
+using MyWeChat.Windows.Utils;
 
-namespace SalesChampion.Windows.Services
+namespace MyWeChat.Windows.Services
 {
     /// <summary>
     /// 聊天消息同步服务

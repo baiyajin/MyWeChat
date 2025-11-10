@@ -1,9 +1,9 @@
 @echo off
 chcp 65001 >nul 2>&1
 setlocal enabledelayedexpansion
-set "PROJECT_DIR=%~dp0SalesChampion.Windows"
-set "EXE_NAME=SalesChampion.Windows.exe"
-set "PROCESS_NAME=SalesChampion.Windows.exe"
+set "PROJECT_DIR=%~dp0MyWeChat.Windows"
+set "EXE_NAME=MyWeChat.Windows.exe"
+set "PROCESS_NAME=MyWeChat.Windows.exe"
 set "WECHAT_PROCESS_NAME=WeChat.exe"
 
 REM 错误处理：确保窗口不会立即关闭
@@ -273,18 +273,18 @@ echo 注意: 如果编译失败，可能是文件被锁定
 echo 建议: 关闭Visual Studio或其他可能锁定文件的程序
 echo.
 echo [5.1] 强制删除可能被锁定的PDB文件...
-if exist "bin\x86\Debug\net9.0-windows\SalesChampion.Windows.pdb" (
-    del /f /q "bin\x86\Debug\net9.0-windows\SalesChampion.Windows.pdb" >nul 2>&1
-    if exist "bin\x86\Debug\net9.0-windows\SalesChampion.Windows.pdb" (
+if exist "bin\x86\Debug\net9.0-windows\MyWeChat.Windows.pdb" (
+    del /f /q "bin\x86\Debug\net9.0-windows\MyWeChat.Windows.pdb" >nul 2>&1
+    if exist "bin\x86\Debug\net9.0-windows\MyWeChat.Windows.pdb" (
         echo [X] 警告: 无法删除bin目录中的PDB文件，可能被其他进程占用
         echo 建议: 关闭Visual Studio或其他可能锁定文件的程序
     ) else (
         echo [OK] bin目录中的PDB文件已删除
     )
 )
-if exist "obj\x86\Debug\net9.0-windows\SalesChampion.Windows.pdb" (
-    del /f /q "obj\x86\Debug\net9.0-windows\SalesChampion.Windows.pdb" >nul 2>&1
-    if exist "obj\x86\Debug\net9.0-windows\SalesChampion.Windows.pdb" (
+if exist "obj\x86\Debug\net9.0-windows\MyWeChat.Windows.pdb" (
+    del /f /q "obj\x86\Debug\net9.0-windows\MyWeChat.Windows.pdb" >nul 2>&1
+    if exist "obj\x86\Debug\net9.0-windows\MyWeChat.Windows.pdb" (
         echo [X] 警告: 无法删除obj目录中的PDB文件
     ) else (
         echo [OK] obj目录中的PDB文件已删除
@@ -304,7 +304,7 @@ if %errorlevel% neq 0 (
     echo.
     echo 解决方法:
     echo   1. 关闭Visual Studio或其他IDE
-    echo   2. 关闭所有SalesChampion.Windows.exe进程
+    echo   2. 关闭所有MyWeChat.Windows.exe进程
     echo   3. 关闭微信进程（如果正在使用注入的DLL）
     echo   4. 重新运行编译
     echo.
@@ -662,9 +662,9 @@ echo [2.5] 编译项目...
 echo.
 echo [2.5.1] 强制删除可能被锁定的PDB文件...
 set "PDB_DELETED=0"
-if exist "bin\x86\Debug\net9.0-windows\SalesChampion.Windows.pdb" (
-    del /f /q "bin\x86\Debug\net9.0-windows\SalesChampion.Windows.pdb" >nul 2>&1
-    if exist "bin\x86\Debug\net9.0-windows\SalesChampion.Windows.pdb" (
+if exist "bin\x86\Debug\net9.0-windows\MyWeChat.Windows.pdb" (
+    del /f /q "bin\x86\Debug\net9.0-windows\MyWeChat.Windows.pdb" >nul 2>&1
+    if exist "bin\x86\Debug\net9.0-windows\MyWeChat.Windows.pdb" (
         echo [X] 警告: 无法删除bin目录中的PDB文件，可能被其他进程占用
         echo 建议: 关闭Visual Studio或其他可能锁定文件的程序
         set "PDB_DELETED=1"
@@ -672,9 +672,9 @@ if exist "bin\x86\Debug\net9.0-windows\SalesChampion.Windows.pdb" (
         echo [OK] bin目录中的PDB文件已删除
     )
 )
-if exist "obj\x86\Debug\net9.0-windows\SalesChampion.Windows.pdb" (
-    del /f /q "obj\x86\Debug\net9.0-windows\SalesChampion.Windows.pdb" >nul 2>&1
-    if exist "obj\x86\Debug\net9.0-windows\SalesChampion.Windows.pdb" (
+if exist "obj\x86\Debug\net9.0-windows\MyWeChat.Windows.pdb" (
+    del /f /q "obj\x86\Debug\net9.0-windows\MyWeChat.Windows.pdb" >nul 2>&1
+    if exist "obj\x86\Debug\net9.0-windows\MyWeChat.Windows.pdb" (
         echo [X] 警告: 无法删除obj目录中的PDB文件
         set "PDB_DELETED=1"
     ) else (
@@ -710,11 +710,11 @@ if !BUILD_ERROR! neq 0 (
     
     REM 再次尝试删除PDB文件
     echo [修复] 再次尝试删除PDB文件...
-    if exist "bin\x86\Debug\net9.0-windows\SalesChampion.Windows.pdb" (
-        del /f /q "bin\x86\Debug\net9.0-windows\SalesChampion.Windows.pdb" >nul 2>&1
+    if exist "bin\x86\Debug\net9.0-windows\MyWeChat.Windows.pdb" (
+        del /f /q "bin\x86\Debug\net9.0-windows\MyWeChat.Windows.pdb" >nul 2>&1
     )
-    if exist "obj\x86\Debug\net9.0-windows\SalesChampion.Windows.pdb" (
-        del /f /q "obj\x86\Debug\net9.0-windows\SalesChampion.Windows.pdb" >nul 2>&1
+    if exist "obj\x86\Debug\net9.0-windows\MyWeChat.Windows.pdb" (
+        del /f /q "obj\x86\Debug\net9.0-windows\MyWeChat.Windows.pdb" >nul 2>&1
     )
     
     REM 等待3秒后重试
@@ -731,7 +731,7 @@ if !BUILD_ERROR! neq 0 (
         echo.
         echo 解决方法:
         echo   1. 关闭Visual Studio或其他IDE
-        echo   2. 关闭所有SalesChampion.Windows.exe进程
+        echo   2. 关闭所有MyWeChat.Windows.exe进程
         echo   3. 关闭微信进程（如果正在使用注入的DLL）
         echo   4. 重新运行编译
         echo.

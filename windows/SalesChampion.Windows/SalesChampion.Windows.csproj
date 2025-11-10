@@ -8,8 +8,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Resources\favicon.ico</ApplicationIcon>
-    <AssemblyName>SalesChampion.Windows</AssemblyName>
-    <RootNamespace>SalesChampion.Windows</RootNamespace>
+    <AssemblyName>MyWeChat.Windows</AssemblyName>
+    <RootNamespace>MyWeChat.Windows</RootNamespace>
     <PlatformTarget>x86</PlatformTarget>
     <Platforms>x86</Platforms>
   </PropertyGroup>

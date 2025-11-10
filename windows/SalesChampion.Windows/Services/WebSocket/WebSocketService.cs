@@ -3,9 +3,9 @@ using System.Net.WebSockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using SalesChampion.Windows.Utils;
+using MyWeChat.Windows.Utils;
 
-namespace SalesChampion.Windows.Services.WebSocket
+namespace MyWeChat.Windows.Services.WebSocket
 {
     /// <summary>
     /// WebSocket客户端服务

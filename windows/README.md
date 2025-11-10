@@ -20,7 +20,7 @@ Windows端使用.NET 9.0 + WPF开发，负责Hook微信客户端，同步数据�
 ## 项目结构
 ```
 windows/
-├── SalesChampion.Windows/        # 主项目
+├── MyWeChat.Windows/        # 主项目
 │   ├── Core/                     # 核心模块
 │   │   ├── DLLWrapper/          # DLL封装
 │   │   ├── Hook/                 # Hook管理
@@ -45,7 +45,7 @@ windows/
 
 ### 2. 还原NuGet包
 在Visual Studio中：
-1. 右键项目 "SalesChampion.Windows"
+1. 右键项目 "MyWeChat.Windows"
 2. 选择 "还原NuGet包"
 3. 等待完成
 
@@ -57,20 +57,20 @@ Update-Package -reinstall
 ## 启动应用
 
 ### 方法1：Visual Studio运行
-1. 打开 `windows/SalesChampion.Windows/SalesChampion.Windows.sln`（解决方案文件）
-   - 或者也可以打开 `SalesChampion.Windows.csproj`（项目文件），但推荐使用 `.sln` 文件
+1. 打开 `windows/MyWeChat.Windows/MyWeChat.Windows.sln`（解决方案文件）
+   - 或者也可以打开 `MyWeChat.Windows.csproj`（项目文件），但推荐使用 `.sln` 文件
 2. 按 `F5` 运行（或菜单：调试 > 开始调试）
 3. **重要**：程序会自动请求管理员权限（通过 app.manifest 配置），按 F5 时会弹出 UAC 提示，点击"是"即可。Hook注入需要管理员权限。
 
 ### 方法2：直接运行exe
 1. 编译项目（生成 > 重新生成解决方案）
-2. 找到 `bin/Debug/SalesChampion.Windows.exe`
+2. 找到 `bin/Debug/MyWeChat.Windows.exe`
 3. 右键以管理员身份运行
 
 ### 方法3：命令行运行
 ```bash
-cd windows/SalesChampion.Windows/bin/Debug
-SalesChampion.Windows.exe
+cd windows/MyWeChat.Windows/bin/Debug
+MyWeChat.Windows.exe
 ```
 
 ## 编译项目
@@ -83,7 +83,7 @@ SalesChampion.Windows.exe
 ### 使用MSBuild命令行
 ```bash
 cd windows
-msbuild SalesChampion.Windows/SalesChampion.Windows.csproj /p:Configuration=Release /p:Platform=AnyCPU
+msbuild MyWeChat.Windows/MyWeChat.Windows.csproj /p:Configuration=Release /p:Platform=AnyCPU
 ```
 
 ## 打包应用
@@ -97,14 +97,14 @@ msbuild SalesChampion.Windows/SalesChampion.Windows.csproj /p:Configuration=Rele
 ### 方法2：使用MSBuild打包
 ```bash
 cd windows
-msbuild SalesChampion.Windows/SalesChampion.Windows.csproj /p:Configuration=Release /p:Platform=AnyCPU /t:Publish
+msbuild MyWeChat.Windows/MyWeChat.Windows.csproj /p:Configuration=Release /p:Platform=AnyCPU /t:Publish
 ```
 
 ### 方法3：手动打包
 1. 编译Release版本
 2. 复制以下文件到目标目录：
-   - `bin/Release/SalesChampion.Windows.exe`
-   - `bin/Release/SalesChampion.Windows.exe.config`
+   - `bin/Release/MyWeChat.Windows.exe`
+   - `bin/Release/MyWeChat.Windows.exe.config`
    - `bin/Release/*.dll`（依赖的DLL）
    - `DLLs/` 目录（所有版本的DLL文件）
    - `packages/` 目录（NuGet包）

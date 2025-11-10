@@ -2,7 +2,7 @@ using System;
 using System.Runtime.InteropServices;
 using System.Text;
 
-namespace SalesChampion.Windows.Core.DLLWrapper
+namespace MyWeChat.Windows.Core.DLLWrapper
 {
     /// <summary>
     /// 微信帮助DLL封装类 - 版本3.9.12.45

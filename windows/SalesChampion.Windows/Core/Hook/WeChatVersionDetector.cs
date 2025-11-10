@@ -3,7 +3,7 @@ using System.Diagnostics;
 using System.IO;
 using Microsoft.Win32;
 
-namespace SalesChampion.Windows.Core.Hook
+namespace MyWeChat.Windows.Core.Hook
 {
     /// <summary>
     /// 微信版本检测器

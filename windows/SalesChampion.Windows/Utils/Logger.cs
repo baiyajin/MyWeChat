@@ -1,7 +1,7 @@
 using System;
 using System.IO;
 
-namespace SalesChampion.Windows.Utils
+namespace MyWeChat.Windows.Utils
 {
     /// <summary>
     /// 日志记录器
