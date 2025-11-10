@@ -26,6 +26,9 @@ String? _webSocketUrl;
 bool _linksDisplayed = false; // 标记是否已显示链接
 
 void main() async {
+  // 确保 Flutter 绑定已初始化（所有平台都需要）
+  WidgetsFlutterBinding.ensureInitialized();
+  
   print('========== 应用启动 ==========');
   print('平台: ${kIsWeb ? "Web" : defaultTargetPlatform}');
   
@@ -39,7 +42,6 @@ void main() async {
   // 设置窗口大小（仅 Windows 平台）
   if (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows) {
     print('Windows 平台：设置窗口大小...');
-    WidgetsFlutterBinding.ensureInitialized();
     await _setWindowSize();
     print('Windows 平台：窗口大小设置完成');
   }
