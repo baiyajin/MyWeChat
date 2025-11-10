@@ -274,8 +274,8 @@ namespace MyWeChat.Windows
         {
             try
             {
-                // 输出定时器运行日志，让用户知道程序正在运行
-                Logger.LogInfo("[定时器] 正在检测微信进程...");
+                // 减少定时器日志输出频率，避免日志过多
+                // Logger.LogInfo("[定时器] 正在检测微信进程...");
                 
                 // 检查微信进程是否运行
                 bool weChatRunning = IsWeChatProcessRunning();

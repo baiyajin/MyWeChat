@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace MyWeChat.Windows.Utils
 {
@@ -17,6 +18,12 @@ namespace MyWeChat.Windows.Utils
         private const long MaxLogFileSize = 10 * 1024 * 1024; // 10MB，超过此大小则切割
         private const int MaxLogFiles = 10; // 最多保留10个日志文件
         private const int MaxLogDays = 7; // 最多保留7天的日志
+        
+        // 性能优化：减少文件大小检查频率
+        private static long _lastSizeCheck = 0;
+        private static long _lastSizeCheckTime = 0;
+        private const long SizeCheckInterval = 1024 * 1024; // 每1MB检查一次文件大小
+        private const long SizeCheckTimeInterval = 60000; // 每60秒检查一次文件大小
 
         /// <summary>
         /// 日志输出事件（用于输出到UI）
@@ -90,20 +97,52 @@ namespace MyWeChat.Windows.Utils
                     string fileName = $"log_{DateTime.Now:yyyyMMdd}.txt";
                     string filePath = Path.Combine(_logDirectory, fileName);
                     
-                    // 检查文件大小，如果超过限制则切割
+                    // 性能优化：减少文件大小检查频率
+                    // 只在写入前检查，且使用缓存避免频繁IO操作
+                    bool needCheckSize = false;
+                    long currentTime = DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond;
+                    
                     if (File.Exists(filePath))
                     {
-                        FileInfo fileInfo = new FileInfo(filePath);
-                        if (fileInfo.Length >= MaxLogFileSize)
+                        // 如果距离上次检查时间超过60秒，或者文件可能已经增长很多，才检查
+                        if (currentTime - _lastSizeCheckTime > SizeCheckTimeInterval)
                         {
-                            // 切割日志文件，添加时间戳后缀
-                            string timestamp = DateTime.Now.ToString("HHmmss");
-                            string newFileName = $"log_{DateTime.Now:yyyyMMdd}_{timestamp}.txt";
-                            string newFilePath = Path.Combine(_logDirectory, newFileName);
-                            File.Move(filePath, newFilePath);
-                            
-                            // 清理旧日志
-                            CleanOldLogs();
+                            needCheckSize = true;
+                        }
+                        else
+                        {
+                            // 估算：如果上次检查后写入的数据可能超过1MB，才检查
+                            // 这里简化处理，每次写入都更新计数器
+                            _lastSizeCheck += message.Length + 100; // 估算每条日志约100字节开销
+                            if (_lastSizeCheck >= SizeCheckInterval)
+                            {
+                                needCheckSize = true;
+                                _lastSizeCheck = 0;
+                            }
+                        }
+                        
+                        if (needCheckSize)
+                        {
+                            try
+                            {
+                                FileInfo fileInfo = new FileInfo(filePath);
+                                if (fileInfo.Length >= MaxLogFileSize)
+                                {
+                                    // 切割日志文件，添加时间戳后缀
+                                    string timestamp = DateTime.Now.ToString("HHmmss");
+                                    string newFileName = $"log_{DateTime.Now:yyyyMMdd}_{timestamp}.txt";
+                                    string newFilePath = Path.Combine(_logDirectory, newFileName);
+                                    File.Move(filePath, newFilePath);
+                                    
+                                    // 异步清理旧日志，避免阻塞
+                                    _ = Task.Run(() => CleanOldLogs());
+                                }
+                                _lastSizeCheckTime = currentTime;
+                            }
+                            catch
+                            {
+                                // 忽略文件检查失败，继续写入
+                            }
                         }
                     }
                     
