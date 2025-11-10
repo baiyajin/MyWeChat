@@ -25,7 +25,7 @@ class WebSocketService extends ChangeNotifier {
   Map<String, dynamic>? get myInfo => _myInfo;
 
   /// 连接WebSocket服务器
-  Future<bool> connect(String serverUrl) async {
+  Future<bool> connect(String serverUrl, {Duration timeout = const Duration(seconds: 5)}) async {
     try {
       // 如果已经连接，先断开
       if (_isConnected) {
@@ -33,11 +33,24 @@ class WebSocketService extends ChangeNotifier {
       }
 
       _serverUrl = serverUrl;
-      _channel = WebSocketChannel.connect(Uri.parse(serverUrl));
+      
+      // 创建连接，使用超时包装
+      try {
+        _channel = WebSocketChannel.connect(Uri.parse(serverUrl));
+      } catch (e) {
+        print('创建WebSocket通道失败: $e');
+        _isConnected = false;
+        notifyListeners();
+        return false;
+      }
 
       // 设置消息监听器
+      bool connectionEstablished = false;
       _channel!.stream.listen(
         (message) {
+          if (!connectionEstablished) {
+            connectionEstablished = true;
+          }
           _handleMessage(message);
         },
         onError: (error) {
@@ -52,11 +65,22 @@ class WebSocketService extends ChangeNotifier {
         },
       );
 
-      // 等待一小段时间让连接建立
-      await Future.delayed(const Duration(milliseconds: 300));
-      
-      // 连接建立后，设置状态并发送客户端类型
-      if (_channel != null) {
+      // 等待连接建立，使用超时
+      try {
+        // 尝试发送一个测试消息来验证连接，或者等待一段时间
+        await Future.delayed(const Duration(milliseconds: 500)).timeout(
+          timeout,
+          onTimeout: () {
+            throw TimeoutException('WebSocket连接超时', timeout);
+          },
+        );
+        
+        // 检查连接是否仍然有效
+        if (_channel == null) {
+          throw Exception('WebSocket通道已关闭');
+        }
+        
+        // 连接建立后，设置状态并发送客户端类型
         _isConnected = true;
         notifyListeners();
         
@@ -70,12 +94,29 @@ class WebSocketService extends ChangeNotifier {
         
         // 加载本地保存的账号信息
         await _loadMyInfoFromLocal();
+        
+        return true;
+      } on TimeoutException {
+        print('WebSocket连接超时');
+        _isConnected = false;
+        if (_channel != null) {
+          try {
+            _channel!.sink.close();
+          } catch (_) {}
+          _channel = null;
+        }
+        notifyListeners();
+        return false;
       }
-
-      return true;
     } catch (e) {
       print('WebSocket连接失败: $e');
       _isConnected = false;
+      if (_channel != null) {
+        try {
+          _channel!.sink.close();
+        } catch (_) {}
+        _channel = null;
+      }
       notifyListeners();
       return false;
     }

@@ -179,7 +179,7 @@ class _AuthWrapperState extends State<_AuthWrapper> {
       final wsService = Provider.of<WebSocketService>(context, listen: false);
       final apiService = Provider.of<ApiService>(context, listen: false);
       
-      // 先建立WebSocket连接（无论是否登录都需要）
+      // 先建立WebSocket连接（无论是否登录都需要），使用超时
       if (!wsService.isConnected) {
         // 将HTTP URL转换为WebSocket URL
         String wsUrl = apiService.serverUrl.replaceFirst('http://', 'ws://').replaceFirst('https://', 'wss://');
@@ -188,27 +188,59 @@ class _AuthWrapperState extends State<_AuthWrapper> {
         }
         
         print('正在建立WebSocket连接: $wsUrl');
-        final connected = await wsService.connect(wsUrl);
+        // 使用超时连接，最多等待5秒
+        final connected = await wsService.connect(wsUrl, timeout: const Duration(seconds: 5))
+            .timeout(
+              const Duration(seconds: 6),
+              onTimeout: () {
+                print('WebSocket连接超时，继续启动应用');
+                return false;
+              },
+            );
         if (!connected) {
-          print('WebSocket连接失败');
+          print('WebSocket连接失败或超时，将显示登录页面');
           // 即使连接失败，也继续检查登录状态，允许用户使用登录页面
         }
       } else {
         print('WebSocket已连接，跳过重复连接');
       }
       
-      // 检查登录状态
-      final wxid = await wsService.loadLoginState();
+      // 检查登录状态（使用超时）
+      String? wxid;
+      try {
+        wxid = await wsService.loadLoginState()
+            .timeout(
+              const Duration(seconds: 2),
+              onTimeout: () {
+                print('加载登录状态超时');
+                return null;
+              },
+            );
+      } catch (e) {
+        print('加载登录状态失败: $e');
+        wxid = null;
+      }
       
       if (wxid != null && wxid.isNotEmpty) {
-        // 已登录，尝试快速登录
-        final success = await wsService.quickLogin(wxid);
-        if (success && wsService.myInfo != null) {
-          setState(() {
-            _isLoggedIn = true;
-            _isLoading = false;
-          });
-          return;
+        // 已登录，尝试快速登录（使用超时）
+        try {
+          final success = await wsService.quickLogin(wxid)
+              .timeout(
+                const Duration(seconds: 5),
+                onTimeout: () {
+                  print('快速登录超时');
+                  return false;
+                },
+              );
+          if (success && wsService.myInfo != null) {
+            setState(() {
+              _isLoggedIn = true;
+              _isLoading = false;
+            });
+            return;
+          }
+        } catch (e) {
+          print('快速登录失败: $e');
         }
       }
       
