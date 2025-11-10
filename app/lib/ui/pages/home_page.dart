@@ -35,6 +35,30 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
+  /// 从服务器加载联系人数据
+  Future<void> _loadContactsFromServer(ApiService apiService, WebSocketService wsService) async {
+    try {
+      final weChatId = wsService.currentWeChatId;
+      final contacts = await apiService.getContacts(weChatId: weChatId);
+      // 更新WebSocketService中的联系人数据
+      wsService.updateContacts(contacts);
+    } catch (e) {
+      print('从服务器加载联系人数据失败: $e');
+    }
+  }
+
+  /// 从服务器加载朋友圈数据
+  Future<void> _loadMomentsFromServer(ApiService apiService, WebSocketService wsService) async {
+    try {
+      final weChatId = wsService.currentWeChatId;
+      final moments = await apiService.getMoments(weChatId: weChatId);
+      // 更新WebSocketService中的朋友圈数据
+      wsService.updateMoments(moments);
+    } catch (e) {
+      print('从服务器加载朋友圈数据失败: $e');
+    }
+  }
+
   /// 从服务器加载账号信息
   Future<void> _loadAccountInfoFromServer(ApiService apiService, WebSocketService wsService) async {
     try {
@@ -77,24 +101,22 @@ class _HomePageState extends State<HomePage> {
             _currentIndex = index;
           });
           
-          // 点击tabbar时，请求同步相应的数据
+          // 点击tabbar时，从数据库获取相应的数据
           final wsService = Provider.of<WebSocketService>(context, listen: false);
           final apiService = Provider.of<ApiService>(context, listen: false);
-          if (wsService.isConnected) {
-            switch (index) {
-              case 0: // 微信（聊天）
-                wsService.requestSyncContacts();
-                break;
-              case 1: // 通讯录（好友）
-                wsService.requestSyncContacts();
-                break;
-              case 2: // 发现（朋友圈）
-                wsService.requestSyncMoments();
-                break;
-              case 3: // 我（从服务器获取账号信息）
-                _loadAccountInfoFromServer(apiService, wsService);
-                break;
-            }
+          switch (index) {
+            case 0: // 微信（聊天）- 从数据库获取联系人
+              _loadContactsFromServer(apiService, wsService);
+              break;
+            case 1: // 通讯录（好友）- 从数据库获取联系人
+              _loadContactsFromServer(apiService, wsService);
+              break;
+            case 2: // 发现（朋友圈）- 从数据库获取朋友圈
+              _loadMomentsFromServer(apiService, wsService);
+              break;
+            case 3: // 我（从数据库获取账号信息）
+              _loadAccountInfoFromServer(apiService, wsService);
+              break;
           }
         },
         type: BottomNavigationBarType.fixed,

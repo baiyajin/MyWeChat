@@ -1,1 +1,10 @@
-完善账号信息同步：在SyncLocalAccountInfoToServer中添加延迟，确保WebSocket连接稳定
+将微信账号数据保存到数据库，移除本地文件保存，三端交互统一走数据库
+
+- 服务器端：添加账号信息表（AccountInfo）到数据库模型
+- 服务器端：修改WebSocket处理逻辑，将sync_my_info消息保存到数据库
+- 服务器端：添加账号信息API接口（/api/account），支持查询账号信息
+- Windows客户端：移除本地文件保存逻辑（SaveAccountInfoToLocal、LoadAccountInfoFromLocal）
+- Windows客户端：移除SyncLocalAccountInfoToServer方法，不再从本地文件同步
+- App客户端：添加从服务器获取账号信息的API方法（getAccountInfo）
+- App客户端：点击"我"tab时从服务器获取账号信息并更新显示
+- App客户端：添加updateMyInfo方法用于更新账号信息

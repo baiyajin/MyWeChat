@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../services/websocket_service.dart';
+import '../../services/api_service.dart';
 import '../../models/moments_model.dart';
 import '../widgets/moments_item.dart';
 
@@ -16,13 +17,23 @@ class _MomentsTabState extends State<MomentsTab> {
   @override
   void initState() {
     super.initState();
-    // 页面初始化时，如果已连接，请求同步朋友圈
+    // 页面初始化时，从数据库加载朋友圈数据
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final wsService = Provider.of<WebSocketService>(context, listen: false);
-      if (wsService.isConnected) {
-        wsService.requestSyncMoments();
-      }
+      _loadMomentsFromServer();
     });
+  }
+
+  /// 从服务器加载朋友圈数据
+  Future<void> _loadMomentsFromServer() async {
+    try {
+      final wsService = Provider.of<WebSocketService>(context, listen: false);
+      final apiService = Provider.of<ApiService>(context, listen: false);
+      final weChatId = wsService.currentWeChatId;
+      final moments = await apiService.getMoments(weChatId: weChatId);
+      wsService.updateMoments(moments);
+    } catch (e) {
+      print('从服务器加载朋友圈数据失败: $e');
+    }
   }
 
   @override
@@ -46,22 +57,6 @@ class _MomentsTabState extends State<MomentsTab> {
       ),
       body: Consumer<WebSocketService>(
         builder: (context, wsService, child) {
-          if (!wsService.isConnected) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.wifi_off, size: 64, color: Colors.grey[400]),
-                  const SizedBox(height: 16),
-                  Text(
-                    '未连接到服务器',
-                    style: TextStyle(color: Colors.grey[600], fontSize: 16),
-                  ),
-                ],
-              ),
-            );
-          }
-
           if (wsService.moments.isEmpty) {
             return Center(
               child: Column(
@@ -76,7 +71,7 @@ class _MomentsTabState extends State<MomentsTab> {
                   const SizedBox(height: 8),
                   TextButton(
                     onPressed: () {
-                      wsService.requestSyncMoments();
+                      _loadMomentsFromServer();
                     },
                     child: const Text('点击刷新'),
                   ),
@@ -87,9 +82,8 @@ class _MomentsTabState extends State<MomentsTab> {
 
           return RefreshIndicator(
             onRefresh: () async {
-              // 刷新朋友圈
-              wsService.requestSyncMoments();
-              await Future.delayed(const Duration(milliseconds: 500));
+              // 刷新朋友圈（从数据库获取）
+              await _loadMomentsFromServer();
             },
             child: ListView.builder(
               padding: const EdgeInsets.symmetric(vertical: 8),

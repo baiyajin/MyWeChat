@@ -303,6 +303,28 @@ class WebSocketService extends ChangeNotifier {
     }
   }
 
+  /// 更新联系人数据（用于从服务器获取后更新）
+  void updateContacts(List<ContactModel> contacts) {
+    try {
+      _contacts = contacts;
+      notifyListeners();
+      print('联系人数据已更新: ${contacts.length} 条');
+    } catch (e) {
+      print('更新联系人数据失败: $e');
+    }
+  }
+
+  /// 更新朋友圈数据（用于从服务器获取后更新）
+  void updateMoments(List<MomentsModel> moments) {
+    try {
+      _moments = moments;
+      notifyListeners();
+      print('朋友圈数据已更新: ${moments.length} 条');
+    } catch (e) {
+      print('更新朋友圈数据失败: $e');
+    }
+  }
+
   /// 处理朋友圈同步
   void _handleMomentsSync(List<dynamic> momentsData) {
     _moments = momentsData

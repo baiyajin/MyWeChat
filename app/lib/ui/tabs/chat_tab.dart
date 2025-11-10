@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../services/websocket_service.dart';
+import '../../services/api_service.dart';
 import '../../models/contact_model.dart';
 
 /// 聊天Tab - 模仿微信App的聊天列表UI
@@ -15,13 +16,23 @@ class _ChatTabState extends State<ChatTab> {
   @override
   void initState() {
     super.initState();
-    // 页面初始化时，如果已连接，请求同步好友列表（用于聊天列表）
+    // 页面初始化时，从数据库加载联系人数据
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final wsService = Provider.of<WebSocketService>(context, listen: false);
-      if (wsService.isConnected) {
-        wsService.requestSyncContacts();
-      }
+      _loadContactsFromServer();
     });
+  }
+
+  /// 从服务器加载联系人数据
+  Future<void> _loadContactsFromServer() async {
+    try {
+      final wsService = Provider.of<WebSocketService>(context, listen: false);
+      final apiService = Provider.of<ApiService>(context, listen: false);
+      final weChatId = wsService.currentWeChatId;
+      final contacts = await apiService.getContacts(weChatId: weChatId);
+      wsService.updateContacts(contacts);
+    } catch (e) {
+      print('从服务器加载联系人数据失败: $e');
+    }
   }
 
   @override
@@ -44,22 +55,6 @@ class _ChatTabState extends State<ChatTab> {
       ),
       body: Consumer<WebSocketService>(
         builder: (context, wsService, child) {
-          if (!wsService.isConnected) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.wifi_off, size: 64, color: Colors.grey[400]),
-                  const SizedBox(height: 16),
-                  Text(
-                    '未连接到服务器',
-                    style: TextStyle(color: Colors.grey[600], fontSize: 16),
-                  ),
-                ],
-              ),
-            );
-          }
-
           if (wsService.contacts.isEmpty) {
             return Center(
               child: Column(
