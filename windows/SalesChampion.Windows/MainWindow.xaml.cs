@@ -204,6 +204,9 @@ namespace SalesChampion.Windows
 
                         // 初始化命令服务
                         _commandService = new CommandService(_connectionManager);
+                        
+                        // 设置同步服务到命令服务（用于处理同步命令）
+                        _commandService.SetSyncServices(_contactSyncService, _momentsSyncService, _tagSyncService);
 
                         // 连接WebSocket
                         _ = Task.Run(async () => await _webSocketService.ConnectAsync());

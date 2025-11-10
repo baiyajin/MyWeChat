@@ -13,6 +13,9 @@ namespace SalesChampion.Windows.Services
     public class CommandService
     {
         private readonly WeChatConnectionManager _connectionManager;
+        private ContactSyncService? _contactSyncService;
+        private MomentsSyncService? _momentsSyncService;
+        private TagSyncService? _tagSyncService;
 
         // 命令ID定义
         private const int CMD_SEND_TEXT = 11132;
@@ -27,6 +30,16 @@ namespace SalesChampion.Windows.Services
         public CommandService(WeChatConnectionManager connectionManager)
         {
             _connectionManager = connectionManager;
+        }
+
+        /// <summary>
+        /// 设置同步服务（用于处理同步命令）
+        /// </summary>
+        public void SetSyncServices(ContactSyncService? contactSyncService, MomentsSyncService? momentsSyncService, TagSyncService? tagSyncService)
+        {
+            _contactSyncService = contactSyncService;
+            _momentsSyncService = momentsSyncService;
+            _tagSyncService = tagSyncService;
         }
 
         /// <summary>
@@ -72,13 +85,22 @@ namespace SalesChampion.Windows.Services
                         result = HandleSendFile(commandData, command.TargetWeChatId ?? "");
                         break;
                     case "moments_like":
-                        result = HandleMomentsLike(command);
+                        result = HandleMomentsLike(command, commandData);
                         break;
                     case "moments_comment":
-                        result = HandleMomentsComment(command);
+                        result = HandleMomentsComment(command, commandData);
                         break;
                     case "send_moments":
-                        result = HandleSendMoments(command);
+                        result = HandleSendMoments(command, commandData);
+                        break;
+                    case "sync_contacts":
+                        result = HandleSyncContacts(command);
+                        break;
+                    case "sync_moments":
+                        result = HandleSyncMoments(command, commandData);
+                        break;
+                    case "sync_tags":
+                        result = HandleSyncTags(command);
                         break;
                     default:
                         Logger.LogWarning($"未知的命令类型: {command.CommandType}");
@@ -168,7 +190,7 @@ namespace SalesChampion.Windows.Services
         /// <summary>
         /// 处理朋友圈点赞命令
         /// </summary>
-        private bool HandleMomentsLike(dynamic commandData)
+        private bool HandleMomentsLike(CommandInfo command, dynamic? commandData)
         {
             try
             {
@@ -197,7 +219,7 @@ namespace SalesChampion.Windows.Services
         /// <summary>
         /// 处理朋友圈评论命令
         /// </summary>
-        private bool HandleMomentsComment(dynamic commandData)
+        private bool HandleMomentsComment(CommandInfo command, dynamic? commandData)
         {
             try
             {
@@ -228,7 +250,7 @@ namespace SalesChampion.Windows.Services
         /// <summary>
         /// 处理发布朋友圈命令
         /// </summary>
-        private bool HandleSendMoments(dynamic commandData)
+        private bool HandleSendMoments(CommandInfo command, dynamic? commandData)
         {
             try
             {
@@ -253,6 +275,121 @@ namespace SalesChampion.Windows.Services
             catch (Exception ex)
             {
                 Logger.LogError($"处理发布朋友圈命令失败: {ex.Message}", ex);
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// 处理同步好友列表命令
+        /// </summary>
+        private bool HandleSyncContacts(CommandInfo command)
+        {
+            try
+            {
+                Logger.LogInfo("收到同步好友列表命令");
+                
+                if (_contactSyncService == null)
+                {
+                    Logger.LogError("好友同步服务未初始化");
+                    return false;
+                }
+
+                bool result = _contactSyncService.SyncContacts();
+                
+                if (result)
+                {
+                    Logger.LogInfo("好友列表同步命令已发送");
+                }
+                else
+                {
+                    Logger.LogError("好友列表同步命令发送失败");
+                }
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError($"处理同步好友列表命令失败: {ex.Message}", ex);
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// 处理同步朋友圈命令
+        /// </summary>
+        private bool HandleSyncMoments(CommandInfo command, dynamic? commandData)
+        {
+            try
+            {
+                Logger.LogInfo("收到同步朋友圈命令");
+                
+                if (_momentsSyncService == null)
+                {
+                    Logger.LogError("朋友圈同步服务未初始化");
+                    return false;
+                }
+
+                string maxId = "0";
+                if (commandData != null)
+                {
+                    string? maxIdStr = commandData.max_id?.ToString();
+                    if (!string.IsNullOrEmpty(maxIdStr))
+                    {
+                        maxId = maxIdStr;
+                    }
+                }
+
+                bool result = _momentsSyncService.SyncMoments(maxId);
+                
+                if (result)
+                {
+                    Logger.LogInfo($"朋友圈同步命令已发送，MaxId: {maxId}");
+                }
+                else
+                {
+                    Logger.LogError("朋友圈同步命令发送失败");
+                }
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError($"处理同步朋友圈命令失败: {ex.Message}", ex);
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// 处理同步标签列表命令
+        /// </summary>
+        private bool HandleSyncTags(CommandInfo command)
+        {
+            try
+            {
+                Logger.LogInfo("收到同步标签列表命令");
+                
+                if (_tagSyncService == null)
+                {
+                    Logger.LogError("标签同步服务未初始化");
+                    return false;
+                }
+
+                bool result = _tagSyncService.SyncTags();
+                
+                if (result)
+                {
+                    Logger.LogInfo("标签列表同步命令已发送");
+                }
+                else
+                {
+                    Logger.LogError("标签列表同步命令发送失败");
+                }
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError($"处理同步标签列表命令失败: {ex.Message}", ex);
                 return false;
             }
         }
