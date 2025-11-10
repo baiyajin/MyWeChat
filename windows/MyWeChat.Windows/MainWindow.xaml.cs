@@ -27,6 +27,7 @@ namespace MyWeChat.Windows
     public partial class MainWindow : Window
     {
         private WeChatConnectionManager? _connectionManager;
+        private bool _isInitializing = false;
         private WebSocketService? _webSocketService;
         private ContactSyncService? _contactSyncService;
         private MomentsSyncService? _momentsSyncService;
@@ -119,11 +120,19 @@ namespace MyWeChat.Windows
         private void InitializeServices()
         {
             // 防止重复初始化
+            if (_isInitializing)
+            {
+                Logger.LogWarning("服务正在初始化中，跳过重复初始化");
+                return;
+            }
+            
             if (_connectionManager != null)
             {
                 Logger.LogWarning("连接管理器已初始化，跳过重复初始化");
                 return;
             }
+            
+            _isInitializing = true;
             
             try
             {

@@ -56,41 +56,16 @@ namespace MyWeChat.Windows.Core.Connection
             {
                 Logger.LogInfo("========== 开始初始化连接管理器 ==========");
                 
-                // 检测微信版本（减少日志输出）
+                // 检测微信版本（只调用一次，减少日志输出）
                 _weChatVersion = WeChatVersionDetector.DetectWeChatVersion();
-                Logger.LogInfo($"检测微信版本: {(_weChatVersion ?? "未检测到")}");
                 
                 if (string.IsNullOrEmpty(_weChatVersion))
                 {
                     Logger.LogError("未检测到微信版本");
-                    Logger.LogError("可能的原因:");
-                    Logger.LogError("  1. 微信未安装");
-                    Logger.LogError("  2. 注册表中没有微信信息");
-                    Logger.LogError("  3. 微信安装路径不正确");
                     return false;
                 }
 
-                // 尝试标准化版本号（如果找不到精确匹配，会自动选择最接近的版本）
-                string? normalizedVersion = WeChatVersionDetector.DetectWeChatVersion();
-                if (normalizedVersion != _weChatVersion)
-                {
-                    Logger.LogInfo($"微信版本标准化: {_weChatVersion} -> {normalizedVersion}");
-                }
-                
-                if (string.IsNullOrEmpty(normalizedVersion))
-                {
-                    Logger.LogError($"无法找到支持的微信版本，检测到版本: {_weChatVersion}");
-                    Logger.LogError("请检查DLLs目录中是否有对应版本的DLL文件");
-                    return false;
-                }
-
-                // 如果版本被标准化了，更新版本号
-                if (normalizedVersion != _weChatVersion)
-                {
-                    Logger.LogInfo($"微信版本 {_weChatVersion} 已匹配到支持版本 {normalizedVersion}");
-                    _weChatVersion = normalizedVersion;
-                }
-
+                // 标准化版本号（DetectWeChatVersion已经返回标准化后的版本）
                 Logger.LogInfo($"使用微信版本: {_weChatVersion}");
 
                 // 检查DLL目录

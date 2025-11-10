@@ -127,12 +127,7 @@ namespace MyWeChat.Windows.Core.Hook
         {
             try
             {
-                bool is64Bit = IntPtr.Size == 8;
-                Utils.Logger.LogInfo($"应用程序架构: {(is64Bit ? "64位" : "32位")}");
-                
-                // 尝试多个注册表位置
-                // 1. CurrentUser (用户级注册表)
-                // 2. LocalMachine (系统级注册表)
+                // 尝试多个注册表位置（减少日志输出）
                 RegistryKey[] registryRoots = new[] { Registry.CurrentUser, Registry.LocalMachine };
                 
                 // 尝试多个路径
@@ -151,30 +146,16 @@ namespace MyWeChat.Windows.Core.Hook
                     {
                         try
                         {
-                            string fullPath = $"{root.Name}\\{registryPath}";
-                            Utils.Logger.LogInfo($"尝试访问注册表: {fullPath}");
-                            
                             using (RegistryKey? key = root.OpenSubKey(registryPath))
                             {
                                 if (key != null)
                                 {
-                                    Utils.Logger.LogInfo($"注册表键存在: {fullPath}");
-                                    
-                                    // 获取所有值名称（用于调试）
-                                    string[] valueNames = key.GetValueNames();
-                                    Utils.Logger.LogInfo($"注册表值数量: {valueNames.Length}");
-                                    foreach (string valueName in valueNames)
-                                    {
-                                        object? value = key.GetValue(valueName);
-                                        Utils.Logger.LogInfo($"  - {valueName} = {value}");
-                                    }
-                                    
                                     // 尝试获取Version值
                                     object? versionValue = key.GetValue("Version");
                                     if (versionValue != null)
                                     {
                                         string? version = versionValue?.ToString();
-                                        Utils.Logger.LogInfo($"从注册表获取到版本: {version} (路径: {fullPath})");
+                                        Utils.Logger.LogInfo($"从注册表获取到版本: {version}");
                                         return version;
                                     }
                                     
@@ -183,7 +164,6 @@ namespace MyWeChat.Windows.Core.Hook
                                     if (installPathValue != null)
                                     {
                                         string? installPath = installPathValue?.ToString();
-                                        Utils.Logger.LogInfo($"找到安装路径: {installPath}");
                                         
                                         // 从安装路径的子目录中检测版本
                                         string? versionFromPath = GetVersionFromInstallPath(installPath);
@@ -194,15 +174,12 @@ namespace MyWeChat.Windows.Core.Hook
                                         }
                                     }
                                 }
-                                else
-                                {
-                                    Utils.Logger.LogInfo($"注册表键不存在: {fullPath}");
-                                }
                             }
                         }
                         catch (Exception ex)
                         {
-                            Utils.Logger.LogWarning($"访问注册表路径失败: {ex.Message}");
+                            // 减少日志输出，只在调试时输出
+                            // Utils.Logger.LogWarning($"访问注册表路径失败: {ex.Message}");
                         }
                     }
                 }
