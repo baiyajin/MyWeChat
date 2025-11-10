@@ -1978,10 +1978,36 @@ namespace MyWeChat.Windows
         {
             try
             {
+                // 先检查新位置是否有文件
                 if (!File.Exists(_accountInfoFilePath))
                 {
-                    Logger.LogInfo("本地账号信息文件不存在，跳过加载");
-                    return;
+                    // 如果新位置没有，尝试从旧位置（SalesChampion.Windows）迁移
+                    string oldBaseDir = _accountInfoFilePath.Replace("MyWeChat.Windows", "SalesChampion.Windows");
+                    if (File.Exists(oldBaseDir))
+                    {
+                        Logger.LogInfo($"发现旧位置的账号信息文件，正在迁移: {oldBaseDir}");
+                        try
+                        {
+                            // 确保新位置的目录存在
+                            string? directory = Path.GetDirectoryName(_accountInfoFilePath);
+                            if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
+                            {
+                                Directory.CreateDirectory(directory);
+                            }
+                            // 复制文件到新位置
+                            File.Copy(oldBaseDir, _accountInfoFilePath, true);
+                            Logger.LogInfo($"账号信息文件已迁移到新位置: {_accountInfoFilePath}");
+                        }
+                        catch (Exception ex)
+                        {
+                            Logger.LogError($"迁移账号信息文件失败: {ex.Message}", ex);
+                        }
+                    }
+                    else
+                    {
+                        Logger.LogInfo("本地账号信息文件不存在，跳过加载");
+                        return;
+                    }
                 }
 
                 Logger.LogInfo($"从本地加载账号信息: {_accountInfoFilePath}");
