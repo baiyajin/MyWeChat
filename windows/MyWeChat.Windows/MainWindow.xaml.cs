@@ -1982,10 +1982,14 @@ namespace MyWeChat.Windows
                 if (!File.Exists(_accountInfoFilePath))
                 {
                     // 如果新位置没有，尝试从旧位置（SalesChampion.Windows）迁移
-                    string oldBaseDir = _accountInfoFilePath.Replace("MyWeChat.Windows", "SalesChampion.Windows");
-                    if (File.Exists(oldBaseDir))
+                    // 基于当前程序运行目录构建旧路径
+                    string currentBaseDir = AppDomain.CurrentDomain.BaseDirectory;
+                    string oldBaseDir = currentBaseDir.Replace("MyWeChat.Windows", "SalesChampion.Windows");
+                    string oldAccountInfoPath = Path.Combine(oldBaseDir, "account_info.json");
+                    
+                    if (File.Exists(oldAccountInfoPath))
                     {
-                        Logger.LogInfo($"发现旧位置的账号信息文件，正在迁移: {oldBaseDir}");
+                        Logger.LogInfo($"发现旧位置的账号信息文件，正在迁移: {oldAccountInfoPath}");
                         try
                         {
                             // 确保新位置的目录存在
@@ -1995,7 +1999,7 @@ namespace MyWeChat.Windows
                                 Directory.CreateDirectory(directory);
                             }
                             // 复制文件到新位置
-                            File.Copy(oldBaseDir, _accountInfoFilePath, true);
+                            File.Copy(oldAccountInfoPath, _accountInfoFilePath, true);
                             Logger.LogInfo($"账号信息文件已迁移到新位置: {_accountInfoFilePath}");
                         }
                         catch (Exception ex)
