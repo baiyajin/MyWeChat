@@ -8,7 +8,6 @@ import json
 import asyncio
 from sqlalchemy import select
 from app.models.database import AsyncSessionLocal, AccountInfo, Contact, Moment
-from app.models.schemas import ContactSyncItem, MomentsSyncItem
 
 
 class WebSocketManager:
