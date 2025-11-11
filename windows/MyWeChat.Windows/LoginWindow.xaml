@@ -269,6 +269,74 @@
                     </StackPanel>
                 </Border>
             </StackPanel>
+        </Grid>
+        
+        <!-- 关闭进度遮罩层 - 使用Canvas确保在最上层 -->
+        <Canvas 
+                Name="ClosingOverlayCanvas"
+                Visibility="Collapsed"
+                Background="#80000000"
+                Panel.ZIndex="9999">
+            <Border Name="ClosingOverlayBorder"
+                    Background="White" 
+                    CornerRadius="10" 
+                    Padding="30" 
+                    Width="400" 
+                    Height="280"
+                    HorizontalAlignment="Center" 
+                    VerticalAlignment="Center">
+                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <TextBlock Text="正在关闭程序..." 
+                               FontSize="18" 
+                               FontWeight="Bold" 
+                               Margin="0,0,0,25"
+                               HorizontalAlignment="Center"/>
+                    
+                    <!-- 圆环进度 -->
+                    <Grid Width="120" Height="120" Margin="0,0,0,20" HorizontalAlignment="Center">
+                        <!-- 背景圆环 -->
+                        <Ellipse Width="120" Height="120" 
+                                 Stroke="#E0E0E0" 
+                                 StrokeThickness="8"/>
+                        <!-- 进度圆环 -->
+                        <Path Name="ClosingProgressPath" 
+                              Stroke="#07C160" 
+                              StrokeThickness="8"
+                              StrokeStartLineCap="Round"
+                              StrokeEndLineCap="Round">
+                            <Path.Data>
+                                <PathGeometry>
+                                    <PathFigure StartPoint="60,10">
+                                        <ArcSegment x:Name="ClosingProgressArc"
+                                                    Size="50,50"
+                                                    SweepDirection="Clockwise"
+                                                    IsLargeArc="False"/>
+                                    </PathFigure>
+                                </PathGeometry>
+                            </Path.Data>
+                        </Path>
+                        <!-- 进度文本 -->
+                        <TextBlock Name="ClosingProgressText" 
+                                   Text="0%" 
+                                   FontSize="20" 
+                                   FontWeight="Bold"
+                                   Foreground="#07C160"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"/>
+                    </Grid>
+                    
+                    <TextBlock Name="ClosingStatusText" 
+                               Text="准备关闭..." 
+                               FontSize="14" 
+                               Foreground="#666666"
+                               TextWrapping="Wrap"
+                               HorizontalAlignment="Center"
+                               TextAlignment="Center"
+                               MaxWidth="340"
+                               Margin="0,0,0,10"/>
+                </StackPanel>
+            </Border>
+        </Canvas>
     </Grid>
 </Window>
 

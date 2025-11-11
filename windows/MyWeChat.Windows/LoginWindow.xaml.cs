@@ -663,11 +663,91 @@ namespace MyWeChat.Windows
                 UnsubscribeEventsCallback = UnsubscribeEvents,
                 CleanupSyncServicesCallback = null, // LoginWindow 没有同步服务
                 ClearAccountListCallback = null, // LoginWindow 没有账号列表
-                UpdateProgressCallback = null, // LoginWindow 不需要进度显示
-                ShowProgressOverlayCallback = null // LoginWindow 不需要进度遮罩
+                UpdateProgressCallback = UpdateClosingProgress,
+                ShowProgressOverlayCallback = ShowProgressOverlay
             };
 
             _closeHandler = new WindowCloseHandler(this, config);
+        }
+
+        /// <summary>
+        /// 显示/隐藏进度遮罩
+        /// </summary>
+        private void ShowProgressOverlay(bool show)
+        {
+            if (show)
+            {
+                ClosingOverlayCanvas.Visibility = Visibility.Visible;
+                UpdateClosingProgressRing(0);
+                ClosingStatusText.Text = "准备关闭...";
+                ClosingProgressText.Text = "0%";
+
+                // 居中显示遮罩内容
+                if (ClosingOverlayBorder != null)
+                {
+                    ClosingOverlayCanvas.UpdateLayout();
+                    double canvasWidth = ClosingOverlayCanvas.ActualWidth;
+                    double canvasHeight = ClosingOverlayCanvas.ActualHeight;
+                    double borderWidth = 400;
+                    double borderHeight = 280;
+
+                    Canvas.SetLeft(ClosingOverlayBorder, (canvasWidth - borderWidth) / 2);
+                    Canvas.SetTop(ClosingOverlayBorder, (canvasHeight - borderHeight) / 2);
+                }
+            }
+            else
+            {
+                ClosingOverlayCanvas.Visibility = Visibility.Collapsed;
+            }
+        }
+
+        /// <summary>
+        /// 更新关闭进度
+        /// </summary>
+        private void UpdateClosingProgress(int progress, string status)
+        {
+            UpdateClosingProgressRing(progress);
+            ClosingStatusText.Text = status;
+            ClosingProgressText.Text = $"{progress}%";
+        }
+
+        /// <summary>
+        /// 更新关闭进度圆环
+        /// </summary>
+        private void UpdateClosingProgressRing(int progress)
+        {
+            try
+            {
+                if (ClosingProgressArc == null) return;
+                
+                // 确保进度在0-100范围内
+                progress = Math.Max(0, Math.Min(100, progress));
+                
+                // 计算角度（0度在顶部，顺时针）
+                double angle = (progress / 100.0) * 360.0;
+                double angleRad = (angle - 90) * Math.PI / 180.0; // 转换为弧度，-90度使起点在顶部
+                
+                // 圆环中心 (60, 60)，半径 50
+                double centerX = 60;
+                double centerY = 60;
+                double radius = 50;
+                
+                // 计算终点坐标
+                double endX = centerX + radius * Math.Cos(angleRad);
+                double endY = centerY + radius * Math.Sin(angleRad);
+                
+                // 判断是否需要大弧（超过180度）
+                bool isLargeArc = progress > 50;
+                
+                // 更新ArcSegment
+                ClosingProgressArc.Point = new System.Windows.Point(endX, endY);
+                ClosingProgressArc.IsLargeArc = isLargeArc;
+                ClosingProgressArc.Size = new System.Windows.Size(radius, radius);
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError($"更新关闭进度圆环失败: {ex.Message}", ex);
+            }
         }
 
         /// <summary>
