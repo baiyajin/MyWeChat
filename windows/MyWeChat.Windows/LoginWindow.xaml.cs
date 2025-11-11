@@ -105,9 +105,6 @@ namespace MyWeChat.Windows
                         case "login_response":
                             HandleLoginResponse(messageObj);
                             break;
-                        case "verify_login_code_response":
-                            HandleVerifyLoginCodeResponse(messageObj);
-                            break;
                         case "quick_login_response":
                             HandleQuickLoginResponse(messageObj);
                             break;
@@ -196,52 +193,6 @@ namespace MyWeChat.Windows
                 var mainWindow = new MainWindow("");
                 mainWindow.Show();
                 this.Close();
-            }
-            else
-            {
-                ShowError(message);
-            }
-        }
-
-        /// <summary>
-        /// 处理验证登录码响应
-        /// </summary>
-        private void HandleVerifyLoginCodeResponse(dynamic? response)
-        {
-            bool success = response?.success == true;
-            string message = response?.message?.ToString() ?? "";
-
-            if (success)
-            {
-                // 获取账号信息
-                var accountInfoData = response?.account_info;
-                if (accountInfoData != null)
-                {
-                    var accountInfo = new AccountInfo
-                    {
-                        WeChatId = accountInfoData.wxid?.ToString() ?? "",
-                        NickName = accountInfoData.nickname?.ToString() ?? "",
-                        Avatar = accountInfoData.avatar?.ToString() ?? "",
-                        BoundAccount = accountInfoData.account?.ToString() ?? "",
-                        Phone = accountInfoData.phone?.ToString() ?? "",
-                        DeviceId = accountInfoData.device_id?.ToString() ?? "",
-                        WxUserDir = accountInfoData.wx_user_dir?.ToString() ?? "",
-                        UnreadMsgCount = accountInfoData.unread_msg_count ?? 0,
-                        IsFakeDeviceId = accountInfoData.is_fake_device_id ?? 0,
-                        Pid = accountInfoData.pid ?? 0
-                    };
-
-                    // 保存登录状态
-                    SaveLoginState(accountInfo.WeChatId);
-                    
-                    // 保存登录历史
-                    SaveLoginHistory(accountInfo);
-
-                    // 打开主窗口
-                    var mainWindow = new MainWindow(accountInfo.WeChatId);
-                    mainWindow.Show();
-                    this.Close();
-                }
             }
             else
             {
