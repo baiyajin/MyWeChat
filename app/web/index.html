@@ -31,6 +31,18 @@
 
   <title>w</title>
   <link rel="manifest" href="manifest.json">
+  <script>
+    // 立即设置页面标题，确保在Flutter加载前就设置好
+    document.title = 'w';
+    // 监听DOMContentLoaded事件，再次确保标题正确
+    document.addEventListener('DOMContentLoaded', function() {
+      document.title = 'w';
+    });
+    // 监听load事件，确保标题在页面完全加载后也是正确的
+    window.addEventListener('load', function() {
+      document.title = 'w';
+    });
+  </script>
 </head>
 <body>
   <script src="flutter_bootstrap.js" async></script>
