@@ -532,9 +532,9 @@ namespace MyWeChat.Windows
         }
 
         /// <summary>
-        /// 验证码输入框获得焦点
+        /// 授权码输入框获得焦点
         /// </summary>
-        private void CodeTextBox_GotFocus(object sender, RoutedEventArgs e)
+        private void LicenseKeyTextBox_GotFocus(object sender, RoutedEventArgs e)
         {
             if (sender is TextBox textBox)
             {
@@ -547,9 +547,9 @@ namespace MyWeChat.Windows
         }
 
         /// <summary>
-        /// 验证码输入框失去焦点
+        /// 授权码输入框失去焦点
         /// </summary>
-        private void CodeTextBox_LostFocus(object sender, RoutedEventArgs e)
+        private void LicenseKeyTextBox_LostFocus(object sender, RoutedEventArgs e)
         {
             if (sender is TextBox textBox)
             {
