@@ -44,3 +44,44 @@ class AccountInfoResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class UserLicenseResponse(BaseModel):
+    """授权用户响应"""
+    id: int
+    phone: str
+    license_key: str
+    bound_wechat_phone: Optional[str]
+    has_manage_permission: bool
+    status: str
+    expire_date: datetime
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class UserLicenseCreate(BaseModel):
+    """创建授权用户请求"""
+    phone: str
+    license_key: Optional[str] = None  # 如果不提供，自动生成
+    bound_wechat_phone: Optional[str] = None  # 如果不提供，默认等于phone
+    has_manage_permission: bool = False
+    expire_date: datetime  # 必填，默认一年
+
+
+class UserLicenseUpdate(BaseModel):
+    """更新授权用户请求"""
+    license_key: Optional[str] = None
+    bound_wechat_phone: Optional[str] = None
+    has_manage_permission: Optional[bool] = None
+    status: Optional[str] = None
+    expire_date: Optional[datetime] = None
+
+
+class ExtendLicenseRequest(BaseModel):
+    """延期请求"""
+    days: Optional[int] = None  # 延期天数
+    months: Optional[int] = None  # 延期月数
+    years: Optional[int] = None  # 延期年数
