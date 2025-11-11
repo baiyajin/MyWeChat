@@ -50,6 +50,16 @@ namespace MyWeChat.Windows
             _serverUrl = ConfigHelper.GetServerUrl();
             _loginHistoryFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "login_history.json");
             
+            // 在构造函数中立即设置输入框属性，确保窗口创建时即可使用
+            PhoneTextBox.IsEnabled = true;
+            LicenseKeyTextBox.IsEnabled = true;
+            PhoneTextBox.Focusable = true;
+            LicenseKeyTextBox.Focusable = true;
+            PhoneTextBox.IsReadOnly = false;
+            LicenseKeyTextBox.IsReadOnly = false;
+            PhoneTextBox.IsHitTestVisible = true;
+            LicenseKeyTextBox.IsHitTestVisible = true;
+            
             Loaded += LoginWindow_Loaded;
         }
 
