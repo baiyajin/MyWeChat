@@ -34,6 +34,9 @@ namespace MyWeChat.Windows
         // 微信连接相关
         private WeChatManager? _weChatManager;
         private CommandService? _commandService;
+        
+        // 窗口关闭处理器
+        private WindowCloseHandler? _closeHandler;
 
         public LoginWindow()
         {
@@ -57,7 +60,7 @@ namespace MyWeChat.Windows
             // 初始化WebSocket连接
             InitializeWebSocket();
             
-            // 初始化微信管理器
+            // 初始化微信管理器（会在内部初始化窗口关闭处理器）
             InitializeWeChatManager();
         }
 
@@ -582,6 +585,9 @@ namespace MyWeChat.Windows
                 _weChatManager.StartProcessCheckTimer();
                 
                 Logger.LogInfo("微信管理器初始化成功（登录窗口）");
+                
+                // 微信管理器初始化完成后，初始化窗口关闭处理器
+                InitializeCloseHandler();
             }
             catch (Exception ex)
             {
@@ -645,25 +651,102 @@ namespace MyWeChat.Windows
         }
         
         /// <summary>
+        /// 初始化窗口关闭处理器
+        /// </summary>
+        private void InitializeCloseHandler()
+        {
+            var config = new WindowCloseHandler.CleanupConfig
+            {
+                WeChatManager = _weChatManager,
+                WebSocketService = _webSocketService,
+                StopAllTimersCallback = StopAllTimers,
+                UnsubscribeEventsCallback = UnsubscribeEvents,
+                CleanupSyncServicesCallback = null, // LoginWindow 没有同步服务
+                ClearAccountListCallback = null, // LoginWindow 没有账号列表
+                UpdateProgressCallback = null, // LoginWindow 不需要进度显示
+                ShowProgressOverlayCallback = null // LoginWindow 不需要进度遮罩
+            };
+
+            _closeHandler = new WindowCloseHandler(this, config);
+        }
+
+        /// <summary>
+        /// 停止所有定时器
+        /// </summary>
+        private void StopAllTimers()
+        {
+            try
+            {
+                // 停止微信进程检测定时器
+                if (_weChatManager != null)
+                {
+                    _weChatManager.StopProcessCheckTimer();
+                    Logger.LogInfo("已停止微信进程检测定时器（登录窗口）");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError($"停止定时器失败: {ex.Message}", ex);
+            }
+        }
+
+        /// <summary>
+        /// 取消事件订阅
+        /// </summary>
+        private void UnsubscribeEvents()
+        {
+            // WeChatManager的事件订阅在Dispose时自动清理
+
+            // 取消WebSocket服务事件订阅
+            if (_webSocketService != null)
+            {
+                _webSocketService.OnMessageReceived -= OnWebSocketMessageReceived;
+                // LoginWindow 可能没有订阅 OnConnectionStateChanged 事件
+            }
+        }
+
+        /// <summary>
         /// 窗口关闭事件
+        /// </summary>
+        protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
+        {
+            if (_closeHandler != null)
+            {
+                _closeHandler.HandleClosing(e);
+            }
+            else
+            {
+                // 如果关闭处理器未初始化，直接关闭
+                base.OnClosing(e);
+            }
+        }
+
+        /// <summary>
+        /// 窗口已关闭事件（窗口关闭后执行）
         /// </summary>
         protected override void OnClosed(EventArgs e)
         {
-            // 释放微信管理器
-            if (_weChatManager != null)
+            // 最终清理（确保所有引用都被清空）
+            try
             {
-                _weChatManager.Dispose();
+                Logger.LogInfo("========== 最终清理资源（登录窗口） ==========");
+                
+                // 清空所有服务引用
+                _weChatManager?.Dispose();
                 _weChatManager = null;
+                _webSocketService = null;
+                _commandService = null;
+                
+                Logger.LogInfo("登录窗口已关闭，所有资源已清理");
             }
-            
-            // 断开WebSocket连接
-            if (_webSocketService != null)
+            catch (Exception ex)
             {
-                // 异步断开连接，不等待完成
-                _ = _webSocketService.DisconnectAsync();
+                Logger.LogError($"登录窗口关闭后清理时出错: {ex.Message}", ex);
             }
-            
-            base.OnClosed(e);
+            finally
+            {
+                base.OnClosed(e);
+            }
         }
     }
 }
