@@ -1,0 +1,51 @@
+修复 Git Commit 乱码的简单方法
+
+===========================================
+
+方法一：修复最新的 commit（最简单）
+
+1. 创建正确的提交信息文件（UTF-8编码）：
+   echo "正确的提交信息" > fix_msg.txt
+
+2. 修复 commit：
+   git commit --amend -F fix_msg.txt
+
+3. 删除临时文件：
+   del fix_msg.txt
+
+===========================================
+
+方法二：修复历史中的 commit
+
+1. 创建正确的提交信息文件：
+   echo "正确的提交信息" > fix_msg.txt
+
+2. 找到要修复的 commit hash（例如：c4479eb）
+
+3. 先创建一个修复后的 commit：
+   git checkout c4479eb
+   git commit --amend -F fix_msg.txt
+   # 记住新的 commit hash（例如：e708657）
+   git checkout main
+
+4. 使用 replace 替换：
+   git replace c4479eb e708657
+
+5. 删除临时文件：
+   del fix_msg.txt
+
+===========================================
+
+验证修复：
+git log --oneline c4479eb -1
+
+推送 replace 到远程（可选）：
+git push origin refs/replace/*
+
+===========================================
+
+注意事项：
+- 文件必须使用 UTF-8 编码
+- 使用 echo 创建文件时，PowerShell 默认是 UTF-8
+- 如果已经推送到远程，修复后需要 force push（谨慎使用）
+
