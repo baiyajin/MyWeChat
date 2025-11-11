@@ -76,7 +76,7 @@ class _AboutPageState extends State<AboutPage> {
                   
                   // 应用名称
                   const Text(
-                    'MyWeChat',
+                    '微信',
                     style: TextStyle(
                       fontSize: 28,
                       fontWeight: FontWeight.bold,

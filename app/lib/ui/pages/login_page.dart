@@ -300,37 +300,36 @@ class _LoginPageState extends State<LoginPage> {
     return Scaffold(
       backgroundColor: const Color(0xFFEDEDED),
       body: SafeArea(
-        child: SingleChildScrollView(
-          child: Column(
-            children: [
-              const SizedBox(height: 60),
-              // Logo - 无背景
-              Image.asset(
-                'assets/images/logo.png',
-                width: 80,
-                height: 80,
-                errorBuilder: (context, error, stackTrace) {
-                  return const Icon(
-                    Icons.chat_bubble,
-                    size: 80,
-                    color: Color(0xFF07C160),
-                  );
-                },
+        child: Column(
+          children: [
+            const SizedBox(height: 60),
+            // Logo - 无背景
+            Image.asset(
+              'assets/images/logo.png',
+              width: 80,
+              height: 80,
+              errorBuilder: (context, error, stackTrace) {
+                return const Icon(
+                  Icons.chat_bubble,
+                  size: 80,
+                  color: Color(0xFF07C160),
+                );
+              },
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              '微信',
+              style: TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.w300,
+                color: Colors.black87,
+                letterSpacing: 2,
               ),
-              const SizedBox(height: 20),
-              const Text(
-                'MyWeChat',
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.w300,
-                  color: Colors.black87,
-                  letterSpacing: 2,
-                ),
-              ),
-              const SizedBox(height: 60),
-              
-              // 登录历史列表 - 微信风格
-              if (_loginHistory.isNotEmpty) ...[
+            ),
+            const SizedBox(height: 60),
+            
+            // 登录历史列表 - 微信风格
+            if (_loginHistory.isNotEmpty) ...[
                 Container(
                   margin: const EdgeInsets.symmetric(horizontal: 20),
                   child: Column(
@@ -349,10 +348,11 @@ class _LoginPageState extends State<LoginPage> {
                     ],
                   ),
                 ),
-              ],
-              
-              // 登录表单 - 微信风格
-              Container(
+            ],
+            
+            // 登录表单 - 微信风格
+            Expanded(
+              child: Container(
                 margin: const EdgeInsets.symmetric(horizontal: 20),
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(

@@ -1,23 +1,22 @@
 <Window x:Class="MyWeChat.Windows.LoginWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="MyWeChat" Height="600" Width="400"
+        Title="微信" Height="600" Width="400"
         WindowStartupLocation="CenterScreen"
         Background="#EDEDED"
         ResizeMode="NoResize">
     <Grid>
-        <ScrollViewer VerticalScrollBarVisibility="Auto">
-            <StackPanel Margin="20">
-                <StackPanel HorizontalAlignment="Center" Margin="0,60,0,60">
-                    <!-- Logo - 无背景 -->
-                    <Image Width="80" Height="80" 
-                           Margin="0,0,0,20"
-                           Stretch="Uniform">
-                        <Image.Source>
-                            <BitmapImage UriSource="pack://application:,,,/Resources/favicon.ico"/>
-                        </Image.Source>
-                    </Image>
-                    <TextBlock Text="MyWeChat" 
+        <StackPanel Margin="20">
+            <StackPanel HorizontalAlignment="Center" Margin="0,60,0,60">
+                <!-- Logo - 无背景 -->
+                <Image Width="80" Height="80" 
+                       Margin="0,0,0,20"
+                       Stretch="Uniform">
+                    <Image.Source>
+                        <BitmapImage UriSource="pack://application:,,,/Resources/favicon.ico"/>
+                    </Image.Source>
+                </Image>
+                <TextBlock Text="微信" 
                                FontSize="28" 
                                FontWeight="Light"
                                Foreground="#333333"
@@ -265,7 +264,6 @@
                     </StackPanel>
                 </Border>
             </StackPanel>
-        </ScrollViewer>
     </Grid>
 </Window>
 

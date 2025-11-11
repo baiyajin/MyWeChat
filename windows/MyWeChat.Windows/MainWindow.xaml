@@ -65,7 +65,7 @@
                         <BitmapImage UriSource="pack://application:,,,/Resources/favicon.ico"/>
                     </Image.Source>
                 </Image>
-                <TextBlock Text="MyWeChat" 
+                <TextBlock Text="微信" 
                            FontSize="12" 
                            VerticalAlignment="Center"/>
             </StackPanel>
