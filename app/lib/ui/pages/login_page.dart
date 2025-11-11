@@ -107,7 +107,7 @@ class _LoginPageState extends State<LoginPage> {
       });
       return;
     }
-    
+
     if (licenseKey.isEmpty) {
       setState(() {
         _errorMessage = '请输入授权码';
@@ -246,62 +246,62 @@ class _LoginPageState extends State<LoginPage> {
     return Scaffold(
       backgroundColor: const Color(0xFFEDEDED),
       body: SafeArea(
-        child: Column(
-          children: [
-            const SizedBox(height: 60),
-            // Logo - 无背景
-            Image.asset(
-              'assets/images/logo.png',
-              width: 80,
-              height: 80,
+          child: Column(
+            children: [
+              const SizedBox(height: 60),
+              // Logo - 无背景
+              Image.asset(
+                'assets/images/logo.png',
+                width: 80,
+                height: 80,
               fit: BoxFit.contain,
-              errorBuilder: (context, error, stackTrace) {
+                errorBuilder: (context, error, stackTrace) {
                 // 如果logo图片加载失败，使用图标作为fallback
-                return const Icon(
-                  Icons.chat_bubble,
-                  size: 80,
-                  color: Color(0xFF07C160),
-                );
-              },
-            ),
-            const SizedBox(height: 60),
-            
-            // 登录历史列表 - 微信风格
-            if (_loginHistory.isNotEmpty) ...[
-              Container(
-                margin: const EdgeInsets.symmetric(horizontal: 20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      '最近登录',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Color(0xFF999999),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    ..._loginHistory.map((account) => _buildHistoryItem(account)),
-                    const SizedBox(height: 20),
-                  ],
-                ),
+                  return const Icon(
+                    Icons.chat_bubble,
+                    size: 80,
+                    color: Color(0xFF07C160),
+                  );
+                },
               ),
-            ],
-            
-            // 登录表单 - 微信风格
+              const SizedBox(height: 60),
+              
+              // 登录历史列表 - 微信风格
+              if (_loginHistory.isNotEmpty) ...[
+                Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        '最近登录',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Color(0xFF999999),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      ..._loginHistory.map((account) => _buildHistoryItem(account)),
+                      const SizedBox(height: 20),
+                    ],
+                  ),
+                ),
+              ],
+              
+              // 登录表单 - 微信风格
             Expanded(
               child: SingleChildScrollView(
                 child: Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 20),
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Column(
+                margin: const EdgeInsets.symmetric(horizontal: 20),
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Column(
                     mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
                     // 手机号输入 - 微信风格（下划线输入框）
                     TextField(
                       controller: _phoneController,
@@ -346,40 +346,40 @@ class _LoginPageState extends State<LoginPage> {
                     // 授权码输入 - 微信风格
                     TextField(
                       controller: _licenseKeyController,
-                      style: const TextStyle(fontSize: 16),
+                            style: const TextStyle(fontSize: 16),
                       inputFormatters: [
                         FilteringTextInputFormatter.deny(RegExp(r'\s')), // 禁止空格
                       ],
-                      decoration: InputDecoration(
+                            decoration: InputDecoration(
                         hintText: '授权码',
-                        hintStyle: const TextStyle(
-                          color: Color(0xFF999999),
-                          fontSize: 16,
-                        ),
-                        prefixIcon: const Icon(
+                              hintStyle: const TextStyle(
+                                color: Color(0xFF999999),
+                                fontSize: 16,
+                              ),
+                              prefixIcon: const Icon(
                           Icons.vpn_key,
-                          color: Color(0xFF999999),
-                          size: 20,
-                        ),
-                        border: UnderlineInputBorder(
-                          borderSide: BorderSide(
-                            color: Colors.grey[300]!,
-                            width: 0.5,
-                          ),
-                        ),
-                        enabledBorder: UnderlineInputBorder(
-                          borderSide: BorderSide(
-                            color: Colors.grey[300]!,
-                            width: 0.5,
-                          ),
-                        ),
-                        focusedBorder: const UnderlineInputBorder(
-                          borderSide: BorderSide(
-                            color: Color(0xFF07C160),
-                            width: 1,
-                          ),
-                        ),
-                      ),
+                                color: Color(0xFF999999),
+                                size: 20,
+                              ),
+                              border: UnderlineInputBorder(
+                                borderSide: BorderSide(
+                                  color: Colors.grey[300]!,
+                                  width: 0.5,
+                                ),
+                              ),
+                              enabledBorder: UnderlineInputBorder(
+                                borderSide: BorderSide(
+                                  color: Colors.grey[300]!,
+                                  width: 0.5,
+                                ),
+                              ),
+                              focusedBorder: const UnderlineInputBorder(
+                                borderSide: BorderSide(
+                                  color: Color(0xFF07C160),
+                                  width: 1,
+                                ),
+                              ),
+                            ),
                     ),
                     const SizedBox(height: 30),
                     
@@ -429,12 +429,12 @@ class _LoginPageState extends State<LoginPage> {
                               ),
                       ),
                     ),
-                    ],
+                  ],
                   ),
                 ),
+                ),
               ),
-            ),
-          ],
+            ],
         ),
       ),
     );

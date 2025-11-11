@@ -132,18 +132,23 @@ namespace MyWeChat.Windows.Services
             // 用户选择直接关闭，执行清理逻辑
             _isClosing = true;
 
-            // 显示进度遮罩（如果提供了回调）
-            // 使用Invoke确保立即显示，而不是BeginInvoke
-            if (_config.ShowProgressOverlayCallback != null)
+            // 确保对话框完全关闭后再显示进度遮罩
+            // 使用InvokeAsync确保在对话框关闭后立即显示，而不是在对话框关闭过程中显示
+            // 使用Normal优先级确保在UI线程上同步执行
+            // 添加小延迟确保对话框完全关闭
+            _dispatcher.InvokeAsync(new Action(async () =>
             {
-                _dispatcher.Invoke(() =>
+                // 等待一小段时间确保对话框完全关闭
+                await Task.Delay(50);
+                
+                if (_config.ShowProgressOverlayCallback != null)
                 {
                     _config.ShowProgressOverlayCallback(true);
-                });
-            }
-
-            // 更新初始进度
-            UpdateProgress(0, "准备关闭...");
+                }
+                
+                // 更新初始进度
+                UpdateProgress(0, "准备关闭...");
+            }), DispatcherPriority.Normal);
 
             // 异步执行资源清理
             Task.Run(async () =>
@@ -309,10 +314,10 @@ namespace MyWeChat.Windows.Services
         {
             if (_config.UpdateProgressCallback != null)
             {
-                _dispatcher.BeginInvoke(new Action(() =>
+                _dispatcher.InvokeAsync(new Action(() =>
                 {
                     _config.UpdateProgressCallback(progress, status);
-                }));
+                }), DispatcherPriority.Normal);
             }
         }
     }

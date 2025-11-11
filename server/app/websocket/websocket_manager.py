@@ -270,7 +270,7 @@ class WebSocketManager:
                     # 不保存账号信息，返回错误（可以通过WebSocket通知客户端）
                     # 这里只打印日志，不阻止保存，因为可能是Windows端同步的数据
                     # 如果是App端，应该在客户端处理这个错误
-                    return
+                return
 
             async with AsyncSessionLocal() as session:
                 # 检查是否已存在
@@ -335,7 +335,7 @@ class WebSocketManager:
                     "message": "授权码不能为空"
                 }, ensure_ascii=False))
                 return
-            
+                
             # 验证授权码
             is_valid, error_msg = await LicenseService.verify_license(phone, license_key)
             
@@ -367,7 +367,7 @@ class WebSocketManager:
                 "message": "登录成功",
                 "has_manage_permission": license_info.has_manage_permission
             }, ensure_ascii=False))
-            
+                
             print(f"手机号 {phone} 登录成功")
         except Exception as e:
             print(f"处理登录请求失败: {e}")

@@ -178,12 +178,31 @@ namespace MyWeChat.Windows.Services.WebSocket
         {
             try
             {
-                if (_webSocket != null && _webSocket.State == WebSocketState.Open)
+                // 取消接收消息任务
+                _cancellationTokenSource?.Cancel();
+                
+                // 只有在连接仍然打开时才尝试关闭
+                if (_webSocket != null)
                 {
-                    await _webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "关闭连接", CancellationToken.None);
+                    var state = _webSocket.State;
+                    if (state == WebSocketState.Open || state == WebSocketState.CloseReceived)
+                    {
+                        try
+                        {
+                            await _webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "关闭连接", CancellationToken.None);
+                        }
+                        catch (Exception closeEx)
+                        {
+                            // 如果关闭失败（可能已经关闭），记录但不抛出异常
+                            Logger.LogInfo($"WebSocket关闭时状态异常（可能已关闭）: {state}, 错误: {closeEx.Message}");
+                        }
+                    }
+                    else
+                    {
+                        Logger.LogInfo($"WebSocket已处于关闭状态: {state}");
+                    }
                 }
 
-                _cancellationTokenSource?.Cancel();
                 _isConnected = false;
                 OnConnectionStateChanged?.Invoke(this, false);
 
@@ -198,6 +217,7 @@ namespace MyWeChat.Windows.Services.WebSocket
                 _webSocket?.Dispose();
                 _webSocket = null;
                 _cancellationTokenSource?.Dispose();
+                _cancellationTokenSource = null;
             }
         }
 
@@ -278,7 +298,19 @@ namespace MyWeChat.Windows.Services.WebSocket
 
                     if (result.MessageType == WebSocketMessageType.Close)
                     {
-                        await _webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "服务器关闭连接", CancellationToken.None);
+                        // 只有在连接仍然打开时才尝试关闭
+                        if (_webSocket != null && _webSocket.State == WebSocketState.Open)
+                        {
+                            try
+                            {
+                                await _webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "服务器关闭连接", CancellationToken.None);
+                            }
+                            catch (Exception closeEx)
+                            {
+                                // 如果关闭失败（可能已经关闭），记录但不抛出异常
+                                Logger.LogInfo($"WebSocket关闭时已处于关闭状态: {closeEx.Message}");
+                            }
+                        }
                         _isConnected = false;
                         OnConnectionStateChanged?.Invoke(this, false);
                         Logger.LogInfo("WebSocket连接已关闭（服务器发送关闭消息）");
@@ -300,18 +332,20 @@ namespace MyWeChat.Windows.Services.WebSocket
                 catch (WebSocketException wsEx)
                 {
                     // WebSocket特定异常，检查连接状态
-                    if (_webSocket?.State == WebSocketState.Aborted || 
-                        _webSocket?.State == WebSocketState.Closed ||
+                    var currentState = _webSocket?.State ?? WebSocketState.None;
+                    if (currentState == WebSocketState.Aborted || 
+                        currentState == WebSocketState.Closed ||
                         wsEx.Message.Contains("closed") || 
-                        wsEx.Message.Contains("close handshake"))
+                        wsEx.Message.Contains("close handshake") ||
+                        wsEx.Message.Contains("invalid state"))
                     {
                         // 连接已关闭，这是正常情况
-                        Logger.LogInfo($"WebSocket连接已关闭: {wsEx.Message}");
+                        Logger.LogInfo($"WebSocket连接已关闭: {wsEx.Message} (状态: {currentState})");
                     }
                     else
                     {
                         // 其他WebSocket错误
-                        Logger.LogError($"WebSocket错误: {wsEx.Message}", wsEx);
+                        Logger.LogError($"WebSocket错误: {wsEx.Message} (状态: {currentState})", wsEx);
                     }
                     _isConnected = false;
                     OnConnectionStateChanged?.Invoke(this, false);
@@ -320,17 +354,21 @@ namespace MyWeChat.Windows.Services.WebSocket
                 catch (Exception ex)
                 {
                     // 检查是否是连接关闭相关的异常
+                    var currentState = _webSocket?.State ?? WebSocketState.None;
                     if (ex.Message.Contains("closed") || 
                         ex.Message.Contains("close handshake") ||
-                        ex.Message.Contains("The remote party closed"))
+                        ex.Message.Contains("The remote party closed") ||
+                        ex.Message.Contains("invalid state") ||
+                        currentState == WebSocketState.Closed ||
+                        currentState == WebSocketState.Aborted)
                     {
                         // 连接关闭，这是正常情况
-                        Logger.LogInfo($"WebSocket连接已关闭: {ex.Message}");
+                        Logger.LogInfo($"WebSocket连接已关闭: {ex.Message} (状态: {currentState})");
                     }
                     else
                     {
                         // 其他错误
-                        Logger.LogError($"接收WebSocket消息失败: {ex.Message}", ex);
+                        Logger.LogError($"接收WebSocket消息失败: {ex.Message} (状态: {currentState})", ex);
                     }
                     _isConnected = false;
                     OnConnectionStateChanged?.Invoke(this, false);

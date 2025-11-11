@@ -45,6 +45,9 @@ namespace MyWeChat.Windows
         // 窗口关闭处理器
         private WindowCloseHandler? _closeHandler;
         
+        // 关闭进度遮罩辅助类
+        private ClosingProgressHelper? _closingProgressHelper;
+        
         // 系统托盘服务
         private TrayIconService? _trayIconService;
         
@@ -2334,10 +2337,20 @@ namespace MyWeChat.Windows
         /// 初始化窗口关闭处理器
         /// </summary>
         private void InitializeCloseHandler()
-        {
+            {
             // 初始化系统托盘服务
             _trayIconService = new TrayIconService();
             _trayIconService.Initialize(this);
+
+            // 初始化关闭进度遮罩辅助类
+            _closingProgressHelper = new ClosingProgressHelper(
+                ClosingOverlayCanvas,
+                ClosingOverlayBorder,
+                ClosingProgressArc,
+                ClosingProgressText,
+                ClosingStatusText,
+                "主窗口"
+            );
 
             var config = new WindowCloseHandler.CleanupConfig
             {
@@ -2347,8 +2360,8 @@ namespace MyWeChat.Windows
                 UnsubscribeEventsCallback = UnsubscribeEvents,
                 CleanupSyncServicesCallback = CleanupSyncServices,
                 ClearAccountListCallback = ClearAccountList,
-                UpdateProgressCallback = UpdateClosingProgress,
-                ShowProgressOverlayCallback = ShowProgressOverlay
+                UpdateProgressCallback = (progress, status) => _closingProgressHelper?.UpdateClosingProgress(progress, status),
+                ShowProgressOverlayCallback = (show) => _closingProgressHelper?.ShowProgressOverlay(show)
             };
 
             _closeHandler = new WindowCloseHandler(this, config);
@@ -2361,36 +2374,8 @@ namespace MyWeChat.Windows
             };
         }
 
-        /// <summary>
-        /// 显示/隐藏进度遮罩
-        /// </summary>
-        private void ShowProgressOverlay(bool show)
-        {
-            if (show)
-            {
-                ClosingOverlayCanvas.Visibility = Visibility.Visible;
-                UpdateClosingProgressRing(0);
-                ClosingStatusText.Text = "准备关闭...";
-                ClosingProgressText.Text = "0%";
-                
-                // 居中显示遮罩内容
-                if (ClosingOverlayBorder != null)
-                {
-                    ClosingOverlayCanvas.UpdateLayout();
-                    double canvasWidth = ClosingOverlayCanvas.ActualWidth;
-                    double canvasHeight = ClosingOverlayCanvas.ActualHeight;
-                    double borderWidth = 400;
-                    double borderHeight = 280;
-                    
-                    Canvas.SetLeft(ClosingOverlayBorder, (canvasWidth - borderWidth) / 2);
-                    Canvas.SetTop(ClosingOverlayBorder, (canvasHeight - borderHeight) / 2);
-                }
-            }
-            else
-            {
-                ClosingOverlayCanvas.Visibility = Visibility.Collapsed;
-                    }
-        }
+        // 注意：ShowProgressOverlay、UpdateClosingProgress、UpdateClosingProgressRing 方法已移至 ClosingProgressHelper 类
+        // 这些方法现在通过 _closingProgressHelper 调用
 
         /// <summary>
         /// 取消事件订阅
@@ -2467,54 +2452,6 @@ namespace MyWeChat.Windows
             }
         }
         
-        /// <summary>
-        /// 更新关闭进度
-        /// </summary>
-        private void UpdateClosingProgress(int progress, string status)
-            {
-                UpdateClosingProgressRing(progress);
-                ClosingStatusText.Text = status;
-                ClosingProgressText.Text = $"{progress}%";
-        }
-        
-        /// <summary>
-        /// 更新关闭进度圆环
-        /// </summary>
-        private void UpdateClosingProgressRing(int progress)
-        {
-            try
-            {
-                if (ClosingProgressArc == null) return;
-                
-                // 确保进度在0-100范围内
-                progress = Math.Max(0, Math.Min(100, progress));
-                
-                // 计算角度（0度在顶部，顺时针）
-                double angle = (progress / 100.0) * 360.0;
-                double angleRad = (angle - 90) * Math.PI / 180.0; // 转换为弧度，-90度使起点在顶部
-                
-                // 圆环中心 (60, 60)，半径 50
-                double centerX = 60;
-                double centerY = 60;
-                double radius = 50;
-                
-                // 计算终点坐标
-                double endX = centerX + radius * Math.Cos(angleRad);
-                double endY = centerY + radius * Math.Sin(angleRad);
-                
-                // 判断是否需要大弧（超过180度）
-                bool isLargeArc = progress > 50;
-                
-                // 更新ArcSegment
-                ClosingProgressArc.Point = new System.Windows.Point(endX, endY);
-                ClosingProgressArc.IsLargeArc = isLargeArc;
-                ClosingProgressArc.Size = new System.Windows.Size(radius, radius);
-            }
-            catch (Exception ex)
-            {
-                Logger.LogError($"更新关闭进度圆环失败: {ex.Message}", ex);
-            }
-        }
 
         /// <summary>
         /// 窗口已关闭事件（窗口关闭后执行）

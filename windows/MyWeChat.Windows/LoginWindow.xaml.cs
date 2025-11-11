@@ -38,6 +38,9 @@ namespace MyWeChat.Windows
         // 窗口关闭处理器
         private WindowCloseHandler? _closeHandler;
         
+        // 关闭进度遮罩辅助类
+        private ClosingProgressHelper? _closingProgressHelper;
+        
         // 系统托盘服务
         private TrayIconService? _trayIconService;
         
@@ -66,6 +69,11 @@ namespace MyWeChat.Windows
             LicenseKeyTextBox.IsReadOnly = false;
             PhoneTextBox.IsHitTestVisible = true;
             LicenseKeyTextBox.IsHitTestVisible = true;
+            
+            // 设置授权码输入框的InputScope为Default，允许输入所有字符（字母、数字、特殊符号）
+            var textInputScope = new System.Windows.Input.InputScope();
+            textInputScope.Names.Add(new System.Windows.Input.InputScopeName { NameValue = System.Windows.Input.InputScopeNameValue.Default });
+            LicenseKeyTextBox.InputScope = textInputScope;
             
             // 提前初始化托盘图标服务，确保最小化后能看到图标
             _trayIconService = new TrayIconService();
@@ -117,15 +125,6 @@ namespace MyWeChat.Windows
                 Dispatcher.Invoke(() =>
                 {
                     UpdateLoadingStatus(_totalSteps, "初始化完成");
-                    // 显示完成图标，隐藏加载动画
-                    if (LoadingIndicator != null)
-                    {
-                        LoadingIndicator.Visibility = Visibility.Collapsed;
-                    }
-                    if (CompletedIndicator != null)
-                    {
-                        CompletedIndicator.Visibility = Visibility.Visible;
-                    }
                     // 2秒后隐藏进度提示
                     Task.Delay(2000).ContinueWith(_ =>
                     {
@@ -585,7 +584,7 @@ namespace MyWeChat.Windows
         }
 
         /// <summary>
-        /// 授权码输入框获得焦点
+        /// 授权码输入框获得焦点（简化版，参考手机号输入框）
         /// </summary>
         private void LicenseKeyTextBox_GotFocus(object sender, RoutedEventArgs e)
         {
@@ -647,9 +646,8 @@ namespace MyWeChat.Windows
             }
         }
 
-
         /// <summary>
-        /// 授权码输入框文本变化事件 - 自动去除空格
+        /// 授权码输入框文本变化事件 - 自动去除空格（简化版，参考手机号输入框）
         /// </summary>
         private void LicenseKeyTextBox_TextChanged(object sender, TextChangedEventArgs e)
         {
@@ -658,7 +656,7 @@ namespace MyWeChat.Windows
             if (sender is System.Windows.Controls.TextBox textBox)
             {
                 string originalText = textBox.Text;
-                // 去除所有空格
+                // 只去除空格，保留所有其他字符（字母、数字、特殊符号）
                 string filteredText = originalText.Replace(" ", "").Replace("\t", "").Replace("\n", "").Replace("\r", "");
                 
                 // 如果文本被过滤了，更新文本框（避免光标位置问题）
@@ -691,6 +689,19 @@ namespace MyWeChat.Windows
             if (LoadingStatusText != null)
             {
                 LoadingStatusText.Text = $"{message} ({step}/{_totalSteps})";
+            }
+            
+            // 根据进度状态切换图标显示
+            bool isCompleted = step >= _totalSteps;
+            
+            if (LoadingIndicator != null)
+            {
+                LoadingIndicator.Visibility = isCompleted ? Visibility.Collapsed : Visibility.Visible;
+            }
+            
+            if (CompletedIndicator != null)
+            {
+                CompletedIndicator.Visibility = isCompleted ? Visibility.Visible : Visibility.Collapsed;
             }
         }
 
@@ -859,6 +870,16 @@ namespace MyWeChat.Windows
         /// </summary>
         private void InitializeCloseHandler()
         {
+            // 初始化关闭进度遮罩辅助类
+            _closingProgressHelper = new ClosingProgressHelper(
+                ClosingOverlayCanvas,
+                ClosingOverlayBorder,
+                ClosingProgressArc,
+                ClosingProgressText,
+                ClosingStatusText,
+                "登录窗口"
+            );
+
             // 托盘图标服务已在构造函数中初始化，这里不需要重复初始化
             var config = new WindowCloseHandler.CleanupConfig
             {
@@ -868,8 +889,8 @@ namespace MyWeChat.Windows
                 UnsubscribeEventsCallback = UnsubscribeEvents,
                 CleanupSyncServicesCallback = null, // LoginWindow 没有同步服务
                 ClearAccountListCallback = null, // LoginWindow 没有账号列表
-                UpdateProgressCallback = UpdateClosingProgress,
-                ShowProgressOverlayCallback = ShowProgressOverlay
+                UpdateProgressCallback = (progress, status) => _closingProgressHelper?.UpdateClosingProgress(progress, status),
+                ShowProgressOverlayCallback = (show) => _closingProgressHelper?.ShowProgressOverlay(show)
             };
 
             _closeHandler = new WindowCloseHandler(this, config);
@@ -882,96 +903,8 @@ namespace MyWeChat.Windows
             };
         }
 
-        /// <summary>
-        /// 显示/隐藏进度遮罩
-        /// </summary>
-        private void ShowProgressOverlay(bool show)
-        {
-            if (show)
-            {
-                // 确保Canvas可见并启用
-                ClosingOverlayCanvas.Visibility = Visibility.Visible;
-                ClosingOverlayCanvas.IsHitTestVisible = true;
-                ClosingOverlayCanvas.IsEnabled = true;
-                
-                // 更新进度显示
-                UpdateClosingProgressRing(0);
-                ClosingStatusText.Text = "准备关闭...";
-                ClosingProgressText.Text = "0%";
-
-                // 居中显示遮罩内容
-                if (ClosingOverlayBorder != null)
-                {
-                    // 强制更新布局
-                    ClosingOverlayCanvas.UpdateLayout();
-                    double canvasWidth = ClosingOverlayCanvas.ActualWidth;
-                    double canvasHeight = ClosingOverlayCanvas.ActualHeight;
-                    double borderWidth = 400;
-                    double borderHeight = 280;
-
-                    Canvas.SetLeft(ClosingOverlayBorder, (canvasWidth - borderWidth) / 2);
-                    Canvas.SetTop(ClosingOverlayBorder, (canvasHeight - borderHeight) / 2);
-                }
-                
-                Logger.LogInfo("关闭进度遮罩已显示（登录窗口）");
-            }
-            else
-            {
-                ClosingOverlayCanvas.Visibility = Visibility.Collapsed;
-                ClosingOverlayCanvas.IsHitTestVisible = false;
-                ClosingOverlayCanvas.IsEnabled = false;
-                Logger.LogInfo("关闭进度遮罩已隐藏（登录窗口）");
-            }
-        }
-
-        /// <summary>
-        /// 更新关闭进度
-        /// </summary>
-        private void UpdateClosingProgress(int progress, string status)
-        {
-            UpdateClosingProgressRing(progress);
-            ClosingStatusText.Text = status;
-            ClosingProgressText.Text = $"{progress}%";
-        }
-
-        /// <summary>
-        /// 更新关闭进度圆环
-        /// </summary>
-        private void UpdateClosingProgressRing(int progress)
-        {
-            try
-            {
-                if (ClosingProgressArc == null) return;
-                
-                // 确保进度在0-100范围内
-                progress = Math.Max(0, Math.Min(100, progress));
-                
-                // 计算角度（0度在顶部，顺时针）
-                double angle = (progress / 100.0) * 360.0;
-                double angleRad = (angle - 90) * Math.PI / 180.0; // 转换为弧度，-90度使起点在顶部
-                
-                // 圆环中心 (60, 60)，半径 50
-                double centerX = 60;
-                double centerY = 60;
-                double radius = 50;
-                
-                // 计算终点坐标
-                double endX = centerX + radius * Math.Cos(angleRad);
-                double endY = centerY + radius * Math.Sin(angleRad);
-                
-                // 判断是否需要大弧（超过180度）
-                bool isLargeArc = progress > 50;
-                
-                // 更新ArcSegment
-                ClosingProgressArc.Point = new System.Windows.Point(endX, endY);
-                ClosingProgressArc.IsLargeArc = isLargeArc;
-                ClosingProgressArc.Size = new System.Windows.Size(radius, radius);
-            }
-            catch (Exception ex)
-        {
-                Logger.LogError($"更新关闭进度圆环失败: {ex.Message}", ex);
-            }
-        }
+        // 注意：ShowProgressOverlay、UpdateClosingProgress、UpdateClosingProgressRing 方法已移至 ClosingProgressHelper 类
+        // 这些方法现在通过 _closingProgressHelper 调用
 
         /// <summary>
         /// 停止所有定时器
