@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -316,6 +317,9 @@ class _LoginPageState extends State<LoginPage> {
                       controller: _phoneController,
                       keyboardType: TextInputType.phone,
                       style: const TextStyle(fontSize: 16),
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly, // 只允许数字
+                      ],
                       decoration: InputDecoration(
                         hintText: '手机号',
                         hintStyle: const TextStyle(
@@ -353,6 +357,9 @@ class _LoginPageState extends State<LoginPage> {
                     TextField(
                       controller: _licenseKeyController,
                       style: const TextStyle(fontSize: 16),
+                      inputFormatters: [
+                        FilteringTextInputFormatter.deny(RegExp(r'\s')), // 禁止空格
+                      ],
                       decoration: InputDecoration(
                         hintText: '授权码',
                         hintStyle: const TextStyle(

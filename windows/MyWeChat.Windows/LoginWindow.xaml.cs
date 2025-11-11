@@ -37,6 +37,10 @@ namespace MyWeChat.Windows
         
         // 窗口关闭处理器
         private WindowCloseHandler? _closeHandler;
+        
+        // 防止TextChanged事件递归调用的标志
+        private bool _isUpdatingPhoneText = false;
+        private bool _isUpdatingLicenseKeyText = false;
 
         public LoginWindow()
         {
@@ -516,6 +520,73 @@ namespace MyWeChat.Windows
                 if (border != null)
                 {
                     border.BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#E5E5E5"));
+                }
+            }
+        }
+
+        /// <summary>
+        /// 手机号输入框文本变化事件 - 自动去除非数字字符
+        /// </summary>
+        private void PhoneTextBox_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            if (_isUpdatingPhoneText) return; // 防止递归调用
+            
+            if (sender is TextBox textBox)
+            {
+                string originalText = textBox.Text;
+                // 只保留数字
+                string filteredText = new string(originalText.Where(char.IsDigit).ToArray());
+                
+                // 如果文本被过滤了，更新文本框（避免光标位置问题）
+                if (originalText != filteredText)
+                {
+                    _isUpdatingPhoneText = true;
+                    try
+                    {
+                        int selectionStart = textBox.SelectionStart;
+                        textBox.Text = filteredText;
+                        // 调整光标位置
+                        textBox.SelectionStart = Math.Min(selectionStart - (originalText.Length - filteredText.Length), filteredText.Length);
+                        textBox.SelectionLength = 0;
+                    }
+                    finally
+                    {
+                        _isUpdatingPhoneText = false;
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// 授权码输入框文本变化事件 - 自动去除空格
+        /// </summary>
+        private void LicenseKeyTextBox_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            if (_isUpdatingLicenseKeyText) return; // 防止递归调用
+            
+            if (sender is TextBox textBox)
+            {
+                string originalText = textBox.Text;
+                // 去除所有空格
+                string filteredText = originalText.Replace(" ", "").Replace("\t", "").Replace("\n", "").Replace("\r", "");
+                
+                // 如果文本被过滤了，更新文本框（避免光标位置问题）
+                if (originalText != filteredText)
+                {
+                    _isUpdatingLicenseKeyText = true;
+                    try
+                    {
+                        int selectionStart = textBox.SelectionStart;
+                        int removedSpaces = originalText.Length - filteredText.Length;
+                        textBox.Text = filteredText;
+                        // 调整光标位置（减去被删除的空格数量）
+                        textBox.SelectionStart = Math.Max(0, Math.Min(selectionStart - removedSpaces, filteredText.Length));
+                        textBox.SelectionLength = 0;
+                    }
+                    finally
+                    {
+                        _isUpdatingLicenseKeyText = false;
+                    }
                 }
             }
         }

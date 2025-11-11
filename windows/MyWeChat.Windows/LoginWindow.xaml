@@ -106,6 +106,7 @@
                                  Background="Transparent"
                                  GotFocus="PhoneTextBox_GotFocus"
                                  LostFocus="PhoneTextBox_LostFocus"
+                                 TextChanged="PhoneTextBox_TextChanged"
                                  VerticalContentAlignment="Center">
                             <TextBox.Style>
                                 <Style TargetType="TextBox">
@@ -168,6 +169,7 @@
                                  Background="Transparent"
                                  GotFocus="LicenseKeyTextBox_GotFocus"
                                  LostFocus="LicenseKeyTextBox_LostFocus"
+                                 TextChanged="LicenseKeyTextBox_TextChanged"
                                  VerticalContentAlignment="Center">
                             <TextBox.Style>
                                 <Style TargetType="TextBox">
