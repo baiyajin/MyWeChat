@@ -601,13 +601,13 @@ namespace MyWeChat.Windows
                 if (string.IsNullOrEmpty(currentWxid))
                 {
                     Logger.LogWarning("未获取到微信ID，无法发送验证码消息给自己");
-                    return;
+                    return Task.CompletedTask;
                 }
                 
                 if (_commandService == null)
                 {
                     Logger.LogWarning("命令服务未初始化，无法发送验证码消息");
-                    return;
+                    return Task.CompletedTask;
                 }
                 
                 string message = $"您的验证码是：{verificationCode}，请勿泄露给他人。";
