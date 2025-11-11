@@ -264,12 +264,12 @@ class _LoginPageState extends State<LoginPage> {
                 );
               },
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 10),
             const Text(
               '微信',
               style: TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.w300,
+                fontSize: 14,
+                fontWeight: FontWeight.normal,
                 color: Color(0xFF333333),
                 letterSpacing: 2,
               ),

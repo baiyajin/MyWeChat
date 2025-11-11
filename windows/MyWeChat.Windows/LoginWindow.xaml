@@ -10,15 +10,15 @@
             <StackPanel HorizontalAlignment="Center" Margin="0,60,0,60">
                 <!-- Logo - 无背景 -->
                 <Image Width="80" Height="80" 
-                       Margin="0,0,0,20"
+                       Margin="0,0,0,10"
                        Stretch="Uniform">
                     <Image.Source>
                         <BitmapImage UriSource="pack://application:,,,/Resources/favicon.ico"/>
                     </Image.Source>
                 </Image>
                 <TextBlock Text="微信" 
-                               FontSize="28" 
-                               FontWeight="Light"
+                               FontSize="14" 
+                               FontWeight="Normal"
                                Foreground="#333333"
                                HorizontalAlignment="Center"/>
                 </StackPanel>
