@@ -9,58 +9,44 @@ import 'ui/pages/collections_page.dart';
 import 'services/websocket_service.dart';
 import 'services/api_service.dart';
 
-// 条件导入：根据平台选择不同的实现
 import 'platform/platform_stub.dart'
     if (dart.library.html) 'platform/platform_web.dart';
 
-// 条件导入 window_manager：Web 平台使用 stub，其他平台使用 window_manager
-// 注意：window_manager 在 Web 平台不支持，会导致编译错误
-// 使用条件导入避免在 Web 平台导入 window_manager
 import 'platform/window_manager_stub.dart'
     if (dart.library.html) 'platform/window_manager_stub.dart'
     if (dart.library.io) 'package:window_manager/window_manager.dart';
 
-// 全局变量，用于存储链接信息
 String? _appUrl;
 String? _webSocketUrl;
-bool _linksDisplayed = false; // 标记是否已显示链接
+bool _linksDisplayed = false;
 
 void main() {
-  // 确保 Flutter 绑定已初始化（所有平台都需要）
-  WidgetsFlutterBinding.ensureInitialized();
-  
-  // 收集访问链接（仅 Web 平台）
-  if (kIsWeb) {
-    _collectAccessUrl();
-  }
-  
-  // 设置窗口大小（仅 Windows 平台）
   if (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows) {
+    WidgetsFlutterBinding.ensureInitialized();
     _setWindowSizeAsync();
   }
   
   runApp(const MyWeChatApp());
+  
+  if (kIsWeb) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _collectAccessUrl();
+    });
+  }
 }
 
-/// 异步设置窗口大小（仅 Windows 平台）
 void _setWindowSizeAsync() {
-  _setWindowSize().catchError((error) {
-    // 静默处理错误
-  });
+  _setWindowSize().catchError((_) {});
 }
 
-/// 设置窗口大小为 iPhone 15 Pro 尺寸（仅 Windows 平台）
 Future<void> _setWindowSize() async {
-  // iPhone 15 Pro: 393 x 852 (逻辑分辨率 points)
-  // 物理分辨率: 2556 x 1179 pixels (@3x 缩放)
   const double width = 393.0;
   const double height = 852.0;
   
   try {
-    // 使用 window_manager 设置窗口大小（仅 Windows 平台）
     await windowManager.ensureInitialized();
     
-    WindowOptions windowOptions = const WindowOptions(
+    const windowOptions = WindowOptions(
       size: Size(width, height),
       minimumSize: Size(width, height),
       maximumSize: Size(width, height),
@@ -74,41 +60,28 @@ Future<void> _setWindowSize() async {
       await windowManager.show();
       await windowManager.focus();
     });
-  } catch (e) {
-    // 静默处理错误
-  }
+  } catch (_) {}
 }
 
-/// 收集访问链接
 void _collectAccessUrl() {
-  // 使用平台特定的实现
   _appUrl = getCurrentUrl();
 }
 
-/// 设置WebSocket链接
 void setWebSocketUrl(String url) {
   _webSocketUrl = url;
   _displayAllLinks();
 }
 
-/// 显示所有链接信息（只显示一次）
 void _displayAllLinks() {
-  // 防止重复显示
-  if (_linksDisplayed) {
-    return;
-  }
+  if (_linksDisplayed) return;
   
-  // 确保应用链接已收集
   if (_appUrl == null && kIsWeb) {
     _collectAccessUrl();
   }
   
-  // 如果 WebSocket 链接还未设置，延迟显示
   if (_webSocketUrl == null) {
     Future.delayed(const Duration(milliseconds: 500), () {
-      if (!_linksDisplayed) {
-        _displayAllLinks();
-      }
+      if (!_linksDisplayed) _displayAllLinks();
     });
     return;
   }
@@ -139,7 +112,6 @@ void _displayAllLinks() {
   print('');
 }
 
-/// MyWeChat应用主类
 class MyWeChatApp extends StatelessWidget {
   const MyWeChatApp({super.key});
 
@@ -153,7 +125,7 @@ class MyWeChatApp extends StatelessWidget {
       child: MaterialApp(
         title: 'MyWeChat',
         theme: ThemeData(
-          primaryColor: const Color(0xFF07C160), // 微信绿色
+          primaryColor: const Color(0xFF07C160),
           colorScheme: ColorScheme.fromSeed(
             seedColor: const Color(0xFF07C160),
             brightness: Brightness.light,
@@ -172,7 +144,6 @@ class MyWeChatApp extends StatelessWidget {
   }
 }
 
-/// 登录状态检查包装器
 class _AuthWrapper extends StatefulWidget {
   const _AuthWrapper();
 
@@ -181,65 +152,72 @@ class _AuthWrapper extends StatefulWidget {
 }
 
 class _AuthWrapperState extends State<_AuthWrapper> {
-  bool _isLoading = true;
+  static const _webCheckDelay = Duration(milliseconds: 100);
+  static const _webConnectDelay = Duration(milliseconds: 200);
+  static const _webWsTimeout = Duration(seconds: 1);
+  static const _webWsTotalTimeout = Duration(seconds: 2);
+  static const _webLoadTimeout = Duration(seconds: 1);
+  static const _webQuickLoginTimeout = Duration(seconds: 2);
+  
+  static const _nonWebWsTimeout = Duration(seconds: 5);
+  static const _nonWebWsTotalTimeout = Duration(seconds: 6);
+  static const _nonWebLoadTimeout = Duration(seconds: 2);
+  static const _nonWebQuickLoginTimeout = Duration(seconds: 5);
+
+  bool _isLoading = !kIsWeb;
   bool _isLoggedIn = false;
 
   @override
   void initState() {
     super.initState();
-    // 在 Web 平台上，先显示界面，再异步检查登录状态
-    // 这样可以避免浏览器显示"响应时间太长"
     if (kIsWeb) {
-      // Web 平台：先显示加载界面，然后快速检查登录状态
-      Future.microtask(() {
-        _checkLoginState();
+      print('[_AuthWrapper] Web平台初始化，_isLoading=$_isLoading, _isLoggedIn=$_isLoggedIn');
+      Future.delayed(_webCheckDelay, () {
+        if (mounted) {
+          print('[_AuthWrapper] 开始检查登录状态');
+          _checkLoginState();
+        }
       });
     } else {
-      // 非 Web 平台：正常流程
-      Future.microtask(() {
-        _checkLoginState();
-      });
+      Future.microtask(() => _checkLoginState());
     }
   }
 
-  /// 检查登录状态
   Future<void> _checkLoginState() async {
+    if (!mounted) return;
+    
     try {
-      final wsService = Provider.of<WebSocketService>(context, listen: false);
-      final apiService = Provider.of<ApiService>(context, listen: false);
-      
-      // 在 Web 平台上，使用更短的超时时间，避免浏览器显示"响应时间太长"
-      final isWeb = kIsWeb;
-      final wsTimeout = isWeb ? const Duration(seconds: 1) : const Duration(seconds: 5);
-      final wsTotalTimeout = isWeb ? const Duration(seconds: 2) : const Duration(seconds: 6);
-      
-      // 在 Web 平台上，先快速显示界面，再异步连接 WebSocket
-      if (isWeb) {
-        // 先显示登录界面，避免浏览器显示"响应时间太长"
-        setState(() {
-          _isLoading = false;
-          _isLoggedIn = false;
+      if (kIsWeb) {
+        Future.delayed(_webConnectDelay, () async {
+          if (!mounted) return;
+          try {
+            final wsService = Provider.of<WebSocketService>(context, listen: false);
+            final apiService = Provider.of<ApiService>(context, listen: false);
+            await _connectWebSocket(
+              wsService,
+              apiService,
+              _webWsTimeout,
+              _webWsTotalTimeout,
+            );
+          } catch (_) {
+            _setLoginState(false, false);
+          }
         });
-        
-        // 异步连接 WebSocket（不阻塞界面显示）
-        Future.microtask(() async {
-          await _connectWebSocket(wsService, apiService, wsTimeout, wsTotalTimeout);
-        });
-        return;
+      } else {
+        final wsService = Provider.of<WebSocketService>(context, listen: false);
+        final apiService = Provider.of<ApiService>(context, listen: false);
+        await _connectWebSocket(
+          wsService,
+          apiService,
+          _nonWebWsTimeout,
+          _nonWebWsTotalTimeout,
+        );
       }
-      
-      // 非 Web 平台：正常流程
-      await _connectWebSocket(wsService, apiService, wsTimeout, wsTotalTimeout);
-    } catch (e) {
-      // 静默处理错误
-      setState(() {
-        _isLoggedIn = false;
-        _isLoading = false;
-      });
+    } catch (_) {
+      _setLoginState(false, false);
     }
   }
   
-  /// 连接 WebSocket 并检查登录状态
   Future<void> _connectWebSocket(
     WebSocketService wsService,
     ApiService apiService,
@@ -247,90 +225,67 @@ class _AuthWrapperState extends State<_AuthWrapper> {
     Duration wsTotalTimeout,
   ) async {
     try {
-      // 先建立WebSocket连接（无论是否登录都需要），使用超时
       if (!wsService.isConnected) {
-        // 将HTTP URL转换为WebSocket URL
-        String wsUrl = apiService.serverUrl.replaceFirst('http://', 'ws://').replaceFirst('https://', 'wss://');
+        String wsUrl = apiService.serverUrl
+            .replaceFirst('http://', 'ws://')
+            .replaceFirst('https://', 'wss://');
         if (!wsUrl.endsWith('/ws')) {
           wsUrl = wsUrl.endsWith('/') ? '${wsUrl}ws' : '$wsUrl/ws';
         }
         
-        // 使用超时连接
         try {
-          final connected = await wsService.connect(wsUrl, timeout: wsTimeout)
-              .timeout(
-                wsTotalTimeout,
-                onTimeout: () {
-                  return false;
-                },
-              );
-          // 即使连接失败，也继续检查登录状态，允许用户使用登录页面
-        } catch (e) {
-          // 连接失败，继续显示登录页面
-        }
+          await wsService
+              .connect(wsUrl, timeout: wsTimeout)
+              .timeout(wsTotalTimeout, onTimeout: () => false);
+        } catch (_) {}
       }
       
-      // 检查登录状态（使用超时）
+      final loadTimeout = kIsWeb ? _webLoadTimeout : _nonWebLoadTimeout;
       String? wxid;
       try {
-        final loadTimeout = kIsWeb ? const Duration(seconds: 1) : const Duration(seconds: 2);
-        wxid = await wsService.loadLoginState()
-            .timeout(
-              loadTimeout,
-              onTimeout: () {
-                return null;
-              },
-            );
-      } catch (e) {
+        wxid = await wsService
+            .loadLoginState()
+            .timeout(loadTimeout, onTimeout: () => null);
+      } catch (_) {
         wxid = null;
       }
       
       if (wxid != null && wxid.isNotEmpty) {
-        // 已登录，尝试快速登录（使用超时）
+        final quickLoginTimeout =
+            kIsWeb ? _webQuickLoginTimeout : _nonWebQuickLoginTimeout;
         try {
-          final quickLoginTimeout = kIsWeb ? const Duration(seconds: 2) : const Duration(seconds: 5);
-          final success = await wsService.quickLogin(wxid)
-              .timeout(
-                quickLoginTimeout,
-                onTimeout: () {
-                  return false;
-                },
-              );
+          final success = await wsService
+              .quickLogin(wxid)
+              .timeout(quickLoginTimeout, onTimeout: () => false);
+          
           if (success && wsService.myInfo != null) {
-            if (mounted) {
-              setState(() {
-                _isLoggedIn = true;
-                _isLoading = false;
-              });
-            }
+            _setLoginState(true, false);
             return;
           }
-        } catch (e) {
-          // 静默处理错误
-        }
+        } catch (_) {}
       }
       
-      // 无论成功与否，都要结束加载状态
-      // 如果没有登录成功，显示登录页面
-      if (mounted) {
-        setState(() {
-          _isLoggedIn = false;
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      // 静默处理错误，但确保结束加载状态
-      if (mounted) {
-        setState(() {
-          _isLoggedIn = false;
-          _isLoading = false;
-        });
-      }
+      _setLoginState(false, false);
+    } catch (_) {
+      _setLoginState(false, false);
+    }
+  }
+
+  void _setLoginState(bool isLoggedIn, bool isLoading) {
+    if (mounted) {
+      setState(() {
+        _isLoggedIn = isLoggedIn;
+        _isLoading = isLoading;
+      });
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    if (kIsWeb) {
+      print('[_AuthWrapper] build() 被调用，_isLoading=$_isLoading, _isLoggedIn=$_isLoggedIn');
+    }
+    
     if (_isLoading) {
       return const Scaffold(
         body: Center(
@@ -342,4 +297,5 @@ class _AuthWrapperState extends State<_AuthWrapper> {
     return _isLoggedIn ? const HomePage() : const LoginPage();
   }
 }
+
 
