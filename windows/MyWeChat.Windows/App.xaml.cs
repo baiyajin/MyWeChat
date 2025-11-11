@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Text;
 using System.Windows;
+using WinForms = System.Windows.Forms;
 using Newtonsoft.Json;
 using MyWeChat.Windows.Utils;
 
@@ -10,7 +11,7 @@ namespace MyWeChat.Windows
     /// <summary>
     /// 应用程序入口点
     /// </summary>
-    public partial class App : Application
+    public partial class App : System.Windows.Application
     {
         protected override void OnStartup(StartupEventArgs e)
         {

@@ -1,7 +1,7 @@
 using System;
 using System.Windows;
 using System.Windows.Forms;
-using System.Windows.Media.Imaging;
+using System.Drawing;
 using System.IO;
 using System.Reflection;
 
@@ -92,14 +92,14 @@ namespace MyWeChat.Windows.Services
         /// <summary>
         /// 获取应用程序图标
         /// </summary>
-        private System.Drawing.Icon GetApplicationIcon()
+        private Icon GetApplicationIcon()
         {
             try
             {
                 string iconPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources", "favicon.ico");
                 if (File.Exists(iconPath))
                 {
-                    return new System.Drawing.Icon(iconPath);
+                    return new Icon(iconPath);
                 }
             }
             catch (Exception ex)
@@ -108,7 +108,7 @@ namespace MyWeChat.Windows.Services
             }
 
             // 如果加载失败，使用默认图标
-            return System.Drawing.SystemIcons.Application;
+            return SystemIcons.Application;
         }
 
         /// <summary>
