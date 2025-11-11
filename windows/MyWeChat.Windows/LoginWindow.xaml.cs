@@ -34,7 +34,7 @@ namespace MyWeChat.Windows
         // 微信连接相关
         private WeChatManager? _weChatManager;
         private CommandService? _commandService;
-        
+
         // 窗口关闭处理器
         private WindowCloseHandler? _closeHandler;
         
@@ -228,8 +228,8 @@ namespace MyWeChat.Windows
                 
                 // 打开主窗口（使用空字符串作为wxid，主窗口会从服务器获取）
                 var mainWindow = new MainWindow("");
-                mainWindow.Show();
-                this.Close();
+                    mainWindow.Show();
+                    this.Close();
             }
             else
             {
@@ -669,7 +669,7 @@ namespace MyWeChat.Windows
                         if (weChatManager?.ConnectionManager != null && _commandService == null)
                         {
                             _commandService = new CommandService(weChatManager.ConnectionManager);
-                        }
+                    }
                     }));
                 };
                 
@@ -679,7 +679,7 @@ namespace MyWeChat.Windows
                     Logger.LogError("微信管理器初始化失败（登录窗口）");
                     Dispatcher.BeginInvoke(new Action(() =>
                     {
-                        ShowError("微信管理器初始化失败");
+                    ShowError("微信管理器初始化失败");
                     }));
                     return;
                 }
@@ -703,7 +703,7 @@ namespace MyWeChat.Windows
                 Logger.LogError($"初始化微信管理器失败: {ex.Message}", ex);
                 Dispatcher.BeginInvoke(new Action(() =>
                 {
-                    ShowError($"初始化微信管理器失败: {ex.Message}");
+                ShowError($"初始化微信管理器失败: {ex.Message}");
                 }));
             }
         }
@@ -861,7 +861,7 @@ namespace MyWeChat.Windows
                 ClosingProgressArc.Size = new System.Windows.Size(radius, radius);
             }
             catch (Exception ex)
-            {
+        {
                 Logger.LogError($"更新关闭进度圆环失败: {ex.Message}", ex);
             }
         }
@@ -874,8 +874,8 @@ namespace MyWeChat.Windows
             try
             {
                 // 停止微信进程检测定时器
-                if (_weChatManager != null)
-                {
+            if (_weChatManager != null)
+            {
                     _weChatManager.StopProcessCheckTimer();
                     Logger.LogInfo("已停止微信进程检测定时器（登录窗口）");
                 }
@@ -892,7 +892,7 @@ namespace MyWeChat.Windows
         private void UnsubscribeEvents()
         {
             // WeChatManager的事件订阅在Dispose时自动清理
-
+            
             // 取消WebSocket服务事件订阅
             if (_webSocketService != null)
             {
@@ -941,7 +941,7 @@ namespace MyWeChat.Windows
             }
             finally
             {
-                base.OnClosed(e);
+            base.OnClosed(e);
             }
         }
     }
