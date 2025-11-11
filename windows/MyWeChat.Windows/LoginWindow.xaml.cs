@@ -58,20 +58,35 @@ namespace MyWeChat.Windows
             // 确保窗口标题为"w"（在Loaded事件中再次设置，确保覆盖任何默认值）
             this.Title = "w";
             
+            // 确保输入框可以立即使用（必须在UI线程上设置）
+            // 这些设置必须在任何异步操作之前完成，确保UI立即可用
+            PhoneTextBox.IsEnabled = true;
+            LicenseKeyTextBox.IsEnabled = true;
+            PhoneTextBox.Focusable = true;
+            LicenseKeyTextBox.Focusable = true;
+            PhoneTextBox.IsReadOnly = false;
+            LicenseKeyTextBox.IsReadOnly = false;
+            PhoneTextBox.IsHitTestVisible = true;
+            LicenseKeyTextBox.IsHitTestVisible = true;
+            
+            // 确保Canvas遮罩层不会阻挡输入
+            ClosingOverlayCanvas.IsHitTestVisible = false;
+            ClosingOverlayCanvas.IsEnabled = false;
+            
             // 加载登录历史
             LoadLoginHistory();
             
-            // 初始化WebSocket连接
-            InitializeWebSocket();
+            // 异步初始化WebSocket连接（不阻塞UI）
+            _ = Task.Run(async () => await InitializeWebSocketAsync());
             
-            // 初始化微信管理器（会在内部初始化窗口关闭处理器）
-            InitializeWeChatManager();
+            // 异步初始化微信管理器（完全在后台线程，不阻塞UI）
+            _ = Task.Run(() => InitializeWeChatManagerAsync());
         }
 
         /// <summary>
-        /// 初始化WebSocket连接
+        /// 初始化WebSocket连接（异步方法，不阻塞UI）
         /// </summary>
-        private async void InitializeWebSocket()
+        private async Task InitializeWebSocketAsync()
         {
             try
             {
@@ -603,67 +618,83 @@ namespace MyWeChat.Windows
         }
 
         /// <summary>
-        /// 初始化微信管理器
+        /// 初始化微信管理器（异步方法，不阻塞UI）
         /// </summary>
-        private void InitializeWeChatManager()
+        private void InitializeWeChatManagerAsync()
         {
             try
             {
-                _weChatManager = new WeChatManager(Dispatcher);
+                // 在后台线程创建微信管理器
+                var weChatManager = new WeChatManager(Dispatcher);
                 
                 // 订阅连接状态变化事件
-                _weChatManager.OnConnectionStateChanged += (sender, isConnected) =>
+                weChatManager.OnConnectionStateChanged += (sender, isConnected) =>
                 {
                     if (isConnected)
                     {
                         Logger.LogInfo("微信连接成功（登录窗口）");
-                        Dispatcher.Invoke(() =>
+                        Dispatcher.BeginInvoke(new Action(() =>
                         {
                             ShowSuccess("微信连接成功");
-                        });
+                        }));
                     }
                     else
                     {
                         Logger.LogWarning("微信连接断开（登录窗口）");
-                        Dispatcher.Invoke(() =>
+                        Dispatcher.BeginInvoke(new Action(() =>
                         {
                             ShowError("微信连接断开，请检查微信是否正常运行");
-                        });
+                        }));
                     }
                 };
                 
                 // 订阅微信ID获取事件（1112回调）
-                _weChatManager.OnWxidReceived += (sender, wxid) =>
+                weChatManager.OnWxidReceived += (sender, wxid) =>
                 {
                     Logger.LogInfo($"获取到微信ID（登录窗口）: {wxid}");
                     
-                    // 初始化命令服务
-                    if (_weChatManager?.ConnectionManager != null && _commandService == null)
+                    // 初始化命令服务（在UI线程上执行）
+                    Dispatcher.BeginInvoke(new Action(() =>
                     {
-                        _commandService = new CommandService(_weChatManager.ConnectionManager);
-                    }
+                        if (weChatManager?.ConnectionManager != null && _commandService == null)
+                        {
+                            _commandService = new CommandService(weChatManager.ConnectionManager);
+                        }
+                    }));
                 };
                 
-                // 初始化微信管理器
-                if (!_weChatManager.Initialize())
+                // 初始化微信管理器（在后台线程执行）
+                if (!weChatManager.Initialize())
                 {
                     Logger.LogError("微信管理器初始化失败（登录窗口）");
-                    ShowError("微信管理器初始化失败");
+                    Dispatcher.BeginInvoke(new Action(() =>
+                    {
+                        ShowError("微信管理器初始化失败");
+                    }));
                     return;
                 }
                 
-                // 启动进程检测定时器
-                _weChatManager.StartProcessCheckTimer();
+                // 保存引用
+                _weChatManager = weChatManager;
+                
+                // 启动进程检测定时器（在UI线程上执行）
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    _weChatManager?.StartProcessCheckTimer();
+                    
+                    // 微信管理器初始化完成后，初始化窗口关闭处理器
+                    InitializeCloseHandler();
+                }));
                 
                 Logger.LogInfo("微信管理器初始化成功（登录窗口）");
-                
-                // 微信管理器初始化完成后，初始化窗口关闭处理器
-                InitializeCloseHandler();
             }
             catch (Exception ex)
             {
                 Logger.LogError($"初始化微信管理器失败: {ex.Message}", ex);
-                ShowError($"初始化微信管理器失败: {ex.Message}");
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    ShowError($"初始化微信管理器失败: {ex.Message}");
+                }));
             }
         }
         
@@ -749,6 +780,8 @@ namespace MyWeChat.Windows
             if (show)
             {
                 ClosingOverlayCanvas.Visibility = Visibility.Visible;
+                ClosingOverlayCanvas.IsHitTestVisible = true; // 显示时启用鼠标事件
+                ClosingOverlayCanvas.IsEnabled = true; // 显示时启用
                 UpdateClosingProgressRing(0);
                 ClosingStatusText.Text = "准备关闭...";
                 ClosingProgressText.Text = "0%";
@@ -769,6 +802,8 @@ namespace MyWeChat.Windows
             else
             {
                 ClosingOverlayCanvas.Visibility = Visibility.Collapsed;
+                ClosingOverlayCanvas.IsHitTestVisible = false; // 隐藏时禁用鼠标事件
+                ClosingOverlayCanvas.IsEnabled = false; // 隐藏时禁用
             }
         }
 

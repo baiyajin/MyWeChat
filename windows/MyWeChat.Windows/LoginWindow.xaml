@@ -6,7 +6,7 @@
         Background="#EDEDED"
         ResizeMode="NoResize">
     <Grid>
-        <StackPanel Margin="20">
+        <StackPanel Margin="20" VerticalAlignment="Top">
             <StackPanel HorizontalAlignment="Center" Margin="0,60,0,60">
                 <!-- Logo - 无背景 -->
                 <Image Width="80" Height="80" 
@@ -94,7 +94,7 @@
                         BorderThickness="0"
                         CornerRadius="4"
                         Padding="20"
-                        Margin="0,0,0,60">
+                        Margin="0,0,0,40">
                     <StackPanel>
                         <!-- 手机号输入 - App端风格（下划线输入框） -->
                         <TextBox Name="PhoneTextBox" 
@@ -277,7 +277,9 @@
                 Name="ClosingOverlayCanvas"
                 Visibility="Collapsed"
                 Background="#80000000"
-                Panel.ZIndex="9999">
+                Panel.ZIndex="9999"
+                IsHitTestVisible="False"
+                IsEnabled="False">
             <Border Name="ClosingOverlayBorder"
                     Background="White" 
                     CornerRadius="10" 
