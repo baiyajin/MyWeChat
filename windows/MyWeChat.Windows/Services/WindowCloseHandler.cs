@@ -161,25 +161,25 @@ namespace MyWeChat.Windows.Services
                         }
                     }
 
-                    // 3. 关闭Hook连接（撤回DLL注入）
-                    UpdateProgress(50, "正在关闭Hook连接（撤回DLL注入）...");
+                    // 3. 关闭微信连接
+                    UpdateProgress(50, "正在关闭微信连接...");
                     if (_config.WeChatManager != null)
                     {
-                        Logger.LogInfo("正在关闭Hook连接（撤回DLL注入）...");
+                        Logger.LogInfo("正在关闭微信连接...");
                         try
                         {
                             _dispatcher.Invoke(() => _config.WeChatManager.Disconnect());
-                            Logger.LogInfo("Hook连接已关闭");
+                            Logger.LogInfo("微信连接已关闭");
 
-                            // 等待DLL注入完全清理（给系统时间释放文件句柄）
-                            UpdateProgress(60, "等待DLL注入资源释放（2秒）...");
-                            Logger.LogInfo("等待DLL注入资源释放（2秒）...");
+                            // 等待资源释放（给系统时间释放文件句柄）
+                            UpdateProgress(60, "等待资源释放（2秒）...");
+                            Logger.LogInfo("等待资源释放（2秒）...");
                             await Task.Delay(2000).ConfigureAwait(false);
-                            Logger.LogInfo("DLL注入资源已释放");
+                            Logger.LogInfo("资源已释放");
                         }
                         catch (Exception ex)
                         {
-                            Logger.LogError($"关闭Hook连接时出错: {ex.Message}", ex);
+                            Logger.LogError($"关闭微信连接时出错: {ex.Message}", ex);
                         }
                     }
 
