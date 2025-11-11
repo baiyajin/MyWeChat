@@ -264,16 +264,6 @@ class _LoginPageState extends State<LoginPage> {
                 );
               },
             ),
-            const SizedBox(height: 10),
-            const Text(
-              '微信',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.normal,
-                color: Color(0xFF333333),
-                letterSpacing: 2,
-              ),
-            ),
             const SizedBox(height: 60),
             
             // 登录历史列表 - 微信风格
