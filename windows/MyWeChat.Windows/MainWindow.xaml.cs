@@ -81,8 +81,8 @@ namespace MyWeChat.Windows
         public MainWindow(string? wxid = null)
         {
             InitializeComponent();
-            // 设置窗口标题（避免XAML编码问题）
-            this.Title = "微信";
+            // 移除窗口标题
+            this.Title = "";
             _accountList = new ObservableCollection<AccountInfo>();
             _loggedInWxid = wxid;
             

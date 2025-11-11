@@ -30,8 +30,8 @@ void main() {
   runApp(const MyWeChatApp());
   
   if (kIsWeb) {
-    // 动态设置Web页面标题
-    platform.setWebTitle('微信');
+    // 移除Web页面标题
+    platform.setWebTitle('');
     
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _collectAccessUrl();
