@@ -99,7 +99,7 @@ namespace MyWeChat.Windows.Services
             e.Cancel = true;
 
             // 显示选择对话框（在UI线程上同步执行，确保对话框能正常显示）
-            MessageBoxResult result = MessageBox.Show(
+            MessageBoxResult result = System.Windows.MessageBox.Show(
                 "请选择操作：\n\n点击\"是\"最小化到托盘\n点击\"否\"直接关闭程序\n点击\"取消\"返回",
                 "关闭确认",
                 MessageBoxButton.YesNoCancel,

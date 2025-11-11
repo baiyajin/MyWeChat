@@ -45,6 +45,9 @@ namespace MyWeChat.Windows
         // 窗口关闭处理器
         private WindowCloseHandler? _closeHandler;
         
+        // 系统托盘服务
+        private TrayIconService? _trayIconService;
+        
         
 
         /// <summary>
@@ -113,7 +116,7 @@ namespace MyWeChat.Windows
             catch (Exception ex)
             {
                 Logger.LogError($"窗口加载时初始化服务失败: {ex.Message}", ex);
-                MessageBox.Show($"初始化失败: {ex.Message}\n\n堆栈跟踪:\n{ex.StackTrace}", 
+                System.Windows.MessageBox.Show($"初始化失败: {ex.Message}\n\n堆栈跟踪:\n{ex.StackTrace}", 
                     "错误", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
@@ -261,7 +264,7 @@ namespace MyWeChat.Windows
                         Logger.LogError($"初始化服务失败: {ex.Message}", ex);
                         _ = Dispatcher.BeginInvoke(new Action(() =>
                         {
-                            MessageBox.Show($"初始化失败: {ex.Message}\n\n堆栈跟踪:\n{ex.StackTrace}", 
+                            System.Windows.MessageBox.Show($"初始化失败: {ex.Message}\n\n堆栈跟踪:\n{ex.StackTrace}", 
                                 "错误", MessageBoxButton.OK, MessageBoxImage.Error);
                         }));
                     }
@@ -278,7 +281,7 @@ namespace MyWeChat.Windows
             catch (Exception ex)
             {
                 Logger.LogError($"初始化服务失败: {ex.Message}", ex);
-                MessageBox.Show($"初始化失败: {ex.Message}\n\n堆栈跟踪:\n{ex.StackTrace}", 
+                System.Windows.MessageBox.Show($"初始化失败: {ex.Message}\n\n堆栈跟踪:\n{ex.StackTrace}", 
                     "错误", MessageBoxButton.OK, MessageBoxImage.Error);
                 lock (_initLock)
                 {
@@ -963,7 +966,7 @@ namespace MyWeChat.Windows
         /// <summary>
         /// 更新头像图片
         /// </summary>
-        private void UpdateAvatarImage(Image imageControl, string? avatarUrl)
+        private void UpdateAvatarImage(System.Windows.Controls.Image imageControl, string? avatarUrl)
         {
             try
             {
@@ -2503,9 +2506,9 @@ namespace MyWeChat.Windows
                 bool isLargeArc = progress > 50;
                 
                 // 更新ArcSegment
-                ClosingProgressArc.Point = new Point(endX, endY);
+                ClosingProgressArc.Point = new System.Windows.Point(endX, endY);
                 ClosingProgressArc.IsLargeArc = isLargeArc;
-                ClosingProgressArc.Size = new Size(radius, radius);
+                ClosingProgressArc.Size = new System.Windows.Size(radius, radius);
             }
             catch (Exception ex)
             {

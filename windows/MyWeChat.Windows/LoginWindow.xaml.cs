@@ -393,7 +393,7 @@ namespace MyWeChat.Windows
             Dispatcher.Invoke(() =>
             {
                 ErrorTextBlock.Text = message;
-                ErrorTextBlock.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#07C160"));
+                ErrorTextBlock.Foreground = new SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#07C160"));
                 ErrorTextBlock.Visibility = Visibility.Visible;
             });
         }
@@ -493,13 +493,13 @@ namespace MyWeChat.Windows
         /// </summary>
         private void PhoneTextBox_GotFocus(object sender, RoutedEventArgs e)
         {
-            if (sender is TextBox textBox)
+            if (sender is System.Windows.Controls.TextBox textBox)
             {
                 // 找到父级Border
                 Border? border = FindParent<Border>(textBox);
                 if (border != null)
                 {
-                    border.BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#07C160"));
+                    border.BorderBrush = new SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#07C160"));
                 }
             }
         }
@@ -509,12 +509,12 @@ namespace MyWeChat.Windows
         /// </summary>
         private void PhoneTextBox_LostFocus(object sender, RoutedEventArgs e)
         {
-            if (sender is TextBox textBox)
+            if (sender is System.Windows.Controls.TextBox textBox)
             {
                 Border? border = FindParent<Border>(textBox);
                 if (border != null)
                 {
-                    border.BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#E5E5E5"));
+                    border.BorderBrush = new SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#E5E5E5"));
                 }
             }
         }
@@ -524,12 +524,12 @@ namespace MyWeChat.Windows
         /// </summary>
         private void LicenseKeyTextBox_GotFocus(object sender, RoutedEventArgs e)
         {
-            if (sender is TextBox textBox)
+            if (sender is System.Windows.Controls.TextBox textBox)
             {
                 Border? border = FindParent<Border>(textBox);
                 if (border != null)
                 {
-                    border.BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#07C160"));
+                    border.BorderBrush = new SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#07C160"));
                 }
             }
         }
@@ -539,12 +539,12 @@ namespace MyWeChat.Windows
         /// </summary>
         private void LicenseKeyTextBox_LostFocus(object sender, RoutedEventArgs e)
         {
-            if (sender is TextBox textBox)
+            if (sender is System.Windows.Controls.TextBox textBox)
             {
                 Border? border = FindParent<Border>(textBox);
                 if (border != null)
                 {
-                    border.BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#E5E5E5"));
+                    border.BorderBrush = new SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#E5E5E5"));
                 }
             }
         }
@@ -556,7 +556,7 @@ namespace MyWeChat.Windows
         {
             if (_isUpdatingPhoneText) return; // 防止递归调用
             
-            if (sender is TextBox textBox)
+            if (sender is System.Windows.Controls.TextBox textBox)
             {
                 string originalText = textBox.Text;
                 // 只保留数字
@@ -589,7 +589,7 @@ namespace MyWeChat.Windows
         {
             if (_isUpdatingLicenseKeyText) return; // 防止递归调用
             
-            if (sender is TextBox textBox)
+            if (sender is System.Windows.Controls.TextBox textBox)
             {
                 string originalText = textBox.Text;
                 // 去除所有空格
