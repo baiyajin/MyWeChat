@@ -206,7 +206,6 @@ Icon
 # ============================================
 # 日志和临时文件（包含私密信息，禁止提交）
 # ============================================
-*.log
 *.tmp
 *.temp
 *.swp
@@ -214,9 +213,6 @@ Icon
 *~
 *.bak
 *.cache
-
-# 特定日志文件（包含私密信息）
-*.log
 
 # 包含私密信息的图片文件
 windows/*.png
@@ -271,3 +267,4 @@ copy_logos.py
 decrypt_password.py
 decrypted_passwords.txt
 account_info.json
+*.log
