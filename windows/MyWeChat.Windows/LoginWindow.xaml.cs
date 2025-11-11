@@ -604,6 +604,16 @@ namespace MyWeChat.Windows
         }
 
         /// <summary>
+        /// 授权码输入框预览文本输入事件 - 允许所有字符输入（空格会在TextChanged中处理）
+        /// </summary>
+        private void LicenseKeyTextBox_PreviewTextInput(object sender, TextCompositionEventArgs e)
+        {
+            // 允许所有字符输入，不进行任何限制
+            // 空格会在TextChanged事件中被自动去除
+            e.Handled = false;
+        }
+
+        /// <summary>
         /// 授权码输入框文本变化事件 - 自动去除空格
         /// </summary>
         private void LicenseKeyTextBox_TextChanged(object sender, TextChangedEventArgs e)

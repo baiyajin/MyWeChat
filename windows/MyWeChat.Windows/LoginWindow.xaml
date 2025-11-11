@@ -165,6 +165,7 @@
                                  GotFocus="LicenseKeyTextBox_GotFocus"
                                  LostFocus="LicenseKeyTextBox_LostFocus"
                                  TextChanged="LicenseKeyTextBox_TextChanged"
+                                 PreviewTextInput="LicenseKeyTextBox_PreviewTextInput"
                                  VerticalContentAlignment="Center">
                             <TextBox.Style>
                                 <Style TargetType="TextBox">

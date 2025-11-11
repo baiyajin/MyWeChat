@@ -1,14 +1,8 @@
-实现微信风格关闭确认对话框并修复托盘图标显示问题
+修复授权码输入框只能输入数字的问题
 
-1. 创建微信风格的自定义关闭确认对话框：
-   - 新建CloseConfirmDialog.xaml和CloseConfirmDialog.xaml.cs
-   - 使用微信UI风格（白色背景、圆角、绿色按钮）
-   - 三个选项：最小化到托盘、关闭程序、取消
-   - 替换原有的MessageBox，在应用内显示
+添加PreviewTextInput事件处理，明确允许所有字符输入：
+- 添加LicenseKeyTextBox_PreviewTextInput事件处理
+- 设置e.Handled = false，允许所有字符输入
+- 空格会在TextChanged事件中被自动去除
+- 确保可以输入字母、数字和特殊符号
 
-2. 修复托盘图标不显示问题：
-   - 改进GetApplicationIcon方法，支持多种图标加载方式
-   - 优先从Resources文件夹加载
-   - 其次从可执行文件提取
-   - 最后尝试从程序集资源加载
-   - 添加日志记录，便于调试
