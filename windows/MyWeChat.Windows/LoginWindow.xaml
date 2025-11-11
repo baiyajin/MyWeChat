@@ -135,13 +135,8 @@
                             </TextBox.Style>
                         </TextBox>
                         
-                        <!-- 验证码输入 - App端风格 -->
-                        <Grid Margin="0,0,0,30">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
-                            <TextBox Name="CodeTextBox" 
+                        <!-- 授权码输入 - App端风格 -->
+                        <TextBox Name="LicenseKeyTextBox" 
                                      Grid.Column="0"
                                      FontSize="16" 
                                      Padding="0,8"

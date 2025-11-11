@@ -188,14 +188,14 @@ namespace MyWeChat.Windows
 
             if (success)
             {
-                // 使用ErrorTextBlock显示成功提示（绿色）
-                ShowSuccess("验证码已发送到您的微信，请查收");
+                // 登录成功，打开主窗口
+                ShowSuccess("登录成功");
+                Logger.LogInfo("登录成功");
                 
-                // 注意：服务器端会通过命令发送验证码消息给微信
-                // 如果LoginWindow已经连接了微信并获取到了wxid，可以额外发送一条验证码消息给自己（作为备用）
-                // 但验证码是在服务器端生成的，LoginWindow无法获取到
-                // 所以这里只显示成功提示，验证码消息由服务器端通过命令发送
-                Logger.LogInfo("登录请求成功，等待服务器端发送验证码消息");
+                // 打开主窗口（使用空字符串作为wxid，主窗口会从服务器获取）
+                var mainWindow = new MainWindow("");
+                mainWindow.Show();
+                this.Close();
             }
             else
             {
@@ -296,54 +296,12 @@ namespace MyWeChat.Windows
         }
 
         /// <summary>
-        /// 获取验证码按钮点击事件
-        /// </summary>
-        private async void GetCodeButton_Click(object sender, RoutedEventArgs e)
-        {
-            string phone = PhoneTextBox.Text.Trim();
-            if (string.IsNullOrEmpty(phone))
-            {
-                ShowError("请输入手机号");
-                return;
-            }
-
-            GetCodeButton.IsEnabled = false;
-            ErrorTextBlock.Visibility = Visibility.Collapsed;
-
-            try
-            {
-                // 通过WebSocket发送登录请求
-                if (_webSocketService != null && _webSocketService.IsConnected)
-                {
-                    await _webSocketService.SendMessageAsync(new
-                    {
-                        type = "login",
-                        phone = phone
-                    });
-                }
-                else
-                {
-                    ShowError("WebSocket未连接，请稍后重试");
-                }
-            }
-            catch (Exception ex)
-            {
-                Logger.LogError($"请求验证码失败: {ex.Message}", ex);
-                ShowError($"请求验证码失败: {ex.Message}");
-            }
-            finally
-            {
-                GetCodeButton.IsEnabled = true;
-            }
-        }
-
-        /// <summary>
-        /// 登录按钮点击事件
+        /// 登录按钮点击事件（手机号+授权码）
         /// </summary>
         private async void LoginButton_Click(object sender, RoutedEventArgs e)
         {
             string phone = PhoneTextBox.Text.Trim();
-            string code = CodeTextBox.Text.Trim();
+            string licenseKey = LicenseKeyTextBox.Text.Trim();
 
             if (string.IsNullOrEmpty(phone))
             {
@@ -351,9 +309,9 @@ namespace MyWeChat.Windows
                 return;
             }
 
-            if (string.IsNullOrEmpty(code))
+            if (string.IsNullOrEmpty(licenseKey))
             {
-                ShowError("请输入验证码");
+                ShowError("请输入授权码");
                 return;
             }
 
@@ -362,14 +320,14 @@ namespace MyWeChat.Windows
 
             try
             {
-                // 通过WebSocket发送验证登录码请求
+                // 通过WebSocket发送登录请求（手机号+授权码）
                 if (_webSocketService != null && _webSocketService.IsConnected)
                 {
                     await _webSocketService.SendMessageAsync(new
                     {
-                        type = "verify_login_code",
+                        type = "login",
                         phone = phone,
-                        code = code
+                        license_key = licenseKey
                     });
                 }
                 else
@@ -379,8 +337,8 @@ namespace MyWeChat.Windows
             }
             catch (Exception ex)
             {
-                Logger.LogError($"验证登录码失败: {ex.Message}", ex);
-                ShowError($"验证登录码失败: {ex.Message}");
+                Logger.LogError($"登录失败: {ex.Message}", ex);
+                ShowError($"登录失败: {ex.Message}");
             }
             finally
             {

@@ -17,7 +17,7 @@ class LoginPage extends StatefulWidget {
 
 class _LoginPageState extends State<LoginPage> {
   final TextEditingController _phoneController = TextEditingController();
-  final TextEditingController _codeController = TextEditingController();
+  final TextEditingController _licenseKeyController = TextEditingController();
   bool _isLoading = false;
   String? _errorMessage;
   List<Map<String, dynamic>> _loginHistory = [];
@@ -31,7 +31,7 @@ class _LoginPageState extends State<LoginPage> {
   @override
   void dispose() {
     _phoneController.dispose();
-    _codeController.dispose();
+    _licenseKeyController.dispose();
     super.dispose();
   }
 
@@ -95,74 +95,21 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
-  /// 请求登录码
-  Future<void> _requestLoginCode() async {
+  /// 登录（手机号+授权码）
+  Future<void> _login() async {
     final phone = _phoneController.text.trim();
+    final licenseKey = _licenseKeyController.text.trim();
+    
     if (phone.isEmpty) {
       setState(() {
         _errorMessage = '请输入手机号';
       });
       return;
     }
-
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
-
-    try {
-      final wsService = Provider.of<WebSocketService>(context, listen: false);
-      final apiService = Provider.of<ApiService>(context, listen: false);
-      
-      // 检查WebSocket连接状态（备用检查）
-      if (!wsService.isConnected) {
-        // 如果未连接，尝试建立连接
-        String wsUrl = apiService.serverUrl.replaceFirst('http://', 'ws://').replaceFirst('https://', 'wss://');
-        if (!wsUrl.endsWith('/ws')) {
-          wsUrl = wsUrl.endsWith('/') ? '${wsUrl}ws' : '$wsUrl/ws';
-        }
-        
-        print('WebSocket未连接，正在建立连接: $wsUrl');
-        final connected = await wsService.connect(wsUrl);
-        if (!connected) {
-          setState(() {
-            _errorMessage = 'WebSocket连接失败，请检查网络连接';
-            _isLoading = false;
-          });
-          return;
-        }
-      }
-      
-      wsService.requestLoginCode(phone);
-      
-      // 显示提示
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('登录码已发送到您的微信，请查收'),
-            duration: Duration(seconds: 3),
-          ),
-        );
-      }
-    } catch (e) {
-      setState(() {
-        _errorMessage = '请求登录码失败: $e';
-      });
-    } finally {
-      setState(() {
-        _isLoading = false;
-      });
-    }
-  }
-
-  /// 验证登录码
-  Future<void> _verifyLoginCode() async {
-    final phone = _phoneController.text.trim();
-    final code = _codeController.text.trim();
     
-    if (phone.isEmpty || code.isEmpty) {
+    if (licenseKey.isEmpty) {
       setState(() {
-        _errorMessage = '请输入手机号和验证码';
+        _errorMessage = '请输入授权码';
       });
       return;
     }
@@ -195,12 +142,10 @@ class _LoginPageState extends State<LoginPage> {
         }
       }
       
-      final success = await wsService.verifyLoginCode(phone, code);
+      // 使用手机号+授权码登录
+      final success = await wsService.login(phone, licenseKey);
       
-      if (success && wsService.myInfo != null) {
-        // 保存登录历史
-        await _saveLoginHistory(wsService.myInfo!);
-        
+      if (success) {
         // 保存登录状态
         await wsService.saveLoginState();
         
@@ -212,7 +157,7 @@ class _LoginPageState extends State<LoginPage> {
         }
       } else {
         setState(() {
-          _errorMessage = '验证码错误或登录失败';
+          _errorMessage = '手机号或授权码错误';
         });
       }
     } catch (e) {
@@ -402,66 +347,40 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                     const SizedBox(height: 20),
                     
-                    // 验证码输入 - 微信风格
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: _codeController,
-                            keyboardType: TextInputType.number,
-                            style: const TextStyle(fontSize: 16),
-                            decoration: InputDecoration(
-                              hintText: '验证码',
-                              hintStyle: const TextStyle(
-                                color: Color(0xFF999999),
-                                fontSize: 16,
-                              ),
-                              prefixIcon: const Icon(
-                                Icons.lock_outline,
-                                color: Color(0xFF999999),
-                                size: 20,
-                              ),
-                              border: UnderlineInputBorder(
-                                borderSide: BorderSide(
-                                  color: Colors.grey[300]!,
-                                  width: 0.5,
-                                ),
-                              ),
-                              enabledBorder: UnderlineInputBorder(
-                                borderSide: BorderSide(
-                                  color: Colors.grey[300]!,
-                                  width: 0.5,
-                                ),
-                              ),
-                              focusedBorder: const UnderlineInputBorder(
-                                borderSide: BorderSide(
-                                  color: Color(0xFF07C160),
-                                  width: 1,
-                                ),
-                              ),
-                            ),
+                    // 授权码输入 - 微信风格
+                    TextField(
+                      controller: _licenseKeyController,
+                      style: const TextStyle(fontSize: 16),
+                      decoration: InputDecoration(
+                        hintText: '授权码',
+                        hintStyle: const TextStyle(
+                          color: Color(0xFF999999),
+                          fontSize: 16,
+                        ),
+                        prefixIcon: const Icon(
+                          Icons.vpn_key,
+                          color: Color(0xFF999999),
+                          size: 20,
+                        ),
+                        border: UnderlineInputBorder(
+                          borderSide: BorderSide(
+                            color: Colors.grey[300]!,
+                            width: 0.5,
                           ),
                         ),
-                        const SizedBox(width: 12),
-                        TextButton(
-                          onPressed: _isLoading ? null : _requestLoginCode,
-                          style: TextButton.styleFrom(
-                            foregroundColor: const Color(0xFF07C160),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 12,
-                            ),
-                            minimumSize: Size.zero,
-                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          ),
-                          child: const Text(
-                            '获取验证码',
-                            style: TextStyle(
-                              fontSize: 14,
-                            ),
+                        enabledBorder: UnderlineInputBorder(
+                          borderSide: BorderSide(
+                            color: Colors.grey[300]!,
+                            width: 0.5,
                           ),
                         ),
-                      ],
+                        focusedBorder: const UnderlineInputBorder(
+                          borderSide: BorderSide(
+                            color: Color(0xFF07C160),
+                            width: 1,
+                          ),
+                        ),
+                      ),
                     ),
                     const SizedBox(height: 30),
                     
@@ -483,7 +402,7 @@ class _LoginPageState extends State<LoginPage> {
                     SizedBox(
                       height: 44,
                       child: ElevatedButton(
-                        onPressed: _isLoading ? null : _verifyLoginCode,
+                        onPressed: _isLoading ? null : _login,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF07C160),
                           foregroundColor: Colors.white,

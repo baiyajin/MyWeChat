@@ -322,10 +322,27 @@ class WebSocketService extends ChangeNotifier {
   void _handleLoginResponse(Map<String, dynamic> data) {
     final success = data['success'] as bool? ?? false;
     final message = data['message'] as String? ?? '';
-    print('登录响应: success=$success, message=$message');
+    final hasManagePermission = data['has_manage_permission'] as bool? ?? false;
+    print('登录响应: success=$success, message=$message, hasManagePermission=$hasManagePermission');
+    
+    if (success) {
+      // 保存管理权限到本地
+      _saveManagePermission(hasManagePermission);
+    }
     
     if (_loginCompleter != null && !_loginCompleter!.isCompleted) {
       _loginCompleter!.complete(success);
+    }
+  }
+  
+  /// 保存管理权限到本地
+  Future<void> _saveManagePermission(bool hasPermission) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('has_manage_permission', hasPermission);
+      print('管理权限已保存: $hasPermission');
+    } catch (e) {
+      print('保存管理权限失败: $e');
     }
   }
   
@@ -371,34 +388,25 @@ class WebSocketService extends ChangeNotifier {
     }
   }
   
-  /// 请求登录码
-  void requestLoginCode(String phone) {
+  /// 登录（手机号+授权码）
+  Future<bool> login(String phone, String licenseKey) async {
     _loginCompleter = Completer<bool>();
     _sendMessage({
       'type': 'login',
       'phone': phone,
-    });
-  }
-  
-  /// 验证登录码
-  Future<bool> verifyLoginCode(String phone, String code) async {
-    _verifyLoginCodeCompleter = Completer<bool>();
-    _sendMessage({
-      'type': 'verify_login_code',
-      'phone': phone,
-      'code': code,
+      'license_key': licenseKey,
     });
     
     try {
-      return await _verifyLoginCodeCompleter!.future.timeout(
+      return await _loginCompleter!.future.timeout(
         const Duration(seconds: 30),
         onTimeout: () {
-          print('验证登录码超时');
+          print('登录超时');
           return false;
         },
       );
     } catch (e) {
-      print('验证登录码失败: $e');
+      print('登录失败: $e');
       return false;
     }
   }
