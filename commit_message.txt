@@ -1,2 +1,0 @@
-修复Edge浏览器窗口标题问题：将MaterialApp的title属性改为'w'，这是Flutter框架自动设置Web页面标题的根本方式
-
