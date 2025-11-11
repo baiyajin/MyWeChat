@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../services/api_service.dart';
 import '../../models/license_model.dart';
 import '../../utils/license_generator.dart';
+import '../widgets/confirm_dialog.dart';
 
 /// 授权码管理页面
 class LicenseManagePage extends StatefulWidget {
@@ -309,17 +310,29 @@ class _LicenseManagePageState extends State<LicenseManagePage> {
                 }
                 
                 Navigator.pop(context);
-                await _createLicense(
-                  phone: phoneController.text.trim(),
-                  licenseKey: licenseKeyController.text.trim().isEmpty 
-                      ? null 
-                      : licenseKeyController.text.trim(),
-                  boundWechatPhone: boundWechatPhoneController.text.trim().isEmpty
-                      ? null
-                      : boundWechatPhoneController.text.trim(),
-                  hasManagePermission: hasManagePermission,
-                  expireDate: selectedExpireDate,
+                
+                // 二次确认
+                final confirmed = await ConfirmDialog.show(
+                  context: context,
+                  title: '确认添加',
+                  content: '确定要添加手机号 ${phoneController.text.trim()} 的授权吗？',
+                  confirmText: '添加',
+                  cancelText: '取消',
                 );
+                
+                if (confirmed == true) {
+                  await _createLicense(
+                    phone: phoneController.text.trim(),
+                    licenseKey: licenseKeyController.text.trim().isEmpty 
+                        ? null 
+                        : licenseKeyController.text.trim(),
+                    boundWechatPhone: boundWechatPhoneController.text.trim().isEmpty
+                        ? null
+                        : boundWechatPhoneController.text.trim(),
+                    hasManagePermission: hasManagePermission,
+                    expireDate: selectedExpireDate,
+                  );
+                }
               },
               child: const Text('添加'),
             ),
@@ -471,14 +484,26 @@ class _LicenseManagePageState extends State<LicenseManagePage> {
             ElevatedButton(
               onPressed: () async {
                 Navigator.pop(context);
-                await _updateLicense(
-                  license: license,
-                  licenseKey: licenseKeyController.text.trim(),
-                  boundWechatPhone: boundWechatPhoneController.text.trim(),
-                  hasManagePermission: hasManagePermission,
-                  status: status,
-                  expireDate: selectedExpireDate,
+                
+                // 二次确认
+                final confirmed = await ConfirmDialog.show(
+                  context: context,
+                  title: '确认保存',
+                  content: '确定要保存对手机号 ${license.phone} 的授权修改吗？',
+                  confirmText: '保存',
+                  cancelText: '取消',
                 );
+                
+                if (confirmed == true) {
+                  await _updateLicense(
+                    license: license,
+                    licenseKey: licenseKeyController.text.trim(),
+                    boundWechatPhone: boundWechatPhoneController.text.trim(),
+                    hasManagePermission: hasManagePermission,
+                    status: status,
+                    expireDate: selectedExpireDate,
+                  );
+                }
               },
               child: const Text('保存'),
             ),
@@ -624,13 +649,42 @@ class _LicenseManagePageState extends State<LicenseManagePage> {
                   ? null 
                   : int.tryParse(yearsController.text.trim());
               
-              if (days == null && months == null && years == null) {
-                // 如果都没有输入，使用默认值1年
-                Navigator.pop(context);
-                await _extendLicense(license, days: null, months: null, years: 1);
+              Navigator.pop(context);
+              
+              // 计算新的过期时间用于显示
+              DateTime newExpireDate = license.expireDate;
+              String extendInfo = '';
+              if (days != null) {
+                newExpireDate = newExpireDate.add(Duration(days: days));
+                extendInfo = '延期 $days 天';
+              } else if (months != null) {
+                newExpireDate = newExpireDate.add(Duration(days: months * 30));
+                extendInfo = '延期 $months 个月';
+              } else if (years != null) {
+                newExpireDate = newExpireDate.add(Duration(days: years * 365));
+                extendInfo = '延期 $years 年';
               } else {
-                Navigator.pop(context);
-                await _extendLicense(license, days: days, months: months, years: years);
+                // 如果都没有输入，使用默认值1年
+                newExpireDate = newExpireDate.add(const Duration(days: 365));
+                extendInfo = '延期 1 年（默认）';
+              }
+              
+              // 二次确认
+              final confirmed = await ConfirmDialog.show(
+                context: context,
+                title: '确认延期',
+                content: '确定要对手机号 ${license.phone} 的授权进行延期吗？\n\n$extendInfo\n新的过期时间：${_formatDate(newExpireDate)}',
+                confirmText: '延期',
+                cancelText: '取消',
+              );
+              
+              if (confirmed == true) {
+                if (days == null && months == null && years == null) {
+                  // 如果都没有输入，使用默认值1年
+                  await _extendLicense(license, days: null, months: null, years: 1);
+                } else {
+                  await _extendLicense(license, days: days, months: months, years: years);
+                }
               }
             },
             child: const Text('延期'),
@@ -670,26 +724,18 @@ class _LicenseManagePageState extends State<LicenseManagePage> {
   }
 
   void _showDeleteConfirmDialog(LicenseModel license) {
-    showDialog(
+    ConfirmDialog.show(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('确认删除'),
-        content: Text('确定要删除手机号 ${license.phone} 的授权吗？'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
-          ),
-          TextButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              await _deleteLicense(license);
-            },
-            child: const Text('删除'),
-          ),
-        ],
-      ),
-    );
+      title: '确认删除',
+      content: '确定要删除手机号 ${license.phone} 的授权吗？\n\n删除后该授权将被标记为已撤销，无法再使用。',
+      confirmText: '删除',
+      cancelText: '取消',
+      confirmColor: Colors.red,
+    ).then((confirmed) {
+      if (confirmed == true) {
+        _deleteLicense(license);
+      }
+    });
   }
 
   Future<void> _deleteLicense(LicenseModel license) async {
