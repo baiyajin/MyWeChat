@@ -16,7 +16,6 @@ import 'platform/window_manager_stub.dart'
     if (dart.library.html) 'platform/window_manager_stub.dart'
     if (dart.library.io) 'package:window_manager/window_manager.dart';
 
-
 String? _appUrl;
 String? _webSocketUrl;
 bool _linksDisplayed = false;
@@ -26,9 +25,9 @@ void main() {
     WidgetsFlutterBinding.ensureInitialized();
     _setWindowSizeAsync();
   }
-  
+
   runApp(const MyWeChatApp());
-  
+
   if (kIsWeb) {
     // 收集访问URL（用于日志输出）
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -44,10 +43,10 @@ void _setWindowSizeAsync() {
 Future<void> _setWindowSize() async {
   const double width = 393.0;
   const double height = 852.0;
-  
+
   try {
     await windowManager.ensureInitialized();
-    
+
     const windowOptions = WindowOptions(
       size: Size(width, height),
       minimumSize: Size(width, height),
@@ -57,7 +56,7 @@ Future<void> _setWindowSize() async {
       skipTaskbar: false,
       titleBarStyle: TitleBarStyle.normal,
     );
-    
+
     windowManager.waitUntilReadyToShow(windowOptions, () async {
       await windowManager.show();
       await windowManager.focus();
@@ -76,18 +75,18 @@ void setWebSocketUrl(String url) {
 
 void _displayAllLinks() {
   if (_linksDisplayed) return;
-  
+
   if (_appUrl == null && kIsWeb) {
     _collectAccessUrl();
   }
-  
+
   if (_webSocketUrl == null) {
     Future.delayed(const Duration(milliseconds: 500), () {
       if (!_linksDisplayed) _displayAllLinks();
     });
     return;
   }
-  
+
   _linksDisplayed = true;
 }
 
@@ -137,7 +136,7 @@ class _AuthWrapperState extends State<_AuthWrapper> {
   static const _webWsTotalTimeout = Duration(seconds: 2);
   static const _webLoadTimeout = Duration(seconds: 1);
   static const _webQuickLoginTimeout = Duration(seconds: 2);
-  
+
   static const _nonWebWsTimeout = Duration(seconds: 5);
   static const _nonWebWsTotalTimeout = Duration(seconds: 6);
   static const _nonWebLoadTimeout = Duration(seconds: 2);
@@ -162,13 +161,14 @@ class _AuthWrapperState extends State<_AuthWrapper> {
 
   Future<void> _checkLoginState() async {
     if (!mounted) return;
-    
+
     try {
       if (kIsWeb) {
         Future.delayed(_webConnectDelay, () async {
           if (!mounted) return;
           try {
-            final wsService = Provider.of<WebSocketService>(context, listen: false);
+            final wsService =
+                Provider.of<WebSocketService>(context, listen: false);
             final apiService = Provider.of<ApiService>(context, listen: false);
             await _connectWebSocket(
               wsService,
@@ -194,7 +194,7 @@ class _AuthWrapperState extends State<_AuthWrapper> {
       _setLoginState(false, false);
     }
   }
-  
+
   Future<void> _connectWebSocket(
     WebSocketService wsService,
     ApiService apiService,
@@ -209,14 +209,14 @@ class _AuthWrapperState extends State<_AuthWrapper> {
         if (!wsUrl.endsWith('/ws')) {
           wsUrl = wsUrl.endsWith('/') ? '${wsUrl}ws' : '$wsUrl/ws';
         }
-        
+
         try {
           await wsService
               .connect(wsUrl, timeout: wsTimeout)
               .timeout(wsTotalTimeout, onTimeout: () => false);
         } catch (_) {}
       }
-      
+
       final loadTimeout = kIsWeb ? _webLoadTimeout : _nonWebLoadTimeout;
       String? wxid;
       try {
@@ -226,7 +226,7 @@ class _AuthWrapperState extends State<_AuthWrapper> {
       } catch (_) {
         wxid = null;
       }
-      
+
       if (wxid != null && wxid.isNotEmpty) {
         final quickLoginTimeout =
             kIsWeb ? _webQuickLoginTimeout : _nonWebQuickLoginTimeout;
@@ -234,14 +234,14 @@ class _AuthWrapperState extends State<_AuthWrapper> {
           final success = await wsService
               .quickLogin(wxid)
               .timeout(quickLoginTimeout, onTimeout: () => false);
-          
+
           if (success && wsService.myInfo != null) {
             _setLoginState(true, false);
             return;
           }
         } catch (_) {}
       }
-      
+
       _setLoginState(false, false);
     } catch (_) {
       _setLoginState(false, false);
@@ -266,9 +266,7 @@ class _AuthWrapperState extends State<_AuthWrapper> {
         ),
       );
     }
-    
+
     return _isLoggedIn ? const HomePage() : const LoginPage();
   }
 }
-
-
