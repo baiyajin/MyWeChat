@@ -30,12 +30,17 @@ namespace MyWeChat.Windows.Services
 
             _window = window ?? throw new ArgumentNullException(nameof(window));
 
+            Icon appIcon = GetApplicationIcon();
             _notifyIcon = new NotifyIcon
             {
-                Icon = GetApplicationIcon(),
+                Icon = appIcon,
                 Text = "微信",
                 Visible = true
             };
+            
+            // 确保图标立即显示
+            _notifyIcon.Visible = true;
+            Logger.LogInfo($"托盘图标已初始化，图标大小: {appIcon.Size}");
 
             // 创建上下文菜单
             var contextMenu = new ContextMenuStrip();

@@ -6,7 +6,12 @@
         Background="#EDEDED"
         ResizeMode="NoResize">
     <Grid>
-        <StackPanel Margin="20" VerticalAlignment="Top">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        
+        <StackPanel Grid.Row="0" Margin="20" VerticalAlignment="Top">
             <StackPanel HorizontalAlignment="Center" Margin="0,60,0,60">
                 <!-- Logo - 无背景 -->
                 <Image Width="80" Height="80" 
@@ -264,11 +269,56 @@
                                 </Style>
                             </Button.Style>
                         </Button>
-                    </StackPanel>
-                </Border>
-        </StackPanel>
-        
-        <!-- 关闭进度遮罩层 - 使用Canvas确保在最上层 -->
+                        </StackPanel>
+                    </Border>
+            </StackPanel>
+            
+            <!-- 启动进度提示 - 显示在底部 -->
+            <Border Grid.Row="1"
+                    Background="White"
+                    BorderThickness="0,1,0,0"
+                    BorderBrush="#E5E5E5"
+                    Padding="20,15"
+                    VerticalAlignment="Bottom"
+                    HorizontalAlignment="Stretch">
+                <StackPanel Orientation="Horizontal"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center">
+                    <!-- 加载动画图标 -->
+                    <Ellipse Name="LoadingIndicator"
+                             Width="16"
+                             Height="16"
+                             Stroke="#07C160"
+                             StrokeThickness="2"
+                             StrokeDashArray="3 3"
+                             Margin="0,0,10,0">
+                        <Ellipse.RenderTransform>
+                            <RotateTransform x:Name="LoadingRotateTransform"/>
+                        </Ellipse.RenderTransform>
+                        <Ellipse.Triggers>
+                            <EventTrigger RoutedEvent="Loaded">
+                                <BeginStoryboard>
+                                    <Storyboard RepeatBehavior="Forever">
+                                        <DoubleAnimation Storyboard.TargetName="LoadingRotateTransform"
+                                                         Storyboard.TargetProperty="Angle"
+                                                         From="0" To="360"
+                                                         Duration="0:0:1"/>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </EventTrigger>
+                        </Ellipse.Triggers>
+                    </Ellipse>
+                    
+                    <!-- 进度文本 -->
+                    <TextBlock Name="LoadingStatusText"
+                               Text="正在初始化..."
+                               FontSize="13"
+                               Foreground="#666666"
+                               VerticalAlignment="Center"/>
+                </StackPanel>
+            </Border>
+            
+            <!-- 关闭进度遮罩层 - 使用Canvas确保在最上层 -->
         <Canvas 
                 Name="ClosingOverlayCanvas"
                 Visibility="Collapsed"

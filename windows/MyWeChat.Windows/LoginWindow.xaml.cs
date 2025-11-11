@@ -38,9 +38,16 @@ namespace MyWeChat.Windows
         // 窗口关闭处理器
         private WindowCloseHandler? _closeHandler;
         
+        // 系统托盘服务
+        private TrayIconService? _trayIconService;
+        
         // 防止TextChanged事件递归调用的标志
         private bool _isUpdatingPhoneText = false;
         private bool _isUpdatingLicenseKeyText = false;
+        
+        // 启动进度相关
+        private int _currentStep = 0;
+        private const int _totalSteps = 3; // 总步骤数：1.加载登录历史 2.初始化WebSocket 3.初始化微信管理器
 
         public LoginWindow()
         {
@@ -59,6 +66,10 @@ namespace MyWeChat.Windows
             LicenseKeyTextBox.IsReadOnly = false;
             PhoneTextBox.IsHitTestVisible = true;
             LicenseKeyTextBox.IsHitTestVisible = true;
+            
+            // 提前初始化托盘图标服务，确保最小化后能看到图标
+            _trayIconService = new TrayIconService();
+            _trayIconService.Initialize(this);
             
             Loaded += LoginWindow_Loaded;
         }
@@ -83,19 +94,35 @@ namespace MyWeChat.Windows
             ClosingOverlayCanvas.IsHitTestVisible = false;
             ClosingOverlayCanvas.IsEnabled = false;
             
-            // 异步加载登录历史（不阻塞UI）
-            _ = Task.Run(() => LoadLoginHistoryAsync());
+            // 显示启动进度
+            UpdateLoadingStatus(1, "正在加载登录历史...");
             
-            // 延迟初始化，确保UI完全加载后再开始后台任务
-            // 使用更长的延迟，确保UI完全渲染完成
-            _ = Task.Delay(300).ContinueWith(_ =>
+            // 异步加载登录历史（不阻塞UI）
+            _ = Task.Run(async () =>
             {
+                await LoadLoginHistoryAsync();
+                Dispatcher.Invoke(() => UpdateLoadingStatus(2, "正在初始化WebSocket连接..."));
+                
+                // 延迟初始化，确保UI完全加载后再开始后台任务
+                await Task.Delay(300);
+                
                 // 异步初始化WebSocket连接（不阻塞UI）
-                _ = Task.Run(async () => await InitializeWebSocketAsync());
+                await InitializeWebSocketAsync();
+                Dispatcher.Invoke(() => UpdateLoadingStatus(3, "正在初始化微信管理器..."));
                 
                 // 异步初始化微信管理器（完全在后台线程，不阻塞UI）
-                _ = Task.Run(() => InitializeWeChatManagerAsync());
-            }, TaskScheduler.Default);
+                await Task.Run(() => InitializeWeChatManagerAsync());
+                
+                // 初始化完成，隐藏进度提示
+                Dispatcher.Invoke(() =>
+                {
+                    var loadingBorder = FindName("LoadingStatusBorder") as Border;
+                    if (loadingBorder != null)
+                    {
+                        loadingBorder.Visibility = Visibility.Collapsed;
+                    }
+                });
+            });
         }
 
         /// <summary>
@@ -648,6 +675,18 @@ namespace MyWeChat.Windows
         }
 
         /// <summary>
+        /// 更新加载状态
+        /// </summary>
+        private void UpdateLoadingStatus(int step, string message)
+        {
+            _currentStep = step;
+            if (LoadingStatusText != null)
+            {
+                LoadingStatusText.Text = $"{message} ({step}/{_totalSteps})";
+            }
+        }
+
+        /// <summary>
         /// 查找父级元素
         /// </summary>
         private T? FindParent<T>(DependencyObject child) where T : DependencyObject
@@ -812,6 +851,7 @@ namespace MyWeChat.Windows
         /// </summary>
         private void InitializeCloseHandler()
         {
+            // 托盘图标服务已在构造函数中初始化，这里不需要重复初始化
             var config = new WindowCloseHandler.CleanupConfig
             {
                 WeChatManager = _weChatManager,
@@ -825,6 +865,13 @@ namespace MyWeChat.Windows
             };
 
             _closeHandler = new WindowCloseHandler(this, config);
+            
+            // 设置最小化到托盘的回调
+            _closeHandler.MinimizeToTrayCallback = () =>
+            {
+                this.WindowState = WindowState.Minimized;
+                this.Hide();
+            };
         }
 
         /// <summary>
@@ -977,6 +1024,10 @@ namespace MyWeChat.Windows
                 _weChatManager = null;
                 _webSocketService = null;
                 _commandService = null;
+                
+                // 释放托盘图标服务
+                _trayIconService?.Dispose();
+                _trayIconService = null;
                 
                 Logger.LogInfo("登录窗口已关闭，所有资源已清理");
             }

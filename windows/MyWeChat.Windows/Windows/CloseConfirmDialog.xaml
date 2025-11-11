@@ -82,7 +82,6 @@
                             Background="Transparent"
                             Foreground="#07C160"
                             BorderThickness="0"
-                            Cursor="Hand"
                             Click="MinimizeButton_Click">
                         <Button.Style>
                             <Style TargetType="Button">
@@ -118,7 +117,6 @@
                             Background="Transparent"
                             Foreground="#333333"
                             BorderThickness="0"
-                            Cursor="Hand"
                             Click="CloseButton_Click">
                         <Button.Style>
                             <Style TargetType="Button">
@@ -153,7 +151,6 @@
                             Background="Transparent"
                             Foreground="#666666"
                             BorderThickness="0"
-                            Cursor="Hand"
                             Click="CancelButton_Click">
                         <Button.Style>
                             <Style TargetType="Button">
@@ -179,7 +176,7 @@
                 </Grid>
             </Border>
         </Grid>
-    </Border>
+        </Border>
     </Grid>
 </Window>
 
