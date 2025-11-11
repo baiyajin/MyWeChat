@@ -26,6 +26,19 @@ namespace MyWeChat.Windows.Windows
         {
             InitializeComponent();
         }
+        
+        /// <summary>
+        /// 窗口加载完成事件 - 设置窗口大小为父窗口大小
+        /// </summary>
+        private void CloseConfirmDialog_Loaded(object sender, RoutedEventArgs e)
+        {
+            // 设置窗口大小为父窗口大小，以便遮罩层覆盖整个父窗口
+            if (Owner != null)
+            {
+                this.Width = Owner.ActualWidth;
+                this.Height = Owner.ActualHeight;
+            }
+        }
 
         /// <summary>
         /// 最小化到托盘按钮点击
