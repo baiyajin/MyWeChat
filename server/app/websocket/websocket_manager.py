@@ -8,6 +8,7 @@ import json
 import asyncio
 from sqlalchemy import select
 from app.models.database import AsyncSessionLocal, AccountInfo
+from app.services.license_service import LicenseService
 
 
 class WebSocketManager:
@@ -22,8 +23,6 @@ class WebSocketManager:
         self.pending_clients: Set[WebSocket] = set()
         # App端连接与微信账号ID的映射关系
         self.app_client_wxid_map: Dict[WebSocket, str] = {}
-        # 登录码存储（phone -> {code, wxid, expire_time}）
-        self.login_codes: Dict[str, Dict] = {}
 
     async def connect(self, websocket: WebSocket):
         """接受WebSocket连接"""
@@ -124,7 +123,7 @@ class WebSocketManager:
                     self.pending_clients.add(websocket)
             
             elif message_type == "login":
-                # App端或Windows端登录请求（发送手机号，获取登录码）
+                # App端或Windows端登录请求（手机号+授权码）
                 await self._handle_login(websocket, message)
             
             elif message_type == "verify_login_code":
@@ -292,9 +291,11 @@ class WebSocketManager:
             traceback.print_exc()
 
     async def _handle_login(self, websocket: WebSocket, message: Dict):
-        """处理App端登录请求（发送手机号，获取登录码）"""
+        """处理App端或Windows端登录请求（手机号+授权码）"""
         try:
             phone = message.get("phone", "").strip()
+            license_key = message.get("license_key", "").strip()
+            
             if not phone:
                 await websocket.send_text(json.dumps({
                     "type": "login_response",
@@ -303,61 +304,44 @@ class WebSocketManager:
                 }, ensure_ascii=False))
                 return
             
-            # 从数据库查找对应的微信账号
-            async with AsyncSessionLocal() as session:
-                stmt = select(AccountInfo).where(AccountInfo.phone == phone)
-                result = await session.execute(stmt)
-                account_info = result.scalar_one_or_none()
-                
-                if not account_info:
-                    await websocket.send_text(json.dumps({
-                        "type": "login_response",
-                        "success": False,
-                        "message": "未找到该手机号对应的微信账号"
-                    }, ensure_ascii=False))
-                    return
-                
-                # 生成4位数登录码
-                import random
-                login_code = str(random.randint(1000, 9999))
-                
-                # 存储登录码（5分钟过期）
-                import time
-                self.login_codes[phone] = {
-                    "code": login_code,
-                    "wxid": account_info.wxid,
-                    "expire_time": time.time() + 300  # 5分钟
-                }
-                
-                # 通知Windows端向该微信账号发送登录码
-                wxid = account_info.wxid
-                command_message = {
-                    "type": "command",
-                    "command_type": "send_text_message",
-                    "command_data": {
-                        "target_wxid": wxid,
-                        "content": f"您的登录验证码是：{login_code}，5分钟内有效。"
-                    },
-                    "target_we_chat_id": wxid
-                }
-                
-                # 判断是App端还是Windows端发起的登录请求
-                # 如果websocket在windows_clients中，说明是Windows端发起的登录
-                if websocket in self.windows_clients:
-                    # Windows端登录：直接向该微信账号发送验证码消息
-                    # 注意：这里需要Windows端已经连接了微信，才能发送消息
-                    await self.send_to_windows_client(command_message)
-                else:
-                    # App端登录：通知Windows端向该微信账号发送验证码消息
-                    await self.send_to_windows_client(command_message)
-                
+            if not license_key:
                 await websocket.send_text(json.dumps({
                     "type": "login_response",
-                    "success": True,
-                    "message": "登录码已发送到您的微信，请查收"
+                    "success": False,
+                    "message": "授权码不能为空"
                 }, ensure_ascii=False))
-                
-                print(f"已为手机号 {phone} 生成登录码，并通知Windows端发送")
+                return
+            
+            # 验证授权码
+            is_valid, error_msg = await LicenseService.verify_license(phone, license_key)
+            
+            if not is_valid:
+                await websocket.send_text(json.dumps({
+                    "type": "login_response",
+                    "success": False,
+                    "message": error_msg or "授权验证失败"
+                }, ensure_ascii=False))
+                return
+            
+            # 获取授权信息
+            license_info = await LicenseService.get_license_by_phone(phone)
+            if not license_info:
+                await websocket.send_text(json.dumps({
+                    "type": "login_response",
+                    "success": False,
+                    "message": "获取授权信息失败"
+                }, ensure_ascii=False))
+                return
+            
+            # 登录成功，返回授权信息
+            await websocket.send_text(json.dumps({
+                "type": "login_response",
+                "success": True,
+                "message": "登录成功",
+                "has_manage_permission": license_info.has_manage_permission
+            }, ensure_ascii=False))
+            
+            print(f"手机号 {phone} 登录成功")
         except Exception as e:
             print(f"处理登录请求失败: {e}")
             import traceback
@@ -372,102 +356,13 @@ class WebSocketManager:
                 pass
     
     async def _handle_verify_login_code(self, websocket: WebSocket, message: Dict):
-        """处理App端或Windows端验证登录码"""
-        try:
-            phone = message.get("phone", "").strip()
-            code = message.get("code", "").strip()
-            
-            if not phone or not code:
-                await websocket.send_text(json.dumps({
-                    "type": "verify_login_code_response",
-                    "success": False,
-                    "message": "手机号和验证码不能为空"
-                }, ensure_ascii=False))
-                return
-            
-            # 检查登录码
-            if phone not in self.login_codes:
-                await websocket.send_text(json.dumps({
-                    "type": "verify_login_code_response",
-                    "success": False,
-                    "message": "验证码已过期或不存在"
-                }, ensure_ascii=False))
-                return
-            
-            login_info = self.login_codes[phone]
-            import time
-            if time.time() > login_info["expire_time"]:
-                del self.login_codes[phone]
-                await websocket.send_text(json.dumps({
-                    "type": "verify_login_code_response",
-                    "success": False,
-                    "message": "验证码已过期"
-                }, ensure_ascii=False))
-                return
-            
-            if login_info["code"] != code:
-                await websocket.send_text(json.dumps({
-                    "type": "verify_login_code_response",
-                    "success": False,
-                    "message": "验证码错误"
-                }, ensure_ascii=False))
-                return
-            
-            # 验证成功，获取微信账号ID
-            wxid = login_info["wxid"]
-            
-            # 如果是App端，设置App端的微信账号ID映射
-            if websocket in self.app_clients:
-                self.app_client_wxid_map[websocket] = wxid
-            
-            # 获取账号信息
-            async with AsyncSessionLocal() as session:
-                stmt = select(AccountInfo).where(AccountInfo.wxid == wxid)
-                result = await session.execute(stmt)
-                account_info = result.scalar_one_or_none()
-                
-                if account_info:
-                    account_data = {
-                        "wxid": account_info.wxid,
-                        "nickname": account_info.nickname,
-                        "avatar": account_info.avatar,
-                        "account": account_info.account,
-                        "device_id": account_info.device_id,
-                        "phone": account_info.phone,
-                        "wx_user_dir": account_info.wx_user_dir,
-                        "unread_msg_count": account_info.unread_msg_count,
-                        "is_fake_device_id": account_info.is_fake_device_id,
-                        "pid": account_info.pid
-                    }
-                else:
-                    account_data = {}
-            
-            # 删除登录码
-            del self.login_codes[phone]
-            
-            await websocket.send_text(json.dumps({
-                "type": "verify_login_code_response",
-                "success": True,
-                "message": "登录成功",
-                "wxid": wxid,
-                "account_info": account_data
-            }, ensure_ascii=False))
-            
-            # 判断是App端还是Windows端
-            client_type = "App端" if websocket in self.app_clients else "Windows端"
-            print(f"{client_type}登录成功: 手机号={phone}, wxid={wxid}")
-        except Exception as e:
-            print(f"验证登录码失败: {e}")
-            import traceback
-            traceback.print_exc()
-            try:
-                await websocket.send_text(json.dumps({
-                    "type": "verify_login_code_response",
-                    "success": False,
-                    "message": f"验证失败: {str(e)}"
-                }, ensure_ascii=False))
-            except:
-                pass
+        """处理App端或Windows端验证登录码（已废弃，保留用于兼容）"""
+        # 此方法已废弃，登录现在直接通过 _handle_login 完成（手机号+授权码）
+        await websocket.send_text(json.dumps({
+            "type": "verify_login_code_response",
+            "success": False,
+            "message": "请使用手机号+授权码方式登录"
+        }, ensure_ascii=False))
     
     async def _handle_quick_login(self, websocket: WebSocket, message: Dict):
         """处理App端或Windows端快速登录（使用wxid）"""
