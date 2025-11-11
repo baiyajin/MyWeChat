@@ -13,6 +13,7 @@
     <RootNamespace>MyWeChat.Windows</RootNamespace>
     <PlatformTarget>x86</PlatformTarget>
     <Platforms>x86</Platforms>
+    <ApplicationHighDpiMode>SystemAware</ApplicationHighDpiMode>
   </PropertyGroup>
 
   <ItemGroup>

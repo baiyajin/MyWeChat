@@ -87,14 +87,15 @@ namespace MyWeChat.Windows
             _ = Task.Run(() => LoadLoginHistoryAsync());
             
             // 延迟初始化，确保UI完全加载后再开始后台任务
-            _ = Task.Delay(100).ContinueWith(_ =>
+            // 使用更长的延迟，确保UI完全渲染完成
+            _ = Task.Delay(300).ContinueWith(_ =>
             {
                 // 异步初始化WebSocket连接（不阻塞UI）
                 _ = Task.Run(async () => await InitializeWebSocketAsync());
                 
                 // 异步初始化微信管理器（完全在后台线程，不阻塞UI）
                 _ = Task.Run(() => InitializeWeChatManagerAsync());
-            });
+            }, TaskScheduler.Default);
         }
 
         /// <summary>
@@ -655,6 +656,7 @@ namespace MyWeChat.Windows
             try
             {
                 // 在后台线程创建微信管理器
+                // 注意：WeChatManager的初始化操作（如版本检测）在后台线程执行
                 var weChatManager = new WeChatManager(Dispatcher);
                 
                 // 订阅连接状态变化事件
@@ -663,20 +665,20 @@ namespace MyWeChat.Windows
                     if (isConnected)
                     {
                         Logger.LogInfo("微信连接成功（登录窗口）");
-                        // 使用 InvokeAsync 避免阻塞
+                        // 使用 InvokeAsync 避免阻塞，使用低优先级确保不阻塞UI
                         _ = Dispatcher.InvokeAsync(() =>
                         {
                             ShowSuccess("微信连接成功");
-                        });
+                        }, DispatcherPriority.Background);
                     }
                     else
                     {
                         Logger.LogWarning("微信连接断开（登录窗口）");
-                        // 使用 InvokeAsync 避免阻塞
+                        // 使用 InvokeAsync 避免阻塞，使用低优先级确保不阻塞UI
                         _ = Dispatcher.InvokeAsync(() =>
                         {
                             ShowError("微信连接断开，请检查微信是否正常运行");
-                        });
+                        }, DispatcherPriority.Background);
                     }
                 };
                 
@@ -685,50 +687,59 @@ namespace MyWeChat.Windows
                 {
                     Logger.LogInfo($"获取到微信ID（登录窗口）: {wxid}");
                     
-                    // 初始化命令服务（在UI线程上执行，使用 InvokeAsync 避免阻塞）
+                    // 初始化命令服务（在UI线程上执行，使用低优先级确保不阻塞UI）
                     _ = Dispatcher.InvokeAsync(() =>
                     {
                         if (weChatManager?.ConnectionManager != null && _commandService == null)
                         {
                             _commandService = new CommandService(weChatManager.ConnectionManager);
                         }
-                    });
+                    }, DispatcherPriority.Background);
                 };
                 
-                // 初始化微信管理器（在后台线程执行）
+                // 初始化微信管理器（在后台线程执行，包含文件系统操作）
+                // 这些操作不会阻塞UI线程，因为它们完全在后台线程执行
                 if (!weChatManager.Initialize())
                 {
                     Logger.LogError("微信管理器初始化失败（登录窗口）");
-                    // 使用 InvokeAsync 避免阻塞
+                    // 使用 InvokeAsync 避免阻塞，使用低优先级确保不阻塞UI
                     _ = Dispatcher.InvokeAsync(() =>
                     {
                         ShowError("微信管理器初始化失败");
-                    });
+                    }, DispatcherPriority.Background);
                     return;
                 }
                 
-                // 保存引用
+                // 保存引用（在后台线程上保存，线程安全）
                 _weChatManager = weChatManager;
                 
-                // 启动进程检测定时器（在UI线程上执行，使用 InvokeAsync 避免阻塞）
+                // 启动进程检测定时器（必须在UI线程上执行，因为DispatcherTimer必须在UI线程创建）
+                // 使用正常优先级，因为这是必要的初始化操作
                 _ = Dispatcher.InvokeAsync(() =>
                 {
-                    _weChatManager?.StartProcessCheckTimer();
-                    
-                    // 微信管理器初始化完成后，初始化窗口关闭处理器
-                    InitializeCloseHandler();
-                });
+                    try
+                    {
+                        _weChatManager?.StartProcessCheckTimer();
+                        
+                        // 微信管理器初始化完成后，初始化窗口关闭处理器
+                        InitializeCloseHandler();
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.LogError($"启动进程检测定时器失败: {ex.Message}", ex);
+                    }
+                }, DispatcherPriority.Normal);
                 
                 Logger.LogInfo("微信管理器初始化成功（登录窗口）");
             }
             catch (Exception ex)
             {
                 Logger.LogError($"初始化微信管理器失败: {ex.Message}", ex);
-                // 使用 InvokeAsync 避免阻塞
+                // 使用 InvokeAsync 避免阻塞，使用低优先级确保不阻塞UI
                 _ = Dispatcher.InvokeAsync(() =>
                 {
                     ShowError($"初始化微信管理器失败: {ex.Message}");
-                });
+                }, DispatcherPriority.Background);
             }
         }
         

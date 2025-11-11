@@ -1,0 +1,12 @@
+修复Windows端启动警告和UI卡顿问题
+
+1. 修复高DPI警告：
+   - 从app.manifest中删除dpiAware设置
+   - 在项目文件中添加ApplicationHighDpiMode属性
+
+2. 修复UI卡顿问题：
+   - 增加初始化延迟时间（100ms -> 300ms），确保UI完全渲染
+   - 优化Dispatcher.InvokeAsync调用，使用合适的优先级
+   - 确保DispatcherTimer在UI线程上创建和启动
+   - 添加异常处理，防止初始化失败导致UI阻塞
+

@@ -15,6 +15,8 @@ namespace MyWeChat.Windows
     {
         protected override void OnStartup(StartupEventArgs e)
         {
+            // WPF应用自动感知DPI，无需手动设置
+            // 高DPI设置已通过项目属性ApplicationHighDpiMode配置
             base.OnStartup(e);
             
             // 检查登录状态
