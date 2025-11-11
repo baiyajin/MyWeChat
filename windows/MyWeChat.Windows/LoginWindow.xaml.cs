@@ -83,14 +83,18 @@ namespace MyWeChat.Windows
             ClosingOverlayCanvas.IsHitTestVisible = false;
             ClosingOverlayCanvas.IsEnabled = false;
             
-            // 加载登录历史
-            LoadLoginHistory();
+            // 异步加载登录历史（不阻塞UI）
+            _ = Task.Run(() => LoadLoginHistoryAsync());
             
-            // 异步初始化WebSocket连接（不阻塞UI）
-            _ = Task.Run(async () => await InitializeWebSocketAsync());
-            
-            // 异步初始化微信管理器（完全在后台线程，不阻塞UI）
-            _ = Task.Run(() => InitializeWeChatManagerAsync());
+            // 延迟初始化，确保UI完全加载后再开始后台任务
+            _ = Task.Delay(100).ContinueWith(_ =>
+            {
+                // 异步初始化WebSocket连接（不阻塞UI）
+                _ = Task.Run(async () => await InitializeWebSocketAsync());
+                
+                // 异步初始化微信管理器（完全在后台线程，不阻塞UI）
+                _ = Task.Run(() => InitializeWeChatManagerAsync());
+            });
         }
 
         /// <summary>
@@ -135,7 +139,8 @@ namespace MyWeChat.Windows
                 var messageObj = JsonConvert.DeserializeObject<dynamic>(message);
                 string messageType = messageObj?.type?.ToString() ?? "";
 
-                Dispatcher.Invoke(() =>
+                // 使用 InvokeAsync 避免阻塞
+                _ = Dispatcher.InvokeAsync(() =>
                 {
                     switch (messageType)
                     {
@@ -422,23 +427,38 @@ namespace MyWeChat.Windows
         /// </summary>
         private void LoadLoginHistory()
         {
+            // 同步版本保留，但改为异步调用
+            _ = LoadLoginHistoryAsync();
+        }
+
+        /// <summary>
+        /// 异步加载登录历史（不阻塞UI）
+        /// </summary>
+        private async Task LoadLoginHistoryAsync()
+        {
             try
             {
                 if (File.Exists(_loginHistoryFilePath))
                 {
-                    string json = File.ReadAllText(_loginHistoryFilePath, Encoding.UTF8);
+                    // 在后台线程读取文件
+                    string json = await Task.Run(() => File.ReadAllText(_loginHistoryFilePath, Encoding.UTF8));
                     var history = JsonConvert.DeserializeObject<List<AccountInfo>>(json);
-                    if (history != null)
+                    
+                    // 在UI线程更新界面
+                    await Dispatcher.InvokeAsync(() =>
                     {
-                        _loginHistory = history;
-                        HistoryItemsControl.ItemsSource = _loginHistory;
-                        
-                        // 显示/隐藏登录历史标题
-                        if (HistoryTitleTextBlock != null)
+                        if (history != null)
                         {
-                            HistoryTitleTextBlock.Visibility = _loginHistory.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+                            _loginHistory = history;
+                            HistoryItemsControl.ItemsSource = _loginHistory;
+                            
+                            // 显示/隐藏登录历史标题
+                            if (HistoryTitleTextBlock != null)
+                            {
+                                HistoryTitleTextBlock.Visibility = _loginHistory.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+                            }
                         }
-                    }
+                    });
                 }
             }
             catch (Exception ex)
@@ -643,18 +663,20 @@ namespace MyWeChat.Windows
                     if (isConnected)
                     {
                         Logger.LogInfo("微信连接成功（登录窗口）");
-                        Dispatcher.BeginInvoke(new Action(() =>
+                        // 使用 InvokeAsync 避免阻塞
+                        _ = Dispatcher.InvokeAsync(() =>
                         {
                             ShowSuccess("微信连接成功");
-                        }));
+                        });
                     }
                     else
                     {
                         Logger.LogWarning("微信连接断开（登录窗口）");
-                        Dispatcher.BeginInvoke(new Action(() =>
+                        // 使用 InvokeAsync 避免阻塞
+                        _ = Dispatcher.InvokeAsync(() =>
                         {
                             ShowError("微信连接断开，请检查微信是否正常运行");
-                        }));
+                        });
                     }
                 };
                 
@@ -663,48 +685,50 @@ namespace MyWeChat.Windows
                 {
                     Logger.LogInfo($"获取到微信ID（登录窗口）: {wxid}");
                     
-                    // 初始化命令服务（在UI线程上执行）
-                    Dispatcher.BeginInvoke(new Action(() =>
+                    // 初始化命令服务（在UI线程上执行，使用 InvokeAsync 避免阻塞）
+                    _ = Dispatcher.InvokeAsync(() =>
                     {
                         if (weChatManager?.ConnectionManager != null && _commandService == null)
                         {
                             _commandService = new CommandService(weChatManager.ConnectionManager);
-                    }
-                    }));
+                        }
+                    });
                 };
                 
                 // 初始化微信管理器（在后台线程执行）
                 if (!weChatManager.Initialize())
                 {
                     Logger.LogError("微信管理器初始化失败（登录窗口）");
-                    Dispatcher.BeginInvoke(new Action(() =>
+                    // 使用 InvokeAsync 避免阻塞
+                    _ = Dispatcher.InvokeAsync(() =>
                     {
-                    ShowError("微信管理器初始化失败");
-                    }));
+                        ShowError("微信管理器初始化失败");
+                    });
                     return;
                 }
                 
                 // 保存引用
                 _weChatManager = weChatManager;
                 
-                // 启动进程检测定时器（在UI线程上执行）
-                Dispatcher.BeginInvoke(new Action(() =>
+                // 启动进程检测定时器（在UI线程上执行，使用 InvokeAsync 避免阻塞）
+                _ = Dispatcher.InvokeAsync(() =>
                 {
                     _weChatManager?.StartProcessCheckTimer();
                     
                     // 微信管理器初始化完成后，初始化窗口关闭处理器
                     InitializeCloseHandler();
-                }));
+                });
                 
                 Logger.LogInfo("微信管理器初始化成功（登录窗口）");
             }
             catch (Exception ex)
             {
                 Logger.LogError($"初始化微信管理器失败: {ex.Message}", ex);
-                Dispatcher.BeginInvoke(new Action(() =>
+                // 使用 InvokeAsync 避免阻塞
+                _ = Dispatcher.InvokeAsync(() =>
                 {
-                ShowError($"初始化微信管理器失败: {ex.Message}");
-                }));
+                    ShowError($"初始化微信管理器失败: {ex.Message}");
+                });
             }
         }
         
