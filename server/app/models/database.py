@@ -3,7 +3,7 @@
 """
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import declarative_base
-from sqlalchemy import Column, Integer, String, Text, DateTime
+from sqlalchemy import Column, Integer, String, Text, DateTime, Boolean
 from datetime import datetime
 
 # 数据库配置
@@ -51,6 +51,21 @@ class AccountInfo(Base):
     unread_msg_count = Column(Integer, default=0, comment="未读消息数")
     is_fake_device_id = Column(Integer, default=0, comment="是否为假设备ID")
     pid = Column(Integer, default=0, comment="进程ID")
+    created_at = Column(DateTime, default=datetime.utcnow, comment="创建时间")
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, comment="更新时间")
+
+
+class UserLicense(Base):
+    """授权用户表"""
+    __tablename__ = "user_license"
+
+    id = Column(Integer, primary_key=True, index=True)
+    phone = Column(String(50), unique=True, index=True, comment="登录手机号")
+    license_key = Column(String(50), unique=True, index=True, comment="授权码（20位，全局唯一）")
+    bound_wechat_phone = Column(String(50), comment="绑定的微信手机号（用于验证，默认等于phone）")
+    has_manage_permission = Column(Boolean, default=False, comment="是否有授权码管理权限")
+    status = Column(String(20), default="active", comment="状态：active/expired/revoked")
+    expire_date = Column(DateTime, comment="过期时间（必填）")
     created_at = Column(DateTime, default=datetime.utcnow, comment="创建时间")
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, comment="更新时间")
 
