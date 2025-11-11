@@ -48,7 +48,6 @@ namespace MyWeChat.Windows
         // 启动进度相关
         private int _currentStep = 0;
         private const int _totalSteps = 3; // 总步骤数：1.加载登录历史 2.初始化WebSocket 3.初始化微信管理器
-        private bool _isInitializationComplete = false; // 标记初始化是否完成
 
         public LoginWindow()
         {
@@ -117,7 +116,6 @@ namespace MyWeChat.Windows
                 // 初始化完成，显示完成图标
                 Dispatcher.Invoke(() =>
                 {
-                    _isInitializationComplete = true; // 标记初始化完成
                     UpdateLoadingStatus(_totalSteps, "初始化完成");
                     // 显示完成图标，隐藏加载动画
                     if (LoadingIndicator != null)
