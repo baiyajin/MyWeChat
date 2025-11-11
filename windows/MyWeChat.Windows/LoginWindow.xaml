@@ -137,78 +137,42 @@
                         
                         <!-- 授权码输入 - App端风格 -->
                         <TextBox Name="LicenseKeyTextBox" 
-                                     Grid.Column="0"
-                                     FontSize="16" 
-                                     Padding="0,8"
-                                     Margin="0,0,12,0"
-                                     BorderThickness="0,0,0,1"
-                                     BorderBrush="#E5E5E5"
-                                     Background="Transparent"
-                                     GotFocus="CodeTextBox_GotFocus"
-                                     LostFocus="CodeTextBox_LostFocus"
-                                     VerticalContentAlignment="Center">
-                                <TextBox.Style>
-                                    <Style TargetType="TextBox">
-                                        <Setter Property="Template">
-                                            <Setter.Value>
-                                                <ControlTemplate TargetType="TextBox">
-                                                    <Border BorderThickness="0,0,0,1" BorderBrush="#E5E5E5">
-                                                        <Grid>
-                                                            <Grid.ColumnDefinitions>
-                                                                <ColumnDefinition Width="Auto"/>
-                                                                <ColumnDefinition Width="*"/>
-                                                            </Grid.ColumnDefinitions>
-                                                            <TextBlock Grid.Column="0" 
-                                                                       Text="🔒" 
-                                                                       FontSize="20" 
-                                                                       Margin="0,0,8,0" 
-                                                                       VerticalAlignment="Center"/>
-                                                            <ScrollViewer Grid.Column="1" 
-                                                                          x:Name="PART_ContentHost" 
-                                                                          Margin="0,8"/>
-                                                        </Grid>
-                                                    </Border>
-                                                </ControlTemplate>
-                                            </Setter.Value>
-                                        </Setter>
-                                    </Style>
-                                </TextBox.Style>
-                            </TextBox>
-                            <Button Name="GetCodeButton" 
-                                    Grid.Column="1"
-                                    Content="获取验证码" 
-                                    Padding="16,12"
-                                    Background="Transparent"
-                                    Foreground="#07C160"
-                                    BorderThickness="0"
-                                    Cursor="Hand"
-                                    Click="GetCodeButton_Click"
-                                    FontSize="14"
-                                    VerticalAlignment="Top"
-                                    Margin="0,0,0,0"
-                                    IsEnabled="True">
-                                <Button.Style>
-                                    <Style TargetType="Button">
-                                        <Setter Property="Template">
-                                            <Setter.Value>
-                                                <ControlTemplate TargetType="Button">
-                                                    <Border Background="{TemplateBinding Background}" 
-                                                            BorderThickness="0"
-                                                            Padding="{TemplateBinding Padding}">
-                                                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                                    </Border>
-                                                </ControlTemplate>
-                                            </Setter.Value>
-                                        </Setter>
-                                        <Style.Triggers>
-                                            <Trigger Property="IsMouseOver" Value="True">
-                                                <Setter Property="Foreground" Value="#06AD56"/>
-                                            </Trigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Button.Style>
-                            </Button>
-                        </Grid>
+                                 FontSize="16" 
+                                 Padding="0,8"
+                                 Margin="0,0,0,20"
+                                 BorderThickness="0,0,0,1"
+                                 BorderBrush="#E5E5E5"
+                                 Background="Transparent"
+                                 GotFocus="LicenseKeyTextBox_GotFocus"
+                                 LostFocus="LicenseKeyTextBox_LostFocus"
+                                 VerticalContentAlignment="Center">
+                            <TextBox.Style>
+                                <Style TargetType="TextBox">
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="TextBox">
+                                                <Border BorderThickness="0,0,0,1" BorderBrush="#E5E5E5">
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="Auto"/>
+                                                            <ColumnDefinition Width="*"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        <TextBlock Grid.Column="0" 
+                                                                   Text="🔑" 
+                                                                   FontSize="20" 
+                                                                   Margin="0,0,8,0" 
+                                                                   VerticalAlignment="Center"/>
+                                                        <ScrollViewer Grid.Column="1" 
+                                                                      x:Name="PART_ContentHost" 
+                                                                      Margin="0,8"/>
+                                                    </Grid>
+                                                </Border>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                </Style>
+                            </TextBox.Style>
+                        </TextBox>
                         
                         <!-- 错误提示 -->
                         <TextBlock Name="ErrorTextBlock" 
