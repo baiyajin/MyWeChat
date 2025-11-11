@@ -22,11 +22,6 @@ String? _webSocketUrl;
 bool _linksDisplayed = false;
 
 void main() {
-  if (kIsWeb) {
-    // 在Flutter应用启动前立即设置Web页面标题为"w"
-    platform.setWebTitle('w');
-  }
-  
   if (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows) {
     WidgetsFlutterBinding.ensureInitialized();
     _setWindowSizeAsync();
@@ -35,22 +30,9 @@ void main() {
   runApp(const MyWeChatApp());
   
   if (kIsWeb) {
-    // 在应用启动后再次设置标题，确保覆盖任何默认值
-    platform.setWebTitle('w');
-    
-    // 使用多个回调确保标题被正确设置
+    // 收集访问URL（用于日志输出）
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      platform.setWebTitle('w');
       _collectAccessUrl();
-    });
-    
-    // 延迟设置，确保覆盖Flutter可能设置的默认标题
-    Future.delayed(const Duration(milliseconds: 100), () {
-      platform.setWebTitle('w');
-    });
-    
-    Future.delayed(const Duration(milliseconds: 500), () {
-      platform.setWebTitle('w');
     });
   }
 }
@@ -120,7 +102,7 @@ class MyWeChatApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => ApiService()),
       ],
       child: MaterialApp(
-        title: 'MyWeChat',
+        title: 'w',
         theme: ThemeData(
           primaryColor: const Color(0xFF07C160),
           colorScheme: ColorScheme.fromSeed(
