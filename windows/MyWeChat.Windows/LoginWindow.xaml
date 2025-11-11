@@ -118,11 +118,15 @@
                                                             <ColumnDefinition Width="Auto"/>
                                                             <ColumnDefinition Width="*"/>
                                                         </Grid.ColumnDefinitions>
-                                                        <TextBlock Grid.Column="0" 
-                                                                   Text="📱" 
-                                                                   FontSize="20" 
-                                                                   Margin="0,0,8,0" 
-                                                                   VerticalAlignment="Center"/>
+                                                        <!-- 手机图标 - 使用Path绘制，匹配Material Icons phone_android -->
+                                                        <Path Grid.Column="0" 
+                                                              Data="M17,1.01L7,1C5.9,1 5,1.9 5,3V21C5,22.1 5.9,23 7,23H17C18.1,23 19,22.1 19,21V3C19,1.9 18.1,1.01 17,1.01ZM17,19H7V5H17V19Z" 
+                                                              Fill="#999999"
+                                                              Stretch="Uniform"
+                                                              Width="20"
+                                                              Height="20"
+                                                              Margin="0,0,8,0" 
+                                                              VerticalAlignment="Center"/>
                                                         <Grid Grid.Column="1" Margin="0,8">
                                                             <ScrollViewer x:Name="PART_ContentHost"/>
                                                             <TextBlock Text="请输入手机号"
@@ -176,11 +180,15 @@
                                                             <ColumnDefinition Width="Auto"/>
                                                             <ColumnDefinition Width="*"/>
                                                         </Grid.ColumnDefinitions>
-                                                        <TextBlock Grid.Column="0" 
-                                                                   Text="🔑" 
-                                                                   FontSize="20" 
-                                                                   Margin="0,0,8,0" 
-                                                                   VerticalAlignment="Center"/>
+                                                        <!-- 钥匙图标 - 使用Path绘制，匹配Material Icons vpn_key -->
+                                                        <Path Grid.Column="0" 
+                                                              Data="M12.65,10C11.83,10 11.2,10.63 11.2,11.45C11.2,12.27 11.83,12.9 12.65,12.9C13.47,12.9 14.1,12.27 14.1,11.45C14.1,10.63 13.47,10 12.65,10ZM17,2H7C5.9,2 5,2.9 5,4V20C5,21.1 5.9,22 7,22H17C18.1,22 19,21.1 19,20V4C19,2.9 18.1,2 17,2ZM17,20H7V4H17V20Z" 
+                                                              Fill="#999999"
+                                                              Stretch="Uniform"
+                                                              Width="20"
+                                                              Height="20"
+                                                              Margin="0,0,8,0" 
+                                                              VerticalAlignment="Center"/>
                                                         <Grid Grid.Column="1" Margin="0,8">
                                                             <ScrollViewer x:Name="PART_ContentHost"/>
                                                             <TextBlock Text="请输入授权码"
