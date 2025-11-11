@@ -79,6 +79,11 @@ namespace MyWeChat.Windows.Services
         }
 
         /// <summary>
+        /// 最小化到托盘的回调（可选）
+        /// </summary>
+        public Action? MinimizeToTrayCallback { get; set; }
+
+        /// <summary>
         /// 处理窗口关闭事件
         /// </summary>
         /// <param name="e">取消事件参数</param>
@@ -92,15 +97,46 @@ namespace MyWeChat.Windows.Services
 
             // 阻止窗口立即关闭
             e.Cancel = true;
+
+            // 显示选择对话框（在UI线程上同步执行，确保对话框能正常显示）
+            MessageBoxResult result = MessageBox.Show(
+                "请选择操作：\n\n点击\"是\"最小化到托盘\n点击\"否\"直接关闭程序\n点击\"取消\"返回",
+                "关闭确认",
+                MessageBoxButton.YesNoCancel,
+                MessageBoxImage.Question);
+
+            if (result == MessageBoxResult.Cancel)
+            {
+                // 用户取消，不做任何操作
+                return;
+            }
+
+            if (result == MessageBoxResult.Yes)
+            {
+                // 用户选择最小化到托盘
+                if (MinimizeToTrayCallback != null)
+                {
+                    MinimizeToTrayCallback();
+                }
+                else
+                {
+                    // 如果没有提供回调，直接最小化并隐藏
+                    _window.WindowState = WindowState.Minimized;
+                    _window.Hide();
+                }
+                return;
+            }
+
+            // 用户选择直接关闭，执行清理逻辑
             _isClosing = true;
 
             // 显示进度遮罩（如果提供了回调）
             if (_config.ShowProgressOverlayCallback != null)
             {
-                _dispatcher.Invoke(() =>
+                _dispatcher.BeginInvoke(new Action(() =>
                 {
                     _config.ShowProgressOverlayCallback(true);
-                });
+                }));
             }
 
             // 更新初始进度
@@ -120,7 +156,7 @@ namespace MyWeChat.Windows.Services
                     {
                         if (_config.StopAllTimersCallback != null)
                         {
-                            _dispatcher.Invoke(() => _config.StopAllTimersCallback());
+                            await _dispatcher.InvokeAsync(() => _config.StopAllTimersCallback());
                         }
                         Logger.LogInfo("所有定时器已停止");
                     }
@@ -136,7 +172,7 @@ namespace MyWeChat.Windows.Services
                     {
                         if (_config.UnsubscribeEventsCallback != null)
                         {
-                            _dispatcher.Invoke(() => _config.UnsubscribeEventsCallback());
+                            await _dispatcher.InvokeAsync(() => _config.UnsubscribeEventsCallback());
                         }
                         Logger.LogInfo("事件订阅已取消");
                     }
@@ -168,7 +204,7 @@ namespace MyWeChat.Windows.Services
                         Logger.LogInfo("正在关闭微信连接...");
                         try
                         {
-                            _dispatcher.Invoke(() => _config.WeChatManager.Disconnect());
+                            await _dispatcher.InvokeAsync(() => _config.WeChatManager.Disconnect());
                             Logger.LogInfo("微信连接已关闭");
 
                             // 等待资源释放（给系统时间释放文件句柄）
@@ -190,7 +226,7 @@ namespace MyWeChat.Windows.Services
                     {
                         if (_config.CleanupSyncServicesCallback != null)
                         {
-                            _dispatcher.Invoke(() => _config.CleanupSyncServicesCallback());
+                            await _dispatcher.InvokeAsync(() => _config.CleanupSyncServicesCallback());
                         }
                         Logger.LogInfo("同步服务已清理");
                     }
@@ -206,7 +242,7 @@ namespace MyWeChat.Windows.Services
                     {
                         if (_config.ClearAccountListCallback != null)
                         {
-                            _dispatcher.Invoke(() => _config.ClearAccountListCallback());
+                            await _dispatcher.InvokeAsync(() => _config.ClearAccountListCallback());
                         }
                         Logger.LogInfo("账号列表已清空");
                     }
@@ -235,7 +271,7 @@ namespace MyWeChat.Windows.Services
                     await Task.Delay(300).ConfigureAwait(false);
 
                     // 关闭窗口
-                    _dispatcher.Invoke(() =>
+                    await _dispatcher.InvokeAsync(() =>
                     {
                         if (_config.ShowProgressOverlayCallback != null)
                         {
@@ -251,7 +287,7 @@ namespace MyWeChat.Windows.Services
 
                     // 即使出错也关闭窗口
                     await Task.Delay(1000).ConfigureAwait(false);
-                    _dispatcher.Invoke(() =>
+                    await _dispatcher.InvokeAsync(() =>
                     {
                         if (_config.ShowProgressOverlayCallback != null)
                         {
@@ -270,10 +306,10 @@ namespace MyWeChat.Windows.Services
         {
             if (_config.UpdateProgressCallback != null)
             {
-                _dispatcher.Invoke(() =>
+                _dispatcher.BeginInvoke(new Action(() =>
                 {
                     _config.UpdateProgressCallback(progress, status);
-                });
+                }));
             }
         }
     }

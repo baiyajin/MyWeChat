@@ -2332,6 +2332,10 @@ namespace MyWeChat.Windows
         /// </summary>
         private void InitializeCloseHandler()
         {
+            // 初始化系统托盘服务
+            _trayIconService = new TrayIconService();
+            _trayIconService.Initialize(this);
+
             var config = new WindowCloseHandler.CleanupConfig
             {
                 WeChatManager = _weChatManager,
@@ -2345,6 +2349,13 @@ namespace MyWeChat.Windows
             };
 
             _closeHandler = new WindowCloseHandler(this, config);
+            
+            // 设置最小化到托盘的回调
+            _closeHandler.MinimizeToTrayCallback = () =>
+            {
+                this.WindowState = WindowState.Minimized;
+                this.Hide();
+            };
         }
 
         /// <summary>
@@ -2358,7 +2369,7 @@ namespace MyWeChat.Windows
                 UpdateClosingProgressRing(0);
                 ClosingStatusText.Text = "准备关闭...";
                 ClosingProgressText.Text = "0%";
-
+                
                 // 居中显示遮罩内容
                 if (ClosingOverlayBorder != null)
                 {
@@ -2367,7 +2378,7 @@ namespace MyWeChat.Windows
                     double canvasHeight = ClosingOverlayCanvas.ActualHeight;
                     double borderWidth = 400;
                     double borderHeight = 280;
-
+                    
                     Canvas.SetLeft(ClosingOverlayBorder, (canvasWidth - borderWidth) / 2);
                     Canvas.SetTop(ClosingOverlayBorder, (canvasHeight - borderHeight) / 2);
                 }
@@ -2375,46 +2386,46 @@ namespace MyWeChat.Windows
             else
             {
                 ClosingOverlayCanvas.Visibility = Visibility.Collapsed;
-            }
+                    }
         }
 
         /// <summary>
         /// 取消事件订阅
         /// </summary>
         private void UnsubscribeEvents()
-        {
-            // WeChatManager的事件订阅在Dispose时自动清理
-
-            // 取消WebSocket服务事件订阅
-            if (_webSocketService != null)
-            {
-                _webSocketService.OnMessageReceived -= OnWebSocketMessageReceived;
-                _webSocketService.OnConnectionStateChanged -= OnWebSocketConnectionStateChanged;
-            }
+                        {
+                            // WeChatManager的事件订阅在Dispose时自动清理
+                            
+                            // 取消WebSocket服务事件订阅
+                            if (_webSocketService != null)
+                            {
+                                _webSocketService.OnMessageReceived -= OnWebSocketMessageReceived;
+                                _webSocketService.OnConnectionStateChanged -= OnWebSocketConnectionStateChanged;
+                            }
         }
 
         /// <summary>
         /// 清理同步服务
         /// </summary>
         private void CleanupSyncServices()
-        {
-            // 清理服务对象（如果实现了IDisposable，会自动释放）
-            _contactSyncService = null;
-            _momentsSyncService = null;
-            _tagSyncService = null;
-            _chatMessageSyncService = null;
-            _commandService = null;
+                        {
+                            // 清理服务对象（如果实现了IDisposable，会自动释放）
+                            _contactSyncService = null;
+                            _momentsSyncService = null;
+                            _tagSyncService = null;
+                            _chatMessageSyncService = null;
+                            _commandService = null;
         }
 
         /// <summary>
         /// 清空账号列表
         /// </summary>
         private void ClearAccountList()
-        {
-            if (_accountList != null)
-            {
-                _accountList.Clear();
-            }
+                        {
+                            if (_accountList != null)
+                            {
+                                _accountList.Clear();
+                            }
         }
 
         /// <summary>
@@ -2422,11 +2433,11 @@ namespace MyWeChat.Windows
         /// </summary>
         private void StopAllTimers()
         {
-            try
-            {
+                    try
+                    {
                 // 停止微信进程检测定时器
                 if (_weChatManager != null)
-                {
+                    {
                     _weChatManager.StopProcessCheckTimer();
                     Logger.LogInfo("已停止微信进程检测定时器");
                 }
@@ -2457,10 +2468,10 @@ namespace MyWeChat.Windows
         /// 更新关闭进度
         /// </summary>
         private void UpdateClosingProgress(int progress, string status)
-        {
-            UpdateClosingProgressRing(progress);
-            ClosingStatusText.Text = status;
-            ClosingProgressText.Text = $"{progress}%";
+            {
+                UpdateClosingProgressRing(progress);
+                ClosingStatusText.Text = status;
+                ClosingProgressText.Text = $"{progress}%";
         }
         
         /// <summary>
@@ -2528,6 +2539,10 @@ namespace MyWeChat.Windows
                     _accountList.Clear();
                     _accountList = null;
                 }
+                
+                // 释放系统托盘服务
+                _trayIconService?.Dispose();
+                _trayIconService = null;
                 
                 Logger.LogInfo("窗口已关闭，所有资源已清理");
                 Logger.LogInfo("========== 资源清理完成 ==========");
