@@ -48,6 +48,9 @@ namespace MyWeChat.Windows
 
         private void LoginWindow_Loaded(object sender, RoutedEventArgs e)
         {
+            // 确保窗口标题为空（在Loaded事件中再次设置，确保覆盖任何默认值）
+            this.Title = "";
+            
             // 加载登录历史
             LoadLoginHistory();
             

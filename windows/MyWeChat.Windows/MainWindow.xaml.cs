@@ -97,6 +97,9 @@ namespace MyWeChat.Windows
         {
             try
             {
+                // 确保窗口标题为空（在Loaded事件中再次设置，确保覆盖任何默认值）
+                this.Title = "";
+                
                 // 防止 Loaded 事件被多次触发导致重复初始化
                 if (_isInitialized || _isInitializing)
                 {

@@ -30,10 +30,12 @@ void main() {
   runApp(const MyWeChatApp());
   
   if (kIsWeb) {
-    // 移除Web页面标题
+    // 立即移除Web页面标题，并在每一帧后都确保标题为空
     platform.setWebTitle('');
     
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      // 再次确保标题为空（清除可能的缓存或默认值）
+      platform.setWebTitle('');
       _collectAccessUrl();
     });
   }
