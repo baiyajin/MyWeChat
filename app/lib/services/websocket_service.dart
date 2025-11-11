@@ -40,7 +40,6 @@ class WebSocketService extends ChangeNotifier {
       // 创建连接
       try {
         _channel = WebSocketChannel.connect(Uri.parse(serverUrl));
-        print('正在尝试连接WebSocket: $serverUrl');
       } catch (e) {
         print('创建WebSocket通道失败: $e');
         _isConnected = false;
@@ -57,7 +56,6 @@ class WebSocketService extends ChangeNotifier {
           // 收到第一条消息，说明连接成功
           if (!firstMessageReceived) {
             firstMessageReceived = true;
-            print('WebSocket连接成功，收到第一条消息');
             if (!connectionCompleter.isCompleted) {
               connectionCompleter.complete(true);
             }
@@ -117,7 +115,6 @@ class WebSocketService extends ChangeNotifier {
             'type': 'client_type',
             'client_type': 'app',
           }));
-          print('已发送客户端类型消息');
         } catch (e) {
           print('发送客户端类型消息失败: $e');
           connectionFailed = true;
@@ -157,7 +154,6 @@ class WebSocketService extends ChangeNotifier {
               // 超时不一定意味着连接失败
               // 如果发送消息成功且没有错误，连接可能已经建立
               // 服务器可能不会立即响应，所以超时也视为成功（如果发送成功）
-              print('等待服务器响应超时，但发送消息成功，认为连接已建立');
               return !connectionFailed; // 如果发送成功且没有错误，认为连接成功
             },
           );
@@ -193,7 +189,6 @@ class WebSocketService extends ChangeNotifier {
         // 加载本地保存的账号信息
         await _loadMyInfoFromLocal();
         
-        print('WebSocket连接已成功建立');
         return true;
       } on TimeoutException catch (e) {
         print('WebSocket连接超时: $e');
@@ -592,11 +587,7 @@ class WebSocketService extends ChangeNotifier {
         _myInfo = myInfoData;
         // 更新当前微信账号ID
         _currentWeChatId = myInfoData['wxid']?.toString() ?? myInfoData['account']?.toString();
-        print('从本地加载账号信息成功: $_myInfo');
-        print('当前微信账号ID: $_currentWeChatId');
         notifyListeners();
-      } else {
-        print('本地没有保存的账号信息');
       }
     } catch (e) {
       print('从本地加载账号信息失败: $e');

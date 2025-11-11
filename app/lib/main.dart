@@ -87,29 +87,6 @@ void _displayAllLinks() {
   }
   
   _linksDisplayed = true;
-  
-  print('');
-  print('═══════════════════════════════════════════════════════════');
-  print('  🚀 Flutter Web 应用已启动 - 所有链接信息');
-  print('═══════════════════════════════════════════════════════════');
-  print('');
-  
-  if (_appUrl != null) {
-    print('  📱 应用访问链接:');
-    print('     $_appUrl');
-    print('');
-  }
-  
-  if (_webSocketUrl != null) {
-    print('  📡 WebSocket 服务器:');
-    print('     $_webSocketUrl');
-    print('');
-  }
-  
-  print('  💡 提示: 如果浏览器未自动打开，请手动访问上述链接');
-  print('');
-  print('═══════════════════════════════════════════════════════════');
-  print('');
 }
 
 class MyWeChatApp extends StatelessWidget {
@@ -171,10 +148,8 @@ class _AuthWrapperState extends State<_AuthWrapper> {
   void initState() {
     super.initState();
     if (kIsWeb) {
-      print('[_AuthWrapper] Web平台初始化，_isLoading=$_isLoading, _isLoggedIn=$_isLoggedIn');
       Future.delayed(_webCheckDelay, () {
         if (mounted) {
-          print('[_AuthWrapper] 开始检查登录状态');
           _checkLoginState();
         }
       });
@@ -282,10 +257,6 @@ class _AuthWrapperState extends State<_AuthWrapper> {
 
   @override
   Widget build(BuildContext context) {
-    if (kIsWeb) {
-      print('[_AuthWrapper] build() 被调用，_isLoading=$_isLoading, _isLoggedIn=$_isLoggedIn');
-    }
-    
     if (_isLoading) {
       return const Scaffold(
         body: Center(
