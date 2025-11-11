@@ -1,12 +1,14 @@
-修复Windows端启动警告和UI卡顿问题
+实现微信风格关闭确认对话框并修复托盘图标显示问题
 
-1. 修复高DPI警告：
-   - 从app.manifest中删除dpiAware设置
-   - 在项目文件中添加ApplicationHighDpiMode属性
+1. 创建微信风格的自定义关闭确认对话框：
+   - 新建CloseConfirmDialog.xaml和CloseConfirmDialog.xaml.cs
+   - 使用微信UI风格（白色背景、圆角、绿色按钮）
+   - 三个选项：最小化到托盘、关闭程序、取消
+   - 替换原有的MessageBox，在应用内显示
 
-2. 修复UI卡顿问题：
-   - 增加初始化延迟时间（100ms -> 300ms），确保UI完全渲染
-   - 优化Dispatcher.InvokeAsync调用，使用合适的优先级
-   - 确保DispatcherTimer在UI线程上创建和启动
-   - 添加异常处理，防止初始化失败导致UI阻塞
-
+2. 修复托盘图标不显示问题：
+   - 改进GetApplicationIcon方法，支持多种图标加载方式
+   - 优先从Resources文件夹加载
+   - 其次从可执行文件提取
+   - 最后尝试从程序集资源加载
+   - 添加日志记录，便于调试

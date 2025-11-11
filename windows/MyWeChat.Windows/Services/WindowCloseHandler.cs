@@ -5,6 +5,7 @@ using System.Windows;
 using System.Windows.Threading;
 using MyWeChat.Windows.Services.WebSocket;
 using MyWeChat.Windows.Utils;
+using MyWeChat.Windows.Windows;
 
 namespace MyWeChat.Windows.Services
 {
@@ -98,20 +99,21 @@ namespace MyWeChat.Windows.Services
             // 阻止窗口立即关闭
             e.Cancel = true;
 
-            // 显示选择对话框（在UI线程上同步执行，确保对话框能正常显示）
-            MessageBoxResult result = System.Windows.MessageBox.Show(
-                "请选择操作：\n\n点击\"是\"最小化到托盘\n点击\"否\"直接关闭程序\n点击\"取消\"返回",
-                "关闭确认",
-                MessageBoxButton.YesNoCancel,
-                MessageBoxImage.Question);
-
-            if (result == MessageBoxResult.Cancel)
+            // 显示微信风格的自定义对话框
+            var dialog = new CloseConfirmDialog
+            {
+                Owner = _window
+            };
+            
+            bool? dialogResult = dialog.ShowDialog();
+            
+            if (dialogResult == false || dialog.Result == CloseConfirmDialog.CloseDialogResult.Cancel)
             {
                 // 用户取消，不做任何操作
                 return;
             }
 
-            if (result == MessageBoxResult.Yes)
+            if (dialog.Result == CloseConfirmDialog.CloseDialogResult.MinimizeToTray)
             {
                 // 用户选择最小化到托盘
                 if (MinimizeToTrayCallback != null)

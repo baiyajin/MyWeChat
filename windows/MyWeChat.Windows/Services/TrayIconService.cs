@@ -4,6 +4,7 @@ using System.Windows.Forms;
 using System.Drawing;
 using System.IO;
 using System.Reflection;
+using MyWeChat.Windows.Utils;
 
 namespace MyWeChat.Windows.Services
 {
@@ -96,18 +97,51 @@ namespace MyWeChat.Windows.Services
         {
             try
             {
+                // 方法1: 尝试从Resources文件夹加载
                 string iconPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources", "favicon.ico");
                 if (File.Exists(iconPath))
                 {
+                    // 直接创建Icon，不使用using，因为需要返回Icon对象
                     return new Icon(iconPath);
+                }
+                
+                // 方法2: 尝试从可执行文件加载
+                string exePath = Assembly.GetExecutingAssembly().Location;
+                if (!string.IsNullOrEmpty(exePath) && File.Exists(exePath))
+                {
+                    Icon? extractedIcon = Icon.ExtractAssociatedIcon(exePath);
+                    if (extractedIcon != null)
+                    {
+                        // 需要克隆Icon，因为ExtractAssociatedIcon返回的Icon在释放时会有问题
+                        return new Icon(extractedIcon, extractedIcon.Size);
+                    }
+                }
+                
+                // 方法3: 尝试从程序集资源加载
+                try
+                {
+                    var resourceStream = Assembly.GetExecutingAssembly().GetManifestResourceStream("MyWeChat.Windows.Resources.favicon.ico");
+                    if (resourceStream != null)
+                    {
+                        using (resourceStream)
+                        {
+                            return new Icon(resourceStream);
+                        }
+                    }
+                }
+                catch
+                {
+                    // 忽略资源加载错误
                 }
             }
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"加载图标失败: {ex.Message}");
+                Logger.LogWarning($"加载托盘图标失败: {ex.Message}");
             }
 
-            // 如果加载失败，使用默认图标
+            // 如果所有方法都失败，使用默认图标
+            Logger.LogWarning("使用默认系统图标作为托盘图标");
             return SystemIcons.Application;
         }
 
