@@ -330,30 +330,31 @@ class _LoginPageState extends State<LoginPage> {
             
             // 登录历史列表 - 微信风格
             if (_loginHistory.isNotEmpty) ...[
-                Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        '最近登录',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Color(0xFF999999),
-                        ),
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      '最近登录',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Color(0xFF999999),
                       ),
-                      const SizedBox(height: 12),
-                      ..._loginHistory.map((account) => _buildHistoryItem(account)),
-                      const SizedBox(height: 20),
-                    ],
-                  ),
+                    ),
+                    const SizedBox(height: 12),
+                    ..._loginHistory.map((account) => _buildHistoryItem(account)),
+                    const SizedBox(height: 20),
+                  ],
                 ),
+              ),
             ],
             
             // 登录表单 - 微信风格
             Expanded(
-              child: Container(
-                margin: const EdgeInsets.symmetric(horizontal: 20),
+              child: SingleChildScrollView(
+                child: Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 20),
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
                   color: Colors.white,
@@ -512,6 +513,7 @@ class _LoginPageState extends State<LoginPage> {
                   ],
                 ),
               ),
+            ),
             ),
           ],
         ),
