@@ -38,8 +38,8 @@ namespace MyWeChat.Windows
         public LoginWindow()
         {
             InitializeComponent();
-            // 移除窗口标题
-            this.Title = "";
+            // 设置窗口标题为"w"
+            this.Title = "w";
             _serverUrl = ConfigHelper.GetServerUrl();
             _loginHistoryFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "login_history.json");
             
@@ -48,8 +48,8 @@ namespace MyWeChat.Windows
 
         private void LoginWindow_Loaded(object sender, RoutedEventArgs e)
         {
-            // 确保窗口标题为空（在Loaded事件中再次设置，确保覆盖任何默认值）
-            this.Title = "";
+            // 确保窗口标题为"w"（在Loaded事件中再次设置，确保覆盖任何默认值）
+            this.Title = "w";
             
             // 加载登录历史
             LoadLoginHistory();

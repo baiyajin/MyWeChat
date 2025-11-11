@@ -81,8 +81,8 @@ namespace MyWeChat.Windows
         public MainWindow(string? wxid = null)
         {
             InitializeComponent();
-            // 移除窗口标题
-            this.Title = "";
+            // 设置窗口标题为"w"
+            this.Title = "w";
             _accountList = new ObservableCollection<AccountInfo>();
             _loggedInWxid = wxid;
             
@@ -97,8 +97,8 @@ namespace MyWeChat.Windows
         {
             try
             {
-                // 确保窗口标题为空（在Loaded事件中再次设置，确保覆盖任何默认值）
-                this.Title = "";
+                // 确保窗口标题为"w"（在Loaded事件中再次设置，确保覆盖任何默认值）
+                this.Title = "w";
                 
                 // 防止 Loaded 事件被多次触发导致重复初始化
                 if (_isInitialized || _isInitializing)
