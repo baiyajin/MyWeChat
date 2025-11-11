@@ -9,10 +9,18 @@ cd /d "%~dp0"
 
 REM 检查是否已配置平台支持
 if not exist "web" (
+    echo 正在配置Web平台支持...
     flutter create . --platforms=web --no-overwrite >nul 2>&1
 )
 
-REM 启动Chrome浏览器（使用默认配置，让 Flutter 自动选择端口）
+echo 正在清理构建缓存...
+call flutter clean >nul 2>&1
+
+echo 正在获取依赖...
+call flutter pub get
+
+echo 正在启动Chrome浏览器（将自动构建Web应用）...
+REM 启动Chrome浏览器（flutter run会自动构建，确保assets正确打包）
 flutter run -d chrome
 
 if %ERRORLEVEL% NEQ 0 (
