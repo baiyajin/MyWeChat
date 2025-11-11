@@ -19,8 +19,19 @@ call flutter clean >nul 2>&1
 echo 正在获取依赖...
 call flutter pub get
 
-echo 正在启动Chrome浏览器（将自动构建Web应用）...
-REM 启动Chrome浏览器（flutter run会自动构建，确保assets正确打包）
+echo 正在构建Web应用（确保资源文件正确打包）...
+REM 先构建一次以确保资源文件被正确生成
+call flutter build web --debug
+if %ERRORLEVEL% NEQ 0 (
+    echo.
+    echo Web应用构建失败！请检查错误信息。
+    echo.
+    pause
+    exit /b %ERRORLEVEL%
+)
+
+echo 正在启动Chrome浏览器...
+REM 启动Chrome浏览器
 flutter run -d chrome
 
 if %ERRORLEVEL% NEQ 0 (
