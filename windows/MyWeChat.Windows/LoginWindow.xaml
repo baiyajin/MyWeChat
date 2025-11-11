@@ -123,9 +123,28 @@
                                                                    FontSize="20" 
                                                                    Margin="0,0,8,0" 
                                                                    VerticalAlignment="Center"/>
-                                                        <ScrollViewer Grid.Column="1" 
-                                                                      x:Name="PART_ContentHost" 
-                                                                      Margin="0,8"/>
+                                                        <Grid Grid.Column="1" Margin="0,8">
+                                                            <ScrollViewer x:Name="PART_ContentHost"/>
+                                                            <TextBlock Text="请输入手机号"
+                                                                       Foreground="#999999"
+                                                                       FontSize="16"
+                                                                       VerticalAlignment="Center"
+                                                                       IsHitTestVisible="False">
+                                                                <TextBlock.Style>
+                                                                    <Style TargetType="TextBlock">
+                                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                                        <Style.Triggers>
+                                                                            <DataTrigger Binding="{Binding Text, RelativeSource={RelativeSource TemplatedParent}}" Value="">
+                                                                                <Setter Property="Visibility" Value="Visible"/>
+                                                                            </DataTrigger>
+                                                                            <DataTrigger Binding="{Binding Text, RelativeSource={RelativeSource TemplatedParent}}" Value="{x:Null}">
+                                                                                <Setter Property="Visibility" Value="Visible"/>
+                                                                            </DataTrigger>
+                                                                        </Style.Triggers>
+                                                                    </Style>
+                                                                </TextBlock.Style>
+                                                            </TextBlock>
+                                                        </Grid>
                                                     </Grid>
                                                 </Border>
                                             </ControlTemplate>
@@ -162,9 +181,28 @@
                                                                    FontSize="20" 
                                                                    Margin="0,0,8,0" 
                                                                    VerticalAlignment="Center"/>
-                                                        <ScrollViewer Grid.Column="1" 
-                                                                      x:Name="PART_ContentHost" 
-                                                                      Margin="0,8"/>
+                                                        <Grid Grid.Column="1" Margin="0,8">
+                                                            <ScrollViewer x:Name="PART_ContentHost"/>
+                                                            <TextBlock Text="请输入授权码"
+                                                                       Foreground="#999999"
+                                                                       FontSize="16"
+                                                                       VerticalAlignment="Center"
+                                                                       IsHitTestVisible="False">
+                                                                <TextBlock.Style>
+                                                                    <Style TargetType="TextBlock">
+                                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                                        <Style.Triggers>
+                                                                            <DataTrigger Binding="{Binding Text, RelativeSource={RelativeSource TemplatedParent}}" Value="">
+                                                                                <Setter Property="Visibility" Value="Visible"/>
+                                                                            </DataTrigger>
+                                                                            <DataTrigger Binding="{Binding Text, RelativeSource={RelativeSource TemplatedParent}}" Value="{x:Null}">
+                                                                                <Setter Property="Visibility" Value="Visible"/>
+                                                                            </DataTrigger>
+                                                                        </Style.Triggers>
+                                                                    </Style>
+                                                                </TextBlock.Style>
+                                                            </TextBlock>
+                                                        </Grid>
                                                     </Grid>
                                                 </Border>
                                             </ControlTemplate>
