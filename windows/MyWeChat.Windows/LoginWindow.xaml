@@ -94,7 +94,7 @@
                         BorderThickness="0"
                         CornerRadius="4"
                         Padding="20"
-                        Margin="0,0,0,0">
+                        Margin="0,0,0,60">
                     <StackPanel>
                         <!-- 手机号输入 - App端风格（下划线输入框） -->
                         <TextBox Name="PhoneTextBox" 
