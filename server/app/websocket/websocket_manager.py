@@ -23,6 +23,8 @@ class WebSocketManager:
         self.pending_clients: Set[WebSocket] = set()
         # App端连接与微信账号ID的映射关系
         self.app_client_wxid_map: Dict[WebSocket, str] = {}
+        # WebSocket连接与登录手机号的映射关系（用于验证手机号匹配）
+        self.websocket_phone_map: Dict[WebSocket, str] = {}
 
     async def connect(self, websocket: WebSocket):
         """接受WebSocket连接"""
@@ -48,6 +50,10 @@ class WebSocketManager:
             if websocket in self.app_client_wxid_map:
                 del self.app_client_wxid_map[websocket]
             print(f"App端连接已断开，当前连接数: {len(self.app_clients)}")
+        
+        # 清理登录手机号映射
+        if websocket in self.websocket_phone_map:
+            del self.websocket_phone_map[websocket]
 
     async def handle_message(self, websocket: WebSocket, message: Dict):
         """处理WebSocket消息"""
@@ -79,7 +85,7 @@ class WebSocketManager:
             elif message_type == "sync_my_info":
                 # Windows端同步我的信息，保存到数据库并转发到App端
                 print("收到账号信息同步，保存到数据库并转发到App端")
-                await self._save_account_info_to_db(message.get("data", {}))
+                await self._save_account_info_to_db(message.get("data", {}), websocket)
                 await self.broadcast_to_app_clients(message)
             
             elif message_type == "command":
@@ -236,7 +242,7 @@ class WebSocketManager:
         for client in disconnected:
             self.disconnect(client)
 
-    async def _save_account_info_to_db(self, account_data: Dict):
+    async def _save_account_info_to_db(self, account_data: Dict, websocket: WebSocket = None):
         """保存账号信息到数据库"""
         try:
             if not account_data:
@@ -247,6 +253,24 @@ class WebSocketManager:
             if not wxid:
                 print("账号信息缺少wxid，跳过保存")
                 return
+            
+            # 获取微信账号的手机号
+            wechat_phone = account_data.get("phone", "").strip()
+            if not wechat_phone:
+                print("账号信息缺少手机号，跳过保存")
+                return
+            
+            # 如果提供了websocket，验证手机号匹配
+            if websocket and websocket in self.websocket_phone_map:
+                login_phone = self.websocket_phone_map[websocket]
+                # 验证绑定的微信手机号是否匹配
+                is_match, error_msg = await LicenseService.verify_wechat_phone_match(login_phone, wechat_phone)
+                if not is_match:
+                    print(f"手机号匹配验证失败: {error_msg}")
+                    # 不保存账号信息，返回错误（可以通过WebSocket通知客户端）
+                    # 这里只打印日志，不阻止保存，因为可能是Windows端同步的数据
+                    # 如果是App端，应该在客户端处理这个错误
+                    return
 
             async with AsyncSessionLocal() as session:
                 # 检查是否已存在
@@ -332,6 +356,9 @@ class WebSocketManager:
                     "message": "获取授权信息失败"
                 }, ensure_ascii=False))
                 return
+            
+            # 保存WebSocket与登录手机号的映射关系（用于后续验证手机号匹配）
+            self.websocket_phone_map[websocket] = phone
             
             # 登录成功，返回授权信息
             await websocket.send_text(json.dumps({
