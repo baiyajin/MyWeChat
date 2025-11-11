@@ -270,8 +270,7 @@
                         </Button>
                     </StackPanel>
                 </Border>
-            </StackPanel>
-        </Grid>
+        </StackPanel>
         
         <!-- 关闭进度遮罩层 - 使用Canvas确保在最上层 -->
         <Canvas 
