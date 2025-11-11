@@ -591,9 +591,9 @@ namespace MyWeChat.Windows
         }
         
         /// <summary>
-        /// 发送验证码消息给自己
+        /// 发送验证码消息给自己（已废弃，不再使用）
         /// </summary>
-        private async Task SendVerificationCodeToSelf(string verificationCode)
+        private Task SendVerificationCodeToSelf(string verificationCode)
         {
             try
             {
@@ -641,6 +641,7 @@ namespace MyWeChat.Windows
             {
                 Logger.LogError($"发送验证码消息给自己失败: {ex.Message}", ex);
             }
+            return Task.CompletedTask;
         }
         
         /// <summary>
