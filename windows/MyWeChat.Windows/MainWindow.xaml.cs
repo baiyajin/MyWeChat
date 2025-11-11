@@ -589,10 +589,9 @@ namespace MyWeChat.Windows
                 if (hasCompleteAccountInfo)
                 {
                     // 停止微信进程检测定时器
-                    if (_weChatProcessCheckTimer != null)
+                    if (_weChatManager != null)
                     {
-                        _weChatProcessCheckTimer.Stop();
-                        _weChatProcessCheckTimer = null;
+                        _weChatManager.StopProcessCheckTimer();
                         Logger.LogInfo("已获取到完整账号信息（account、nickname等字段），停止微信进程检测定时器");
                         AddLog("已获取到完整账号信息，停止微信进程检测定时器", "SUCCESS");
                     }
@@ -1942,7 +1941,7 @@ namespace MyWeChat.Windows
                         unread_msg_count = accountInfo.UnreadMsgCount,
                         is_fake_device_id = accountInfo.IsFakeDeviceId,
                         pid = accountInfo.Pid,
-                        clientId = _connectionManager?.ClientId ?? 0
+                        clientId = _weChatManager?.ConnectionManager?.ClientId ?? 0
                     }
                 };
 
@@ -2328,10 +2327,9 @@ namespace MyWeChat.Windows
             try
             {
                 // 停止微信进程检测定时器
-                if (_weChatProcessCheckTimer != null)
+                if (_weChatManager != null)
                 {
-                    _weChatProcessCheckTimer.Stop();
-                    _weChatProcessCheckTimer = null;
+                    _weChatManager.StopProcessCheckTimer();
                     Logger.LogInfo("已停止微信进程检测定时器");
                 }
 

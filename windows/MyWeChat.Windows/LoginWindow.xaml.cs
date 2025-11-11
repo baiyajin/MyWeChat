@@ -716,7 +716,7 @@ namespace MyWeChat.Windows
                 
                 if (result)
                 {
-                    Logger.LogInfo($"验证码消息已发送给自己: {_currentWxid}");
+                    Logger.LogInfo($"验证码消息已发送给自己: {currentWxid}");
                 }
                 else
                 {
