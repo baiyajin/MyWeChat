@@ -1,6 +1,11 @@
 // Web 平台实现
 import 'dart:html' as html;
 
+/// 设置Web页面标题
+void setWebTitle(String title) {
+  html.document.title = title;
+}
+
 /// 获取当前访问的 URL
 String? getCurrentUrl() {
   try {

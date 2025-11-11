@@ -1,7 +1,7 @@
 <Window x:Class="MyWeChat.Windows.LoginWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="微信" Height="600" Width="400"
+        Title="" Height="600" Width="400"
         WindowStartupLocation="CenterScreen"
         Background="#EDEDED"
         ResizeMode="NoResize">

@@ -9,12 +9,13 @@ import 'ui/pages/collections_page.dart';
 import 'services/websocket_service.dart';
 import 'services/api_service.dart';
 
-import 'platform/platform_stub.dart'
+import 'platform/platform_stub.dart' as platform
     if (dart.library.html) 'platform/platform_web.dart';
 
 import 'platform/window_manager_stub.dart'
     if (dart.library.html) 'platform/window_manager_stub.dart'
     if (dart.library.io) 'package:window_manager/window_manager.dart';
+
 
 String? _appUrl;
 String? _webSocketUrl;
@@ -29,6 +30,9 @@ void main() {
   runApp(const MyWeChatApp());
   
   if (kIsWeb) {
+    // 动态设置Web页面标题
+    platform.setWebTitle('微信');
+    
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _collectAccessUrl();
     });
@@ -64,7 +68,7 @@ Future<void> _setWindowSize() async {
 }
 
 void _collectAccessUrl() {
-  _appUrl = getCurrentUrl();
+  _appUrl = platform.getCurrentUrl();
 }
 
 void setWebSocketUrl(String url) {
