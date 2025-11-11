@@ -38,6 +38,8 @@ namespace MyWeChat.Windows
         public LoginWindow()
         {
             InitializeComponent();
+            // 设置窗口标题（避免XAML编码问题）
+            this.Title = "微信";
             _serverUrl = ConfigHelper.GetServerUrl();
             _loginHistoryFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "login_history.json");
             
