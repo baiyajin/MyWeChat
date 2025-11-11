@@ -170,7 +170,6 @@
                                  GotFocus="LicenseKeyTextBox_GotFocus"
                                  LostFocus="LicenseKeyTextBox_LostFocus"
                                  TextChanged="LicenseKeyTextBox_TextChanged"
-                                 PreviewTextInput="LicenseKeyTextBox_PreviewTextInput"
                                  VerticalContentAlignment="Center">
                             <TextBox.Style>
                                 <Style TargetType="TextBox">
@@ -284,14 +283,15 @@
                 <StackPanel Orientation="Horizontal"
                             HorizontalAlignment="Center"
                             VerticalAlignment="Center">
-                    <!-- 加载动画图标 -->
+                    <!-- 加载动画图标（旋转） -->
                     <Ellipse Name="LoadingIndicator"
                              Width="16"
                              Height="16"
                              Stroke="#07C160"
                              StrokeThickness="2"
                              StrokeDashArray="3 3"
-                             Margin="0,0,10,0">
+                             Margin="0,0,10,0"
+                             Visibility="Visible">
                         <Ellipse.RenderTransform>
                             <RotateTransform x:Name="LoadingRotateTransform"/>
                         </Ellipse.RenderTransform>
@@ -308,6 +308,16 @@
                             </EventTrigger>
                         </Ellipse.Triggers>
                     </Ellipse>
+                    
+                    <!-- 完成图标（对勾） -->
+                    <Path Name="CompletedIndicator"
+                          Width="16"
+                          Height="16"
+                          Margin="0,0,10,0"
+                          Visibility="Collapsed"
+                          Stretch="Uniform"
+                          Fill="#07C160"
+                          Data="M9,16.17L4.83,12l-1.42,1.41L9,19 21,7l-1.41-1.41z"/>
                     
                     <!-- 进度文本 -->
                     <TextBlock Name="LoadingStatusText"

@@ -48,6 +48,7 @@ namespace MyWeChat.Windows
         // 启动进度相关
         private int _currentStep = 0;
         private const int _totalSteps = 3; // 总步骤数：1.加载登录历史 2.初始化WebSocket 3.初始化微信管理器
+        private bool _isInitializationComplete = false; // 标记初始化是否完成
 
         public LoginWindow()
         {
@@ -113,14 +114,32 @@ namespace MyWeChat.Windows
                 // 异步初始化微信管理器（完全在后台线程，不阻塞UI）
                 await Task.Run(() => InitializeWeChatManagerAsync());
                 
-                // 初始化完成，隐藏进度提示
+                // 初始化完成，显示完成图标
                 Dispatcher.Invoke(() =>
                 {
-                    var loadingBorder = FindName("LoadingStatusBorder") as Border;
-                    if (loadingBorder != null)
+                    _isInitializationComplete = true; // 标记初始化完成
+                    UpdateLoadingStatus(_totalSteps, "初始化完成");
+                    // 显示完成图标，隐藏加载动画
+                    if (LoadingIndicator != null)
                     {
-                        loadingBorder.Visibility = Visibility.Collapsed;
+                        LoadingIndicator.Visibility = Visibility.Collapsed;
                     }
+                    if (CompletedIndicator != null)
+                    {
+                        CompletedIndicator.Visibility = Visibility.Visible;
+                    }
+                    // 2秒后隐藏进度提示
+                    Task.Delay(2000).ContinueWith(_ =>
+                    {
+                        Dispatcher.Invoke(() =>
+                        {
+                            var loadingBorder = FindName("LoadingStatusBorder") as Border;
+                            if (loadingBorder != null)
+                            {
+                                loadingBorder.Visibility = Visibility.Collapsed;
+                            }
+                        });
+                    });
                 });
             });
         }
@@ -630,15 +649,6 @@ namespace MyWeChat.Windows
             }
         }
 
-        /// <summary>
-        /// 授权码输入框预览文本输入事件 - 允许所有字符输入（空格会在TextChanged中处理）
-        /// </summary>
-        private void LicenseKeyTextBox_PreviewTextInput(object sender, TextCompositionEventArgs e)
-        {
-            // 允许所有字符输入，不进行任何限制
-            // 空格会在TextChanged事件中被自动去除
-            e.Handled = false;
-        }
 
         /// <summary>
         /// 授权码输入框文本变化事件 - 自动去除空格
@@ -881,9 +891,12 @@ namespace MyWeChat.Windows
         {
             if (show)
             {
+                // 确保Canvas可见并启用
                 ClosingOverlayCanvas.Visibility = Visibility.Visible;
-                ClosingOverlayCanvas.IsHitTestVisible = true; // 显示时启用鼠标事件
-                ClosingOverlayCanvas.IsEnabled = true; // 显示时启用
+                ClosingOverlayCanvas.IsHitTestVisible = true;
+                ClosingOverlayCanvas.IsEnabled = true;
+                
+                // 更新进度显示
                 UpdateClosingProgressRing(0);
                 ClosingStatusText.Text = "准备关闭...";
                 ClosingProgressText.Text = "0%";
@@ -891,6 +904,7 @@ namespace MyWeChat.Windows
                 // 居中显示遮罩内容
                 if (ClosingOverlayBorder != null)
                 {
+                    // 强制更新布局
                     ClosingOverlayCanvas.UpdateLayout();
                     double canvasWidth = ClosingOverlayCanvas.ActualWidth;
                     double canvasHeight = ClosingOverlayCanvas.ActualHeight;
@@ -900,12 +914,15 @@ namespace MyWeChat.Windows
                     Canvas.SetLeft(ClosingOverlayBorder, (canvasWidth - borderWidth) / 2);
                     Canvas.SetTop(ClosingOverlayBorder, (canvasHeight - borderHeight) / 2);
                 }
+                
+                Logger.LogInfo("关闭进度遮罩已显示（登录窗口）");
             }
             else
             {
                 ClosingOverlayCanvas.Visibility = Visibility.Collapsed;
-                ClosingOverlayCanvas.IsHitTestVisible = false; // 隐藏时禁用鼠标事件
-                ClosingOverlayCanvas.IsEnabled = false; // 隐藏时禁用
+                ClosingOverlayCanvas.IsHitTestVisible = false;
+                ClosingOverlayCanvas.IsEnabled = false;
+                Logger.LogInfo("关闭进度遮罩已隐藏（登录窗口）");
             }
         }
 
@@ -998,14 +1015,40 @@ namespace MyWeChat.Windows
         /// </summary>
         protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
         {
+            // 如果关闭处理器已初始化，使用它处理关闭（会显示进度）
             if (_closeHandler != null)
             {
                 _closeHandler.HandleClosing(e);
             }
             else
             {
-                // 如果关闭处理器未初始化，直接关闭
-                base.OnClosing(e);
+                // 如果关闭处理器未初始化，仍然显示关闭确认对话框
+                e.Cancel = true;
+                
+                // 显示微信风格的自定义对话框
+                var dialog = new Windows.CloseConfirmDialog
+                {
+                    Owner = this
+                };
+                
+                bool? dialogResult = dialog.ShowDialog();
+                
+                if (dialogResult == false || dialog.Result == Windows.CloseConfirmDialog.CloseDialogResult.Cancel)
+                {
+                    // 用户取消，不做任何操作
+                    return;
+                }
+
+                if (dialog.Result == Windows.CloseConfirmDialog.CloseDialogResult.MinimizeToTray)
+                {
+                    // 用户选择最小化到托盘
+                    this.WindowState = WindowState.Minimized;
+                    this.Hide();
+                    return;
+                }
+                
+                // 用户选择直接关闭，直接关闭窗口（不显示进度，因为服务未初始化）
+                e.Cancel = false;
             }
         }
 

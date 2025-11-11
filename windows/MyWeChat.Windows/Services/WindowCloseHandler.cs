@@ -133,12 +133,13 @@ namespace MyWeChat.Windows.Services
             _isClosing = true;
 
             // 显示进度遮罩（如果提供了回调）
+            // 使用Invoke确保立即显示，而不是BeginInvoke
             if (_config.ShowProgressOverlayCallback != null)
             {
-                _dispatcher.BeginInvoke(new Action(() =>
+                _dispatcher.Invoke(() =>
                 {
                     _config.ShowProgressOverlayCallback(true);
-                }));
+                });
             }
 
             // 更新初始进度

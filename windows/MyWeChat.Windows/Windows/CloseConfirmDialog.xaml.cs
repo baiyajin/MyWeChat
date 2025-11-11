@@ -28,13 +28,31 @@ namespace MyWeChat.Windows.Windows
         }
         
         /// <summary>
-        /// 窗口加载完成事件 - 设置窗口大小为父窗口大小
+        /// 窗口加载完成事件 - 设置窗口大小为父窗口大小，并居中显示
         /// </summary>
         private void CloseConfirmDialog_Loaded(object sender, RoutedEventArgs e)
         {
             // 设置窗口大小为父窗口大小，以便遮罩层覆盖整个父窗口
             if (Owner != null)
             {
+                this.Width = Owner.ActualWidth;
+                this.Height = Owner.ActualHeight;
+                // 设置窗口位置，确保在父窗口内（与父窗口完全重叠）
+                this.Left = Owner.Left;
+                this.Top = Owner.Top;
+                // 确保窗口在最上层
+                this.Topmost = true;
+            }
+        }
+        
+        protected override void OnSourceInitialized(EventArgs e)
+        {
+            base.OnSourceInitialized(e);
+            // 在窗口初始化后再次确保位置正确
+            if (Owner != null)
+            {
+                this.Left = Owner.Left;
+                this.Top = Owner.Top;
                 this.Width = Owner.ActualWidth;
                 this.Height = Owner.ActualHeight;
             }

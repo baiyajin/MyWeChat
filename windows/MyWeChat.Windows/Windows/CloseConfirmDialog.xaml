@@ -5,7 +5,7 @@
         WindowStyle="None"
         AllowsTransparency="True"
         Background="Transparent"
-        WindowStartupLocation="CenterOwner"
+        WindowStartupLocation="Manual"
         ResizeMode="NoResize"
         ShowInTaskbar="False"
         Loaded="CloseConfirmDialog_Loaded">
