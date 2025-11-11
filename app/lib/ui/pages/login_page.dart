@@ -253,7 +253,9 @@ class _LoginPageState extends State<LoginPage> {
               'assets/images/logo.png',
               width: 80,
               height: 80,
+              fit: BoxFit.contain,
               errorBuilder: (context, error, stackTrace) {
+                // 如果logo图片加载失败，使用图标作为fallback
                 return const Icon(
                   Icons.chat_bubble,
                   size: 80,
