@@ -13,7 +13,7 @@ if not exist "windows" (
 )
 
 REM 确保依赖已安装
-call flutter pub get >nul 2>&1
+call flutter pub get
 
 REM 检查并修复符号链接问题
 if exist "windows\flutter\ephemeral\.plugin_symlinks" (
@@ -23,12 +23,15 @@ if exist "windows\flutter\ephemeral\.plugin_symlinks" (
 )
 
 REM 先构建一次以确保资源文件被正确安装
-call flutter build windows --debug >nul 2>&1
+call flutter build windows --debug
 if %ERRORLEVEL% NEQ 0 (
+    echo.
     echo 构建失败！请检查错误信息。
+    echo.
     pause
     exit /b %ERRORLEVEL%
 )
+echo.
 
 REM 启动应用
 flutter run -d windows
