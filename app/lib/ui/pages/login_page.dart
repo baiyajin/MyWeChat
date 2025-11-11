@@ -355,14 +355,15 @@ class _LoginPageState extends State<LoginPage> {
               child: SingleChildScrollView(
                 child: Container(
                   margin: const EdgeInsets.symmetric(horizontal: 20),
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
                     // 手机号输入 - 微信风格（下划线输入框）
                     TextField(
                       controller: _phoneController,
@@ -510,10 +511,10 @@ class _LoginPageState extends State<LoginPage> {
                               ),
                       ),
                     ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-            ),
             ),
           ],
         ),
