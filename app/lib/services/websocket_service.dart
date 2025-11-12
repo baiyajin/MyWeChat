@@ -568,30 +568,38 @@ class WebSocketService extends ChangeNotifier {
   /// 处理我的信息同步
   void _handleMyInfoSync(Map<String, dynamic> myInfoData) {
     try {
-      print('========== 收到我的信息同步 ==========');
-      print('数据: $myInfoData');
+      print('========== [App端] 收到我的信息同步 ==========');
+      print('[App端] wxid: ${myInfoData['wxid']}');
+      print('[App端] nickname: ${myInfoData['nickname']}');
+      print('[App端] phone: ${myInfoData['phone']}');
+      print('[App端] avatar: ${myInfoData['avatar'] != null ? "有头像" : "无头像"}');
       
-      // 验证账号信息的手机号是否匹配当前登录的手机号
+      // ========== 二次验证：验证账号信息的手机号是否匹配当前登录的手机号 ==========
+      // 注意：服务器端已经做了主要验证，这里是二次防护，确保数据安全
       final accountPhone = myInfoData['phone']?.toString() ?? '';
       if (_loggedInPhone != null && _loggedInPhone!.isNotEmpty) {
         if (accountPhone != _loggedInPhone) {
-          print('警告: 账号信息手机号($accountPhone)与登录手机号($_loggedInPhone)不匹配，忽略此同步消息');
+          print('警告: [二次验证] 账号信息手机号($accountPhone)与登录手机号($_loggedInPhone)不匹配，忽略此同步消息');
+          print('提示: 服务器端应该已经过滤了不匹配的数据，如果收到此警告，请检查服务器端验证逻辑');
           return;
         }
+        print('[App端] [二次验证] 手机号匹配: $accountPhone == $_loggedInPhone');
+      } else {
+        print('[App端] [二次验证] 当前未登录，跳过手机号验证');
       }
       
       _myInfo = myInfoData;
       // 更新当前微信账号ID
       _currentWeChatId = myInfoData['wxid']?.toString() ?? myInfoData['account']?.toString();
-      print('我的信息已更新: $_myInfo');
-      print('当前微信账号ID: $_currentWeChatId');
+      print('[App端] 我的信息已更新: $_myInfo');
+      print('[App端] 当前微信账号ID: $_currentWeChatId');
       
       // 保存账号信息到本地
       _saveMyInfoToLocal(myInfoData);
       
       notifyListeners();
-      print('已通知监听器更新UI');
-      print('========== 我的信息同步完成 ==========');
+      print('[App端] 已通知监听器更新UI');
+      print('========== [App端] 我的信息同步完成 ==========');
     } catch (e) {
       print('处理我的信息同步失败: $e');
       print('堆栈跟踪: ${StackTrace.current}');
@@ -646,11 +654,13 @@ class WebSocketService extends ChangeNotifier {
         return;
       }
       
-      // 验证账号信息的手机号是否匹配当前登录的手机号（如果已登录）
+      // ========== 二次验证：验证账号信息的手机号是否匹配当前登录的手机号 ==========
+      // 注意：服务器端已经做了主要验证，这里是二次防护，确保数据安全
       final accountPhone = myInfoData['phone']?.toString() ?? '';
       if (_loggedInPhone != null && _loggedInPhone!.isNotEmpty) {
         if (accountPhone != _loggedInPhone) {
-          print('警告: 账号信息手机号($accountPhone)与登录手机号($_loggedInPhone)不匹配，忽略此更新');
+          print('警告: [二次验证] 账号信息手机号($accountPhone)与登录手机号($_loggedInPhone)不匹配，忽略此更新');
+          print('提示: 服务器端应该已经过滤了不匹配的数据，如果收到此警告，请检查服务器端验证逻辑');
           return;
         }
       }
