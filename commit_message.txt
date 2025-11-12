@@ -1,2 +1,0 @@
-修复编译错误：添加GetWeChatManager()方法，将所有_weChatManager字段引用替换为GetWeChatManager()方法调用，修复重复定义的局部变量问题
-
