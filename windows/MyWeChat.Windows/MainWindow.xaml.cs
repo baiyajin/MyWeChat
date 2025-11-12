@@ -319,7 +319,7 @@ namespace MyWeChat.Windows
         /// <summary>
         /// 检查微信窗口是否可见（用于MainWindow特定的窗口可见性检查）
         /// </summary>
-        private bool CheckWeChatWindowVisible()
+        private async Task<bool> CheckWeChatWindowVisibleAsync()
         {
             try
             {
