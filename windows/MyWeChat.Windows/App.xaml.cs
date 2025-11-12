@@ -88,7 +88,7 @@ namespace MyWeChat.Windows
                 e.Handled = true;
                 
                 // 显示错误消息
-                MessageBox.Show(
+                System.Windows.MessageBox.Show(
                     $"发生未处理的异常:\n\n{e.Exception.Message}\n\n程序将继续运行，但可能不稳定。",
                     "错误",
                     MessageBoxButton.OK,
