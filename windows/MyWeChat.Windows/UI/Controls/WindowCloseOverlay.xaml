@@ -35,7 +35,8 @@
                 BorderThickness="1"
                 BorderBrush="#E5E5E5"
                 Width="400"
-                Height="200">
+                Height="200"
+                Margin="20">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
@@ -56,19 +57,11 @@
                                HorizontalAlignment="Center"/>
                 </Border>
                 
-                <!-- 内容区域 -->
+                <!-- 内容区域 - 提示文字已移除，按钮已说明功能 -->
                 <StackPanel Grid.Row="1" 
                             Margin="20,20,20,10"
                             VerticalAlignment="Center">
-                    <TextBlock Text="• 最小化到托盘" 
-                               FontSize="13" 
-                               Foreground="#999999"
-                               TextAlignment="Center"
-                               Margin="0,0,0,5"/>
-                    <TextBlock Text="• 直接关闭程序" 
-                               FontSize="13" 
-                               Foreground="#999999"
-                               TextAlignment="Center"/>
+                    <!-- 提示文字已移除 -->
                 </StackPanel>
                 
                 <!-- 按钮区域 -->

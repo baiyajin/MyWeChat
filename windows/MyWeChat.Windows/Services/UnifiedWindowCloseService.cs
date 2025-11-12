@@ -122,20 +122,24 @@ namespace MyWeChat.Windows.Services
         /// </summary>
         private void HandleMinimizeToTray()
         {
-            // 隐藏遮罩
-            _overlay.HideOverlay();
+            // 在UI线程上执行
+            _dispatcher.InvokeAsync(() =>
+            {
+                // 隐藏遮罩
+                _overlay.HideOverlay();
 
-            // 执行最小化回调
-            if (MinimizeToTrayCallback != null)
-            {
-                MinimizeToTrayCallback();
-            }
-            else
-            {
-                // 如果没有提供回调，直接最小化并隐藏
-                _window.WindowState = WindowState.Minimized;
-                _window.Hide();
-            }
+                // 执行最小化回调
+                if (MinimizeToTrayCallback != null)
+                {
+                    MinimizeToTrayCallback();
+                }
+                else
+                {
+                    // 如果没有提供回调，直接最小化并隐藏
+                    _window.WindowState = WindowState.Minimized;
+                    _window.Hide();
+                }
+            }, DispatcherPriority.Normal);
         }
 
         /// <summary>
@@ -145,8 +149,11 @@ namespace MyWeChat.Windows.Services
         {
             _isClosing = true;
 
-            // 切换遮罩内容为进度圆环
-            _overlay.ShowProgress();
+            // 在UI线程上切换遮罩内容为进度圆环
+            _dispatcher.InvokeAsync(() =>
+            {
+                _overlay.ShowProgress();
+            }, DispatcherPriority.Normal);
 
             // 异步执行资源清理
             Task.Run(async () =>

@@ -846,6 +846,8 @@ namespace MyWeChat.Windows
             _unifiedCloseService = new UnifiedWindowCloseService(this, CloseOverlay, config);
             
             // 设置最小化到托盘的回调
+            // 注意：LoginWindow 通常不需要托盘图标，因为登录成功后会自动关闭
+            // 但如果需要，可以在这里初始化 TrayIconService
             _unifiedCloseService.MinimizeToTrayCallback = () =>
             {
                 this.WindowState = WindowState.Minimized;

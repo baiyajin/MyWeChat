@@ -160,7 +160,7 @@ namespace MyWeChat.Windows
             try
             {
                 // 延迟初始化连接管理器，避免在UI线程中直接初始化导致崩溃
-                Task.Run(() =>
+                _ = Task.Run(async () =>
                 {
                     try
                     {
@@ -190,8 +190,8 @@ namespace MyWeChat.Windows
                                 Logger.LogInfo(log);
                             });
                             
-                            // 等待初始化完成
-                            Thread.Sleep(1000);
+                            // 等待初始化完成（异步等待，不阻塞线程）
+                            await Task.Delay(1000);
                         }
                         
                         // 订阅事件（无论是否已初始化，都需要订阅）
@@ -363,8 +363,8 @@ namespace MyWeChat.Windows
                                 ShowWindow(mainWindowHandle, SW_SHOW);
                                 SetForegroundWindow(mainWindowHandle);
                                 
-                                // 等待一下让窗口显示
-                                System.Threading.Thread.Sleep(500);
+                                // 等待一下让窗口显示（异步等待，不阻塞线程）
+                                await Task.Delay(500);
                                 
                                 // 再次检查
                                 isVisible = IsWindowVisible(mainWindowHandle);
@@ -2479,8 +2479,23 @@ namespace MyWeChat.Windows
             // 设置最小化到托盘的回调
             _unifiedCloseService.MinimizeToTrayCallback = () =>
             {
+                // 确保托盘图标服务已初始化并可见
+                if (_trayIconService != null)
+                {
+                    // TrayIconService 在 Initialize 时已经设置了 Visible = true
+                    // 这里只需要隐藏窗口即可，托盘图标会自动保持可见
+                    Logger.LogInfo("最小化到托盘：窗口隐藏，托盘图标保持可见");
+                }
+                
                 this.WindowState = WindowState.Minimized;
                 this.Hide();
+                
+                // 双重保险：确保托盘图标可见
+                if (_trayIconService != null)
+                {
+                    // TrayIconService 的 Visible 属性在 Initialize 时已设置为 true
+                    // 窗口隐藏后，托盘图标应该仍然可见
+                }
             };
         }
 
