@@ -279,7 +279,6 @@ namespace MyWeChat.Windows.Core.Hook
                         // 步骤5：启动微信
                         OnProgressUpdate?.Invoke(this, (5, 15, "启动微信..."));
                         // 微信未运行，需要启动微信
-                        Logger.LogInfo("微信未运行，正在启动微信...");
                         try
                         {
                             ProcessStartInfo startInfo = new ProcessStartInfo
@@ -297,7 +296,7 @@ namespace MyWeChat.Windows.Core.Hook
                                 throw new InvalidOperationException(errorMsg);
                             }
                             
-                            Logger.LogInfo($"微信启动命令已执行，等待微信启动...");
+                            Logger.LogInfo("微信未运行，正在启动微信，等待微信启动...");
                             
                             // 等待微信启动（最多等待10秒）
                             int startWaitCount = 0;
@@ -777,8 +776,7 @@ namespace MyWeChat.Windows.Core.Hook
         /// </summary>
         private void OnAcceptCallback(int clientId)
         {
-            // 减少回调日志输出，避免日志过多
-            Logger.LogInfo($"微信连接已接受，ClientId: {clientId}");
+            // 注意：连接成功的日志已在OnHooked事件处理中输出，这里不再重复输出
             _clientId = clientId;
             _isHooked = true;
             OnHooked?.Invoke(this, clientId);

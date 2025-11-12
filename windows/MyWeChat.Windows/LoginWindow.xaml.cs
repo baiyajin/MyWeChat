@@ -42,6 +42,9 @@ namespace MyWeChat.Windows
         // 统一窗口关闭服务
         private UnifiedWindowCloseService? _unifiedCloseService;
         
+        // 启动进度圆环是否已关闭的标志
+        private bool _startupProgressClosed = false;
+        
         // 强制关闭标志（登录成功后不显示关闭确认对话框）
         private bool _forceClose = false;
         
@@ -103,41 +106,54 @@ namespace MyWeChat.Windows
             
             _ = Task.Run(async () =>
             {
-                // 步骤1：加载登录历史
-                Dispatcher.Invoke(() => CloseOverlay.UpdateStartupProgress(1, _totalSteps, "正在加载登录历史..."));
-                await LoadLoginHistoryAsync();
-                
-                // 步骤2：初始化WebSocket连接
-                Dispatcher.Invoke(() => CloseOverlay.UpdateStartupProgress(2, _totalSteps, "正在初始化WebSocket连接..."));
-                await Task.Delay(300);
-                await InitializeWebSocketAsync();
-                
-                // 步骤3：初始化微信管理器（这会触发后续的微信启动和DLL注入）
-                Dispatcher.Invoke(() => CloseOverlay.UpdateStartupProgress(3, _totalSteps, "正在初始化微信管理器..."));
-                
-                // 订阅微信启动进度事件
-                var hookManager = GetWeChatHookManager();
-                if (hookManager != null)
+                try
                 {
-                    _weChatProgressHandler = (sender, args) =>
+                    // 步骤1：加载登录历史
+                    Dispatcher.Invoke(() => CloseOverlay.UpdateStartupProgress(1, _totalSteps, "正在加载登录历史..."));
+                    await LoadLoginHistoryAsync();
+                    
+                    // 步骤2：初始化WebSocket连接
+                    Dispatcher.Invoke(() => CloseOverlay.UpdateStartupProgress(2, _totalSteps, "正在初始化WebSocket连接..."));
+                    await Task.Delay(300);
+                    await InitializeWebSocketAsync();
+                    
+                    // 步骤3：初始化微信管理器（这会触发后续的微信启动和DLL注入）
+                    Dispatcher.Invoke(() => CloseOverlay.UpdateStartupProgress(3, _totalSteps, "正在初始化微信管理器..."));
+                    
+                    // 订阅微信启动进度事件
+                    var hookManager = GetWeChatHookManager();
+                    if (hookManager != null)
                     {
-                        Dispatcher.Invoke(() => CloseOverlay.UpdateStartupProgress(args.step, args.totalSteps, args.status));
-                    };
-                    hookManager.OnProgressUpdate += _weChatProgressHandler;
+                        _weChatProgressHandler = (sender, args) =>
+                        {
+                            Dispatcher.Invoke(() => CloseOverlay.UpdateStartupProgress(args.step, args.totalSteps, args.status));
+                        };
+                        hookManager.OnProgressUpdate += _weChatProgressHandler;
+                    }
+                    
+                    await Task.Run(() => InitializeWeChatManagerAsync());
+                    
+                    // 注意：不再在这里关闭进度圆环，等待微信连接成功后再关闭
+                    // 进度圆环的关闭将在OnConnectionStateChanged事件中处理
                 }
-                
-                await Task.Run(() => InitializeWeChatManagerAsync());
-                
-                // 步骤15：初始化完成
-                Dispatcher.Invoke(() =>
+                catch (Exception ex)
                 {
-                    CloseOverlay.UpdateStartupProgress(_totalSteps, _totalSteps, "初始化完成");
-                    // 延迟1秒后关闭进度圆环
-                    Task.Delay(1000).ContinueWith(_ =>
+                    Logger.LogError($"启动流程异常: {ex.Message}", ex);
+                    Dispatcher.Invoke(() =>
                     {
-                        Dispatcher.Invoke(() => CloseOverlay.HideOverlay());
+                        CloseOverlay.UpdateStartupProgress(_totalSteps, _totalSteps, "启动失败");
+                        ShowError($"启动失败: {ex.Message}");
+                        // 延迟2秒后关闭进度圆环，让用户看到错误信息
+                        Task.Delay(2000).ContinueWith(_ =>
+                        {
+                            Dispatcher.Invoke(() =>
+                            {
+                                CloseOverlay.HideOverlay();
+                                _startupProgressClosed = true;
+                            });
+                        });
                     });
-                });
+                }
             });
         }
 
@@ -719,10 +735,22 @@ namespace MyWeChat.Windows
                 {
                     if (isConnected)
                     {
-                        // 注意：连接成功的日志已在全局服务中输出，这里不再重复输出
-                        // 使用 InvokeAsync 避免阻塞，使用低优先级确保不阻塞UI
+                        // 微信连接成功，关闭启动进度圆环
                         _ = Dispatcher.InvokeAsync(() =>
                         {
+                            if (!_startupProgressClosed)
+                            {
+                                CloseOverlay.UpdateStartupProgress(_totalSteps, _totalSteps, "微信连接成功");
+                                // 延迟1秒后关闭进度圆环
+                                Task.Delay(1000).ContinueWith(_ =>
+                                {
+                                    Dispatcher.Invoke(() =>
+                                    {
+                                        CloseOverlay.HideOverlay();
+                                        _startupProgressClosed = true;
+                                    });
+                                });
+                            }
                             ShowSuccess("微信连接成功");
                         }, DispatcherPriority.Background);
                     }
