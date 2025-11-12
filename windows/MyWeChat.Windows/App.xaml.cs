@@ -20,6 +20,10 @@ namespace MyWeChat.Windows
             // 高DPI设置已通过项目属性ApplicationHighDpiMode配置
             base.OnStartup(e);
             
+            // 添加全局异常处理
+            AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
+            DispatcherUnhandledException += App_DispatcherUnhandledException;
+            
             // 检查登录状态
             string? wxid = LoadLoginState();
             
@@ -34,6 +38,67 @@ namespace MyWeChat.Windows
                 // 已登录，显示主窗口
                 var mainWindow = new MainWindow(wxid);
                 mainWindow.Show();
+            }
+        }
+
+        /// <summary>
+        /// 处理未捕获的异常（非UI线程）
+        /// </summary>
+        private void CurrentDomain_UnhandledException(object sender, UnhandledExceptionEventArgs e)
+        {
+            try
+            {
+                Exception? ex = e.ExceptionObject as Exception;
+                if (ex != null)
+                {
+                    Logger.LogError($"========== 未捕获的异常（非UI线程） ==========");
+                    Logger.LogError($"异常类型: {ex.GetType().Name}");
+                    Logger.LogError($"错误消息: {ex.Message}");
+                    Logger.LogError($"堆栈跟踪: {ex.StackTrace}");
+                    if (ex.InnerException != null)
+                    {
+                        Logger.LogError($"内部异常: {ex.InnerException.Message}");
+                    }
+                    Logger.LogError($"是否终止: {e.IsTerminating}");
+                }
+            }
+            catch
+            {
+                // 如果日志记录也失败，至少尝试写入事件日志
+            }
+        }
+
+        /// <summary>
+        /// 处理未捕获的异常（UI线程）
+        /// </summary>
+        private void App_DispatcherUnhandledException(object sender, System.Windows.Threading.DispatcherUnhandledExceptionEventArgs e)
+        {
+            try
+            {
+                Logger.LogError($"========== 未捕获的异常（UI线程） ==========");
+                Logger.LogError($"异常类型: {e.Exception.GetType().Name}");
+                Logger.LogError($"错误消息: {e.Exception.Message}");
+                Logger.LogError($"堆栈跟踪: {e.Exception.StackTrace}");
+                if (e.Exception.InnerException != null)
+                {
+                    Logger.LogError($"内部异常: {e.Exception.InnerException.Message}");
+                }
+                
+                // 标记为已处理，防止程序崩溃
+                e.Handled = true;
+                
+                // 显示错误消息
+                MessageBox.Show(
+                    $"发生未处理的异常:\n\n{e.Exception.Message}\n\n程序将继续运行，但可能不稳定。",
+                    "错误",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error
+                );
+            }
+            catch
+            {
+                // 如果错误处理也失败，至少标记为已处理
+                e.Handled = true;
             }
         }
 
