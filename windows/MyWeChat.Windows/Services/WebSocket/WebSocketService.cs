@@ -11,7 +11,7 @@ namespace MyWeChat.Windows.Services.WebSocket
     /// WebSocket客户端服务
     /// 负责与服务器建立WebSocket连接，接收App端命令
     /// </summary>
-    public class WebSocketService
+    public class WebSocketService : IDisposable
     {
         private ClientWebSocket? _webSocket;
         private readonly string _serverUrl;
@@ -377,6 +377,31 @@ namespace MyWeChat.Windows.Services.WebSocket
             {
                 _isConnected = false;
                 OnConnectionStateChanged?.Invoke(this, false);
+            }
+        }
+
+        /// <summary>
+        /// 释放资源
+        /// </summary>
+        public void Dispose()
+        {
+            try
+            {
+                if (_isConnected)
+                {
+                    _ = DisconnectAsync();
+                }
+                else
+                {
+                    _webSocket?.Dispose();
+                    _webSocket = null;
+                    _cancellationTokenSource?.Dispose();
+                    _cancellationTokenSource = null;
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError($"释放WebSocket资源失败: {ex.Message}", ex);
             }
         }
     }
