@@ -4,6 +4,7 @@ import '../tabs/contacts_tab.dart';
 import '../tabs/moments_tab.dart';
 import '../tabs/chat_tab.dart';
 import '../tabs/profile_tab.dart';
+import '../tabs/official_account_tab.dart';
 import '../../services/websocket_service.dart';
 import '../../services/api_service.dart';
 
@@ -20,10 +21,11 @@ class _HomePageState extends State<HomePage> {
   bool _isInitialized = false;
 
   final List<Widget> _tabs = [
-    const ChatTab(),        // 微信（第一个）
-    const ContactsTab(),    // 通讯录（第二个）
-    const MomentsTab(),      // 发现（第三个）
-    const ProfileTab(),     // 我（第四个）
+    const ChatTab(),              // 微信（第一个）
+    const ContactsTab(),          // 通讯录（第二个）
+    const MomentsTab(),            // 发现（第三个）
+    const OfficialAccountTab(),   // 公众号（第四个）
+    const ProfileTab(),           // 我（第五个）
   ];
 
   @override
@@ -138,7 +140,9 @@ class _HomePageState extends State<HomePage> {
             case 2: // 发现（朋友圈）- 通过WebSocket实时同步朋友圈
               _requestSyncMoments(wsService);
               break;
-            case 3: // 我（从数据库获取账号信息）
+            case 3: // 公众号 - 不需要主动请求，消息会自动同步
+              break;
+            case 4: // 我（从数据库获取账号信息）
               _loadAccountInfoFromServer(apiService, wsService);
               break;
           }
@@ -161,6 +165,11 @@ class _HomePageState extends State<HomePage> {
             icon: Icon(Icons.explore_outlined),
             activeIcon: Icon(Icons.explore),
             label: '发现',
+          ),
+          const BottomNavigationBarItem(
+            icon: Icon(Icons.article_outlined),
+            activeIcon: Icon(Icons.article),
+            label: '公众号',
           ),
           const BottomNavigationBarItem(
             icon: Icon(Icons.person_outline),

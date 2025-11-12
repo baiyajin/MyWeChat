@@ -82,6 +82,11 @@ class WebSocketManager:
                 print("收到聊天消息同步，转发到App端")
                 await self._forward_to_app_clients_by_wxid(message)
             
+            elif message_type == "sync_official_account":
+                # Windows端同步公众号消息，只转发到App端（不保存到数据库）
+                print("收到公众号消息同步，转发到App端")
+                await self._forward_to_app_clients_by_wxid(message)
+            
             elif message_type == "sync_my_info":
                 # Windows端同步我的信息，保存到数据库并转发到App端
                 print("收到账号信息同步，保存到数据库并转发到App端")

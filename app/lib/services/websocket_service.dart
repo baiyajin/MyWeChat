@@ -5,6 +5,7 @@ import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/contact_model.dart';
 import '../models/moments_model.dart';
+import '../models/official_account_model.dart';
 import '../main.dart' as main_app;
 
 /// WebSocket服务
@@ -16,6 +17,7 @@ class WebSocketService extends ChangeNotifier {
 
   List<ContactModel> _contacts = [];
   List<MomentsModel> _moments = [];
+  List<OfficialAccountMessage> _officialAccountMessages = [];
   Map<String, dynamic>? _myInfo;
   String? _currentWeChatId; // 当前微信账号ID
   String? _loggedInPhone; // 当前登录的手机号
@@ -23,6 +25,7 @@ class WebSocketService extends ChangeNotifier {
   bool get isConnected => _isConnected;
   List<ContactModel> get contacts => _contacts;
   List<MomentsModel> get moments => _moments;
+  List<OfficialAccountMessage> get officialAccountMessages => _officialAccountMessages;
   Map<String, dynamic>? get myInfo => _myInfo;
 
   /// 连接WebSocket服务器
@@ -276,6 +279,10 @@ class WebSocketService extends ChangeNotifier {
         case 'sync_chat_message':
           print('处理聊天消息同步');
           _handleChatMessageSync(data['data']);
+          break;
+        case 'sync_official_account':
+          print('处理公众号消息同步');
+          _handleOfficialAccountSync(data['data']);
           break;
         case 'sync_tags':
           print('处理标签同步');
@@ -705,6 +712,38 @@ class WebSocketService extends ChangeNotifier {
       notifyListeners();
     } catch (e) {
       print('处理朋友圈同步失败: $e');
+    }
+  }
+
+  /// 处理公众号消息同步
+  void _handleOfficialAccountSync(Map<String, dynamic> officialAccountData) {
+    try {
+      // 检查数据是否属于当前登录的账号
+      final weChatId = officialAccountData['wechat_id']?.toString() ?? '';
+      if (weChatId.isNotEmpty && weChatId != _currentWeChatId) {
+        print('跳过不属于当前账号的公众号消息: weChatId=$weChatId, currentWeChatId=$_currentWeChatId');
+        return;
+      }
+      
+      // 创建公众号消息对象
+      final message = OfficialAccountMessage.fromJson(officialAccountData);
+      
+      // 添加到列表（避免重复）
+      bool exists = _officialAccountMessages.any((m) => 
+        m.msgid == message.msgid && m.fromWxid == message.fromWxid
+      );
+      
+      if (!exists) {
+        _officialAccountMessages.insert(0, message); // 最新的在前面
+        // 限制数量，保留最近100条
+        if (_officialAccountMessages.length > 100) {
+          _officialAccountMessages = _officialAccountMessages.take(100).toList();
+        }
+        notifyListeners();
+        print('公众号消息已添加: ${message.accountName}, 文章数: ${message.articles.length}');
+      }
+    } catch (e) {
+      print('处理公众号消息同步失败: $e');
     }
   }
 

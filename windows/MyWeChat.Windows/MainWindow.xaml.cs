@@ -35,6 +35,7 @@ namespace MyWeChat.Windows
         private MomentsSyncService? _momentsSyncService;
         private TagSyncService? _tagSyncService;
         private ChatMessageSyncService? _chatMessageSyncService;
+        private OfficialAccountSyncService? _officialAccountSyncService;
         private CommandService? _commandService;
         private ObservableCollection<AccountInfo>? _accountList;
         private ApiService? _apiService;
@@ -228,6 +229,7 @@ namespace MyWeChat.Windows
                         _momentsSyncService = new MomentsSyncService(connectionManager, _webSocketService, GetCurrentWeChatId);
                         _tagSyncService = new TagSyncService(connectionManager, _webSocketService, GetCurrentWeChatId);
                         _chatMessageSyncService = new ChatMessageSyncService(connectionManager, _webSocketService, GetCurrentWeChatId);
+                        _officialAccountSyncService = new OfficialAccountSyncService(connectionManager, _webSocketService, GetCurrentWeChatId);
 
                         // 初始化命令服务
                         _commandService = new CommandService(connectionManager);
@@ -1795,6 +1797,15 @@ namespace MyWeChat.Windows
                             _tagSyncService?.ProcessTagsCallback(dataJson);
                         }
                     }
+                    // 消息类型 5 表示公众号推送消息
+                    else if (messageType == 5)
+                    {
+                        string dataJson = messageObj.data?.ToString() ?? string.Empty;
+                        if (!string.IsNullOrEmpty(dataJson))
+                        {
+                            _officialAccountSyncService?.ProcessOfficialAccountCallback(dataJson);
+                        }
+                    }
                     // 也检查是否是直接的账号信息消息（兼容其他格式）
                     // 尝试多种字段名（支持驼峰命名和首字母大写）
                     else if (messageObj.nickname != null || messageObj.avatar != null || messageObj.wxid != null ||
@@ -2412,6 +2423,7 @@ namespace MyWeChat.Windows
                             _momentsSyncService = null;
                             _tagSyncService = null;
                             _chatMessageSyncService = null;
+                            _officialAccountSyncService = null;
                             _commandService = null;
         }
 
@@ -2481,6 +2493,7 @@ namespace MyWeChat.Windows
                 _momentsSyncService = null;
                 _tagSyncService = null;
                 _chatMessageSyncService = null;
+                _officialAccountSyncService = null;
                 _commandService = null;
                 
                 // 清空账号列表（双重保险）
