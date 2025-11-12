@@ -20,6 +20,13 @@ namespace MyWeChat.Windows.Core.Hook
         // P/Invoke声明：检查窗口是否可见
         [DllImport("user32.dll")]
         private static extern bool IsWindowVisible(IntPtr hWnd);
+        
+        // P/Invoke声明：检查窗口是否响应
+        [DllImport("user32.dll")]
+        private static extern IntPtr SendMessageTimeout(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam, uint fuFlags, uint uTimeout, out IntPtr lpdwResult);
+        
+        private const uint SMTO_ABORTIFHUNG = 0x0002;
+        private const uint WM_NULL = 0x0000;
         private WeChatHelperWrapperBase? _dllWrapper;
         
         // 回调函数委托
@@ -54,6 +61,11 @@ namespace MyWeChat.Windows.Core.Hook
         public event EventHandler<int>? OnHooked;
         public event EventHandler? OnUnhooked;
         public event EventHandler<string>? OnMessageReceived;
+        
+        /// <summary>
+        /// 进度更新事件（步骤，总步骤，状态）
+        /// </summary>
+        public event EventHandler<(int step, int totalSteps, string status)>? OnProgressUpdate;
 
         /// <summary>
         /// 初始化Hook管理器
@@ -265,11 +277,14 @@ namespace MyWeChat.Windows.Core.Hook
                         Logger.LogInfo($"使用指定的微信路径: {weChatExePath}");
                     }
 
-                    // 检查微信是否正在运行
+                    // 步骤4：检测微信进程
+                    OnProgressUpdate?.Invoke(this, (4, 15, "检测微信进程..."));
                     Logger.LogInfo("正在检查微信是否正在运行...");
                     Process? existingWeChatProcess = FindWeChatProcess();
                     if (existingWeChatProcess == null)
                     {
+                        // 步骤5：启动微信
+                        OnProgressUpdate?.Invoke(this, (5, 15, "启动微信..."));
                         // 微信未运行，需要启动微信
                         Logger.LogInfo("微信未运行，正在启动微信...");
                         try
@@ -431,6 +446,9 @@ namespace MyWeChat.Windows.Core.Hook
 
                     // ========== 等待微信完全启动（防止注入时机过早导致崩溃） ==========
                     Logger.LogInfo("等待微信完全启动（检查窗口可见性和主线程初始化）...");
+                    
+                    // 步骤6：等待微信窗口可见
+                    OnProgressUpdate?.Invoke(this, (6, 15, "等待微信窗口可见..."));
                     bool isWindowVisible = false;
                     int windowWaitCount = 0;
                     int maxWindowWaitCount = 100; // 最多等待10秒
@@ -450,7 +468,7 @@ namespace MyWeChat.Windows.Core.Hook
                                 
                                 if (isWindowVisible)
                                 {
-                                    Logger.LogInfo("微信窗口已可见，微信主线程已初始化");
+                                    Logger.LogInfo("微信窗口已可见");
                                     break;
                                 }
                             }
@@ -467,18 +485,22 @@ namespace MyWeChat.Windows.Core.Hook
 
                     if (!isWindowVisible)
                     {
-                        Logger.LogWarning("微信窗口在10秒内未可见，但继续尝试注入（可能微信在后台启动）");
-                        // 即使窗口不可见，也等待额外时间确保微信初始化完成
-                        Logger.LogInfo("额外等待3秒确保微信主线程完全初始化...");
+                        Logger.LogWarning("微信窗口在10秒内未可见，但继续检查主线程初始化");
+                    }
+
+                    // 步骤7-12：检查主线程是否已完全初始化
+                    bool isReady = CheckWeChatMainThreadReady(weChatProcess);
+
+                    if (!isReady)
+                    {
+                        Logger.LogError("微信主线程初始化检查失败，但继续尝试注入");
+                        // 即使检查失败，也等待一段时间后尝试注入
                         Thread.Sleep(3000);
                     }
-                    else
-                    {
-                        // 窗口可见后，再等待2秒确保完全初始化
-                        Logger.LogInfo("微信窗口已可见，等待2秒确保主线程完全初始化...");
-                        Thread.Sleep(2000);
-                    }
                     // ========== 等待逻辑结束 ==========
+                    
+                    // 步骤13：注入DLL
+                    OnProgressUpdate?.Invoke(this, (13, 15, "正在注入DLL..."));
 
                     // 注入到微信进程
                     Logger.LogInfo($"正在注入到微信进程 (PID: {weChatProcess.Id})...");
@@ -500,6 +522,9 @@ namespace MyWeChat.Windows.Core.Hook
                     // 注意：注入成功后，必须等待OnAcceptCallback被调用，才能确定真正的clientId
                     // OnAcceptCallback中的clientId才是DLL内部使用的正确ID
                     // 如果使用错误的clientId发送命令，可能导致命令发送失败或被风控
+                    
+                    // 步骤14：等待微信连接回调
+                    OnProgressUpdate?.Invoke(this, (14, 15, "等待微信连接回调..."));
                     
                     // 等待OnAcceptCallback被调用，最多等待5秒（如果微信已登录，回调可能已经发送，需要更长时间）
                     int waitCount = 0;
@@ -1125,6 +1150,150 @@ namespace MyWeChat.Windows.Core.Hook
             }
 
             return null;
+        }
+
+        /// <summary>
+        /// 检查微信主线程是否已完全初始化
+        /// </summary>
+        /// <param name="process">微信进程</param>
+        /// <returns>是否已完全初始化</returns>
+        private bool CheckWeChatMainThreadReady(Process process)
+        {
+            try
+            {
+                int currentStep = 7;
+                int totalSteps = 6; // 检查步骤数
+                
+                // 步骤7：检查进程状态
+                OnProgressUpdate?.Invoke(this, (currentStep, 15, "检查进程状态..."));
+                process.Refresh();
+                if (process.HasExited)
+                {
+                    Logger.LogWarning("微信进程已退出");
+                    return false;
+                }
+                Thread.Sleep(200);
+                
+                // 步骤8：检查进程运行时间
+                currentStep = 8;
+                OnProgressUpdate?.Invoke(this, (currentStep, 15, "检查进程运行时间..."));
+                DateTime startTime = process.StartTime;
+                TimeSpan runningTime = DateTime.Now - startTime;
+                Logger.LogInfo($"微信进程已运行 {runningTime.TotalSeconds:F1} 秒");
+                
+                if (runningTime.TotalSeconds < 5)
+                {
+                    Logger.LogInfo($"进程运行时间较短（{runningTime.TotalSeconds:F1}秒），等待至5秒...");
+                    int waitTime = (int)((5 - runningTime.TotalSeconds) * 1000);
+                    Thread.Sleep(Math.Max(0, waitTime));
+                }
+                Thread.Sleep(200);
+                
+                // 步骤9：检查进程模块加载
+                currentStep = 9;
+                OnProgressUpdate?.Invoke(this, (currentStep, 15, "检查进程模块加载..."));
+                try
+                {
+                    process.Refresh();
+                    var modules = process.Modules;
+                    int moduleCount = modules?.Count ?? 0;
+                    Logger.LogInfo($"微信进程已加载 {moduleCount} 个模块");
+                    
+                    if (moduleCount < 20)
+                    {
+                        Logger.LogWarning($"模块数量较少（{moduleCount}），可能未完全初始化");
+                        // 等待一段时间后重试
+                        Thread.Sleep(2000);
+                        process.Refresh();
+                        moduleCount = process.Modules?.Count ?? 0;
+                        Logger.LogInfo($"重试后模块数量: {moduleCount}");
+                    }
+                }
+                catch (System.ComponentModel.Win32Exception)
+                {
+                    // 架构不匹配（32位应用访问64位进程），无法访问模块
+                    Logger.LogWarning("无法访问进程模块（可能是架构不匹配），跳过模块检查");
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogWarning($"检查进程模块时出错: {ex.Message}");
+                }
+                Thread.Sleep(200);
+                
+                // 步骤10：检查进程线程数
+                currentStep = 10;
+                OnProgressUpdate?.Invoke(this, (currentStep, 15, "检查进程线程数..."));
+                try
+                {
+                    process.Refresh();
+                    int threadCount = process.Threads.Count;
+                    Logger.LogInfo($"微信进程有 {threadCount} 个线程");
+                    
+                    if (threadCount < 5)
+                    {
+                        Logger.LogWarning($"线程数较少（{threadCount}），可能未完全初始化");
+                        Thread.Sleep(2000);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogWarning($"检查进程线程数时出错: {ex.Message}");
+                }
+                Thread.Sleep(200);
+                
+                // 步骤11：检查窗口响应性
+                currentStep = 11;
+                OnProgressUpdate?.Invoke(this, (currentStep, 15, "检查窗口响应性..."));
+                IntPtr mainWindowHandle = process.MainWindowHandle;
+                if (mainWindowHandle != IntPtr.Zero)
+                {
+                    // 使用 SendMessage 测试窗口响应性
+                    bool isResponding = IsWindowResponding(mainWindowHandle);
+                    if (!isResponding)
+                    {
+                        Logger.LogWarning("窗口未响应，等待2秒后重试...");
+                        Thread.Sleep(2000);
+                        isResponding = IsWindowResponding(mainWindowHandle);
+                    }
+                    Logger.LogInfo($"窗口响应性: {(isResponding ? "正常" : "异常")}");
+                }
+                Thread.Sleep(200);
+                
+                // 步骤12：最终检查
+                currentStep = 12;
+                OnProgressUpdate?.Invoke(this, (currentStep, 15, "完成初始化检查..."));
+                process.Refresh();
+                if (process.HasExited)
+                {
+                    Logger.LogError("微信进程在检查过程中已退出");
+                    return false;
+                }
+                
+                Logger.LogInfo("微信主线程初始化检查完成");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError($"检查微信主线程初始化状态时出错: {ex.Message}", ex);
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// 检查窗口是否响应
+        /// </summary>
+        private bool IsWindowResponding(IntPtr hWnd)
+        {
+            try
+            {
+                IntPtr result;
+                IntPtr ret = SendMessageTimeout(hWnd, WM_NULL, IntPtr.Zero, IntPtr.Zero, SMTO_ABORTIFHUNG, 2000, out result);
+                return ret != IntPtr.Zero;
+            }
+            catch
+            {
+                return false;
+            }
         }
 
         #endregion
