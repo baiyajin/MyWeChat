@@ -41,9 +41,6 @@ namespace MyWeChat.Windows
         private ObservableCollection<AccountInfo>? _accountList;
         private ApiService? _apiService;
         
-        // 定时器：获取微信账号信息
-        private DispatcherTimer? _accountInfoFetchTimer;
-        
         // 统一窗口关闭服务
         private UnifiedWindowCloseService? _unifiedCloseService;
         
@@ -180,10 +177,6 @@ namespace MyWeChat.Windows
                         }
                         else
                         {
-                            // 订阅事件
-                            service.OnConnectionStateChanged += OnConnectionStateChanged;
-                            service.OnMessageReceived += OnWeChatMessageReceived;
-                            
                             // 初始化微信管理器
                             service.InitializeAsync(Dispatcher, (log) =>
                             {
@@ -405,180 +398,6 @@ namespace MyWeChat.Windows
             }
         }
 
-        /// <summary>
-        /// 启动账号信息获取定时器
-        /// </summary>
-        private void StartAccountInfoFetchTimer()
-        {
-            try
-            {
-                if (_accountInfoFetchTimer != null)
-                {
-                    _accountInfoFetchTimer.Stop();
-                    _accountInfoFetchTimer = null;
-                }
-
-                _accountInfoFetchTimer = new DispatcherTimer
-                {
-                    Interval = TimeSpan.FromSeconds(5) // 每5秒获取一次账号信息
-                };
-                _accountInfoFetchTimer.Tick += AccountInfoFetchTimer_Tick;
-                _accountInfoFetchTimer.Start();
-
-                Logger.LogInfo("已启动账号信息获取定时器（每5秒获取一次）");
-                
-                // 立即执行一次
-                AccountInfoFetchTimer_Tick(null, EventArgs.Empty);
-            }
-            catch (Exception ex)
-            {
-                Logger.LogError($"启动账号信息获取定时器失败: {ex.Message}", ex);
-            }
-        }
-
-        /// <summary>
-        /// 停止账号信息获取定时器
-        /// </summary>
-        private void StopAccountInfoFetchTimer()
-        {
-            try
-            {
-                if (_accountInfoFetchTimer != null)
-                {
-                    _accountInfoFetchTimer.Stop();
-                    _accountInfoFetchTimer = null;
-                    Logger.LogInfo("已停止账号信息获取定时器");
-                }
-            }
-            catch (Exception ex)
-            {
-                Logger.LogError($"停止账号信息获取定时器失败: {ex.Message}", ex);
-            }
-        }
-
-        /// <summary>
-        /// 账号信息获取定时器事件
-        /// </summary>
-        private void AccountInfoFetchTimer_Tick(object? sender, EventArgs e)
-        {
-            try
-            {
-                var weChatManager = GetWeChatManager();
-                if (weChatManager == null || !weChatManager.IsConnected)
-                {
-                    Logger.LogInfo("[定时器] 微信未连接，跳过账号信息检查");
-                    return;
-                }
-
-                // 输出定时器运行日志，让用户知道程序正在运行
-                Logger.LogInfo("[定时器] 正在检查账号信息...");
-
-                // 检查是否已有完整的账号信息（从账号列表中检查 account、nickname 等字段）
-                bool hasAccountInfo = false;
-                if (_accountList != null)
-                {
-                    foreach (var acc in _accountList)
-                    {
-                        // 检查关键字段：account、nickname
-                        bool hasAccount = !string.IsNullOrEmpty(acc.BoundAccount) || !string.IsNullOrEmpty(acc.WeChatId);
-                        bool hasNickname = !string.IsNullOrEmpty(acc.NickName);
-                        
-                        // 如果有关键字段（account 和 nickname），则认为账号信息完整
-                        if (hasAccount && hasNickname)
-                        {
-                            hasAccountInfo = true;
-                            Logger.LogInfo($"[定时器] 已检测到完整账号信息: account={acc.BoundAccount ?? acc.WeChatId}, nickname={acc.NickName}");
-                            break;
-                        }
-                    }
-                }
-
-                // 如果已登录但未获取到账号信息，从数据库查询
-                if (!hasAccountInfo && !string.IsNullOrEmpty(_loggedInWxid))
-                {
-                    Logger.LogInfo($"[定时器] 已登录但未获取到账号信息，从数据库查询: wxid={_loggedInWxid}");
-                    
-                    // 从数据库查询账号信息
-                    _ = Task.Run(async () =>
-                    {
-                        try
-                        {
-                            if (_apiService != null)
-                            {
-                                var accountInfo = await _apiService.GetAccountInfoAsync(_loggedInWxid);
-                                if (accountInfo != null)
-                                {
-                                    // 更新UI显示账号信息
-                                    _ = Dispatcher.BeginInvoke(new Action(() =>
-                                    {
-                                        if (_accountList != null)
-                                        {
-                                            // 检查是否已存在该账号
-                                            bool exists = false;
-                                            foreach (var acc in _accountList)
-                                            {
-                                                if (acc.WeChatId == accountInfo.WeChatId)
-                                                {
-                                                    // 更新现有账号信息
-                                                    acc.NickName = accountInfo.NickName;
-                                                    acc.Avatar = accountInfo.Avatar;
-                                                    acc.BoundAccount = accountInfo.BoundAccount;
-                                                    acc.Phone = accountInfo.Phone;
-                                                    acc.DeviceId = accountInfo.DeviceId;
-                                                    acc.WxUserDir = accountInfo.WxUserDir;
-                                                    acc.UnreadMsgCount = accountInfo.UnreadMsgCount;
-                                                    acc.IsFakeDeviceId = accountInfo.IsFakeDeviceId;
-                                                    acc.Pid = accountInfo.Pid;
-                                                    exists = true;
-                                                    break;
-                                                }
-                                            }
-                                            
-                                            if (!exists)
-                                            {
-                                                // 添加新账号信息
-                                                _accountList.Add(accountInfo);
-                                            }
-                                            
-                                            // 更新显示
-                                            UpdateAccountInfoDisplay();
-                                            StopTimersAfterAccountInfoReceived();
-                                            
-                                            Logger.LogInfo($"[定时器] 从数据库成功获取账号信息: wxid={accountInfo.WeChatId}, nickname={accountInfo.NickName}");
-                                        }
-                                    }));
-                                }
-                                else
-                                {
-                                    Logger.LogWarning($"[定时器] 从数据库未找到账号信息: wxid={_loggedInWxid}");
-                                }
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            Logger.LogError($"[定时器] 从数据库查询账号信息失败: {ex.Message}", ex);
-                        }
-                    });
-                }
-                else if (!hasAccountInfo)
-                {
-                    // 还没有账号信息，继续等待 1112 回调消息
-                    Logger.LogInfo("[定时器] 尚未收到账号信息，继续等待1112回调消息...");
-                    // 不主动请求，只检查
-                }
-                else
-                {
-                    // 已有账号信息，更新显示并停止定时器
-                    Logger.LogInfo("[定时器] 账号信息已完整，准备停止定时器");
-                    UpdateAccountInfoDisplay();
-                    StopTimersAfterAccountInfoReceived();
-                }
-            }
-            catch (Exception ex)
-            {
-                Logger.LogError($"定时获取账号信息失败: {ex.Message}", ex);
-            }
-        }
 
         /// <summary>
         /// 检查账号信息是否完整（从JSON消息中检查account、avatar、nickname等字段），如果完整则停止定时器
@@ -611,14 +430,8 @@ namespace MyWeChat.Windows
 
                 if (hasCompleteAccountInfo)
                 {
-                    // 定时器由全局服务管理，不需要手动停止
                     Logger.LogInfo("已获取到完整账号信息（account、nickname等字段）");
                     AddLog("已获取到完整账号信息", "SUCCESS");
-
-                    // 停止账号信息获取定时器
-                    StopAccountInfoFetchTimer();
-                    Logger.LogInfo("已获取到完整账号信息（account、nickname等字段），停止账号信息获取定时器");
-                    AddLog("已获取到完整账号信息，停止账号信息获取定时器", "SUCCESS");
                 }
             }
             catch (Exception ex)
@@ -1031,10 +844,9 @@ namespace MyWeChat.Windows
                     // 更新账号信息显示
                     UpdateAccountInfoDisplay();
                     
-                    // 连接成功后，启动账号信息获取定时器
-                    // 不再自动同步其他数据（好友、朋友圈、标签等），这些数据通过 app 端点击时，通过服务端请求
-                    Logger.LogInfo("连接成功，启动账号信息获取定时器");
-                    StartAccountInfoFetchTimer();
+                    // 连接成功后，不再使用定时器获取账号信息
+                    // 改为事件驱动方式：通过监听1112消息获取账号信息
+                    Logger.LogInfo("连接成功，等待微信账号数据消息（事件驱动）");
                 }
                 else
                 {
@@ -1178,13 +990,7 @@ namespace MyWeChat.Windows
             {
                 try
                 {
-                    // 记录收到消息的详细信息，用于调试
-                    Logger.LogInfo($"========== 收到微信消息 ==========");
-                    Logger.LogInfo($"消息长度: {message?.Length ?? 0}");
-                    Logger.LogInfo($"消息内容: {message}");
-                    Logger.LogInfo($"收到时间: {DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}");
-                    
-                    AddLog($"收到微信消息: {message}", "INFO");
+                    // 注意：全局服务已输出详细日志，这里只保留窗口特定的业务逻辑日志
                     
                     // 清理消息：移除可能的额外字符和空白
                     string cleanMessage = message?.Trim() ?? string.Empty;
@@ -2551,9 +2357,6 @@ namespace MyWeChat.Windows
                     {
                 // 停止微信进程检测定时器（由全局服务管理，不需要在这里停止）
                 // 注意：全局服务的定时器由App.xaml.cs在应用退出时统一管理
-
-                // 停止账号信息获取定时器
-                StopAccountInfoFetchTimer();
             }
             catch (Exception ex)
             {
