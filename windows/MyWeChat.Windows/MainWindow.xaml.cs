@@ -215,6 +215,97 @@ namespace MyWeChat.Windows
                         string serverUrl = ConfigHelper.GetServerUrl();
                         _apiService = new ApiService(serverUrl);
 
+                        // 检查是否已有微信账号数据（如果登录窗口已获取到）
+                        string? currentWxid = weChatManager.CurrentWxid;
+                        if (!string.IsNullOrEmpty(currentWxid) && !IsProcessId(currentWxid))
+                        {
+                            Logger.LogInfo($"主窗口初始化：检测到已有微信ID: {currentWxid}，从数据库查询完整账号信息");
+                            _loggedInWxid = currentWxid;
+                            
+                            // 从数据库查询账号信息
+                            _ = Task.Run(async () =>
+                            {
+                                try
+                                {
+                                    if (_apiService != null)
+                                    {
+                                        var accountInfo = await _apiService.GetAccountInfoAsync(currentWxid);
+                                        if (accountInfo != null)
+                                        {
+                                            // 更新UI显示账号信息
+                                            _ = Dispatcher.BeginInvoke(new Action(() =>
+                                            {
+                                                if (_accountList != null)
+                                                {
+                                                    // 检查是否已存在该账号
+                                                    bool exists = false;
+                                                    foreach (var acc in _accountList)
+                                                    {
+                                                        if (acc.WeChatId == accountInfo.WeChatId)
+                                                        {
+                                                            // 更新现有账号信息
+                                                            acc.NickName = accountInfo.NickName;
+                                                            acc.Avatar = accountInfo.Avatar;
+                                                            acc.BoundAccount = accountInfo.BoundAccount;
+                                                            acc.Phone = accountInfo.Phone;
+                                                            acc.DeviceId = accountInfo.DeviceId;
+                                                            acc.WxUserDir = accountInfo.WxUserDir;
+                                                            acc.UnreadMsgCount = accountInfo.UnreadMsgCount;
+                                                            acc.IsFakeDeviceId = accountInfo.IsFakeDeviceId;
+                                                            acc.Pid = accountInfo.Pid;
+                                                            exists = true;
+                                                            break;
+                                                        }
+                                                    }
+                                                    
+                                                    if (!exists)
+                                                    {
+                                                        // 添加新账号信息
+                                                        _accountList.Add(accountInfo);
+                                                    }
+                                                    
+                                                    // 更新显示
+                                                    UpdateAccountInfoDisplay();
+                                                    
+                                                    Logger.LogInfo($"主窗口初始化：从数据库成功获取账号信息: wxid={accountInfo.WeChatId}, nickname={accountInfo.NickName}");
+                                                }
+                                            }));
+                                            
+                                            // 等待WebSocket连接后推送账号信息到服务器
+                                            _ = Task.Run(async () =>
+                                            {
+                                                // 等待WebSocket连接（最多等待5秒）
+                                                int waitCount = 0;
+                                                while (waitCount < 50 && (_webSocketService == null || !_webSocketService.IsConnected))
+                                                {
+                                                    await Task.Delay(100);
+                                                    waitCount++;
+                                                }
+                                                
+                                                if (_webSocketService != null && _webSocketService.IsConnected)
+                                                {
+                                                    Logger.LogInfo($"主窗口初始化：推送账号信息到服务器: wxid={accountInfo.WeChatId}, nickname={accountInfo.NickName}");
+                                                    SyncMyInfoToServer(accountInfo);
+                                                }
+                                                else
+                                                {
+                                                    Logger.LogWarning("主窗口初始化：WebSocket未连接，无法推送账号信息到服务器");
+                                                }
+                                            });
+                                        }
+                                        else
+                                        {
+                                            Logger.LogWarning($"主窗口初始化：从数据库未找到账号信息: wxid={currentWxid}");
+                                        }
+                                    }
+                                }
+                                catch (Exception ex)
+                                {
+                                    Logger.LogError($"主窗口初始化：从数据库查询账号信息失败: {ex.Message}", ex);
+                                }
+                            });
+                        }
+
                         // 获取连接管理器
                         WeChatConnectionManager? connectionManager = weChatManager.ConnectionManager;
                         if (connectionManager == null)
@@ -1867,7 +1958,11 @@ namespace MyWeChat.Windows
                     return;
                 }
 
-                Logger.LogInfo($"开始同步我的信息到服务器: wxid={accountInfo.WeChatId}, nickname={accountInfo.NickName}");
+                Logger.LogInfo($"========== 开始同步我的信息到服务器 ==========");
+                Logger.LogInfo($"wxid: {accountInfo.WeChatId}");
+                Logger.LogInfo($"nickname: {accountInfo.NickName}");
+                Logger.LogInfo($"phone: {accountInfo.Phone}");
+                Logger.LogInfo($"avatar: {(!string.IsNullOrEmpty(accountInfo.Avatar) ? "有头像" : "无头像")}");
 
                 // 通过WebSocket发送到服务器（发送所有字段）
                 var syncData = new
@@ -1891,7 +1986,7 @@ namespace MyWeChat.Windows
 
                 _ = _webSocketService?.SendMessageAsync(syncData);
 
-                Logger.LogInfo("我的信息同步完成（已发送所有字段）");
+                Logger.LogInfo($"========== 我的信息同步完成（已发送所有字段到服务器） ==========");
             }
             catch (Exception ex)
             {
