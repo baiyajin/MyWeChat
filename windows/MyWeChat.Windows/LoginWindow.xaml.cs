@@ -1010,17 +1010,28 @@ namespace MyWeChat.Windows
             if (_forceClose)
             {
                 e.Cancel = false;
+                Logger.LogInfo("登录窗口：强制关闭，直接关闭窗口");
+                return;
+            }
+            
+            // 如果启动进度圆环还在显示，说明初始化未完成，阻止关闭
+            if (!_startupProgressClosed)
+            {
+                Logger.LogWarning("登录窗口：初始化未完成，阻止关闭窗口");
+                e.Cancel = true;
                 return;
             }
             
             // 如果统一关闭服务已初始化，使用它处理关闭
             if (_unifiedCloseService != null)
             {
+                Logger.LogInfo("登录窗口：使用统一关闭服务处理关闭");
                 _unifiedCloseService.HandleClosing(e);
             }
             else
             {
                 // 如果关闭服务未初始化，直接关闭窗口
+                Logger.LogInfo("登录窗口：关闭服务未初始化，直接关闭窗口");
                 e.Cancel = false;
             }
         }

@@ -1175,10 +1175,17 @@ namespace MyWeChat.Windows.Core.Hook
                 // 步骤9：检查进程模块加载
                 currentStep = 9;
                 OnProgressUpdate?.Invoke(this, (currentStep, 15, "检查进程模块加载..."));
+                Logger.LogInfo("========== 步骤9：开始检查进程模块加载 ==========");
                 try
                 {
+                    Logger.LogInfo("刷新进程信息...");
                     process.Refresh();
+                    Logger.LogInfo("进程信息已刷新");
+                    
+                    Logger.LogInfo("尝试访问进程模块...");
                     var modules = process.Modules;
+                    Logger.LogInfo("进程模块访问成功");
+                    
                     int moduleCount = modules?.Count ?? 0;
                     Logger.LogInfo($"微信进程已加载 {moduleCount} 个模块");
                     
@@ -1186,74 +1193,145 @@ namespace MyWeChat.Windows.Core.Hook
                     {
                         Logger.LogWarning($"模块数量较少（{moduleCount}），可能未完全初始化");
                         // 等待一段时间后重试
+                        Logger.LogInfo("等待2秒后重试...");
                         Thread.Sleep(2000);
+                        Logger.LogInfo("重试：刷新进程信息...");
                         process.Refresh();
+                        Logger.LogInfo("重试：访问进程模块...");
                         moduleCount = process.Modules?.Count ?? 0;
                         Logger.LogInfo($"重试后模块数量: {moduleCount}");
                     }
+                    Logger.LogInfo("========== 步骤9：进程模块检查完成 ==========");
                 }
-                catch (System.ComponentModel.Win32Exception)
+                catch (System.ComponentModel.Win32Exception winEx)
                 {
                     // 架构不匹配（32位应用访问64位进程），无法访问模块
-                    Logger.LogWarning("无法访问进程模块（可能是架构不匹配），跳过模块检查");
+                    Logger.LogWarning($"无法访问进程模块（可能是架构不匹配）: {winEx.Message}");
+                    Logger.LogWarning($"错误代码: {winEx.NativeErrorCode}");
+                    Logger.LogInfo("========== 步骤9：跳过模块检查 ==========");
+                }
+                catch (System.UnauthorizedAccessException authEx)
+                {
+                    Logger.LogWarning($"访问进程模块时权限不足: {authEx.Message}");
+                    Logger.LogInfo("========== 步骤9：跳过模块检查（权限不足） ==========");
                 }
                 catch (Exception ex)
                 {
-                    Logger.LogWarning($"检查进程模块时出错: {ex.Message}");
+                    Logger.LogError($"检查进程模块时出错: {ex.Message}");
+                    Logger.LogError($"异常类型: {ex.GetType().Name}");
+                    Logger.LogError($"堆栈跟踪: {ex.StackTrace}");
+                    Logger.LogInfo("========== 步骤9：模块检查失败，继续执行 ==========");
                 }
+                Logger.LogInfo("步骤9完成后等待200ms...");
                 Thread.Sleep(200);
+                Logger.LogInfo("步骤9等待完成");
                 
                 // 步骤10：检查进程线程数
                 currentStep = 10;
                 OnProgressUpdate?.Invoke(this, (currentStep, 15, "检查进程线程数..."));
+                Logger.LogInfo("========== 步骤10：开始检查进程线程数 ==========");
                 try
                 {
+                    Logger.LogInfo("刷新进程信息...");
                     process.Refresh();
+                    Logger.LogInfo("访问进程线程集合...");
                     int threadCount = process.Threads.Count;
                     Logger.LogInfo($"微信进程有 {threadCount} 个线程");
                     
                     if (threadCount < 5)
                     {
                         Logger.LogWarning($"线程数较少（{threadCount}），可能未完全初始化");
+                        Logger.LogInfo("等待2秒...");
                         Thread.Sleep(2000);
+                        Logger.LogInfo("等待完成");
                     }
+                    Logger.LogInfo("========== 步骤10：进程线程数检查完成 ==========");
                 }
                 catch (Exception ex)
                 {
-                    Logger.LogWarning($"检查进程线程数时出错: {ex.Message}");
+                    Logger.LogError($"检查进程线程数时出错: {ex.Message}");
+                    Logger.LogError($"异常类型: {ex.GetType().Name}");
+                    Logger.LogError($"堆栈跟踪: {ex.StackTrace}");
+                    Logger.LogInfo("========== 步骤10：线程数检查失败，继续执行 ==========");
                 }
+                Logger.LogInfo("步骤10完成后等待200ms...");
                 Thread.Sleep(200);
+                Logger.LogInfo("步骤10等待完成");
                 
                 // 步骤11：检查窗口响应性
                 currentStep = 11;
                 OnProgressUpdate?.Invoke(this, (currentStep, 15, "检查窗口响应性..."));
-                IntPtr mainWindowHandle = process.MainWindowHandle;
-                if (mainWindowHandle != IntPtr.Zero)
+                Logger.LogInfo("========== 步骤11：开始检查窗口响应性 ==========");
+                try
                 {
-                    // 使用 SendMessage 测试窗口响应性
-                    bool isResponding = IsWindowResponding(mainWindowHandle);
-                    if (!isResponding)
+                    Logger.LogInfo("获取主窗口句柄...");
+                    IntPtr mainWindowHandle = process.MainWindowHandle;
+                    Logger.LogInfo($"主窗口句柄: {mainWindowHandle}");
+                    
+                    if (mainWindowHandle != IntPtr.Zero)
                     {
-                        Logger.LogWarning("窗口未响应，等待2秒后重试...");
-                        Thread.Sleep(2000);
-                        isResponding = IsWindowResponding(mainWindowHandle);
+                        Logger.LogInfo("使用 SendMessage 测试窗口响应性...");
+                        // 使用 SendMessage 测试窗口响应性
+                        bool isResponding = IsWindowResponding(mainWindowHandle);
+                        Logger.LogInfo($"首次响应性检查结果: {(isResponding ? "正常" : "异常")}");
+                        
+                        if (!isResponding)
+                        {
+                            Logger.LogWarning("窗口未响应，等待2秒后重试...");
+                            Thread.Sleep(2000);
+                            Logger.LogInfo("重试检查窗口响应性...");
+                            isResponding = IsWindowResponding(mainWindowHandle);
+                            Logger.LogInfo($"重试后响应性检查结果: {(isResponding ? "正常" : "异常")}");
+                        }
+                        Logger.LogInfo($"窗口响应性: {(isResponding ? "正常" : "异常")}");
                     }
-                    Logger.LogInfo($"窗口响应性: {(isResponding ? "正常" : "异常")}");
+                    else
+                    {
+                        Logger.LogWarning("主窗口句柄为空，无法检查响应性");
+                    }
+                    Logger.LogInfo("========== 步骤11：窗口响应性检查完成 ==========");
                 }
+                catch (Exception ex)
+                {
+                    Logger.LogError($"检查窗口响应性时出错: {ex.Message}");
+                    Logger.LogError($"异常类型: {ex.GetType().Name}");
+                    Logger.LogError($"堆栈跟踪: {ex.StackTrace}");
+                    Logger.LogInfo("========== 步骤11：窗口响应性检查失败，继续执行 ==========");
+                }
+                Logger.LogInfo("步骤11完成后等待200ms...");
                 Thread.Sleep(200);
+                Logger.LogInfo("步骤11等待完成");
                 
                 // 步骤12：最终检查
                 currentStep = 12;
                 OnProgressUpdate?.Invoke(this, (currentStep, 15, "完成初始化检查..."));
-                process.Refresh();
-                if (process.HasExited)
+                Logger.LogInfo("========== 步骤12：开始最终检查 ==========");
+                try
                 {
-                    Logger.LogError("微信进程在检查过程中已退出");
+                    Logger.LogInfo("刷新进程信息进行最终检查...");
+                    process.Refresh();
+                    Logger.LogInfo("检查进程是否已退出...");
+                    
+                    if (process.HasExited)
+                    {
+                        Logger.LogError("微信进程在检查过程中已退出");
+                        Logger.LogInfo("========== 步骤12：检查失败（进程已退出） ==========");
+                        return false;
+                    }
+                    
+                    Logger.LogInfo("进程仍在运行");
+                    Logger.LogInfo("========== 步骤12：最终检查完成 ==========");
+                    Logger.LogInfo("========== 微信主线程初始化检查完成 ==========");
+                    return true;
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogError($"最终检查时出错: {ex.Message}");
+                    Logger.LogError($"异常类型: {ex.GetType().Name}");
+                    Logger.LogError($"堆栈跟踪: {ex.StackTrace}");
+                    Logger.LogInfo("========== 步骤12：最终检查失败 ==========");
                     return false;
                 }
-                
-                Logger.LogInfo("微信主线程初始化检查完成");
-                return true;
             }
             catch (Exception ex)
             {
