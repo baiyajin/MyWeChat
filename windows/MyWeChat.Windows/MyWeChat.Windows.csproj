@@ -8,7 +8,7 @@
     <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
     <ApplicationManifest>app.manifest</ApplicationManifest>
-    <ApplicationIcon>Resources\favicon.ico</ApplicationIcon>
+    <ApplicationIcon>Resources\uniapp.ico</ApplicationIcon>
     <AssemblyName>MyWeChat.Windows</AssemblyName>
     <RootNamespace>MyWeChat.Windows</RootNamespace>
     <PlatformTarget>x86</PlatformTarget>
@@ -32,6 +32,7 @@
 
   <ItemGroup>
     <Resource Include="Resources\favicon.ico" />
+    <Resource Include="Resources\uniapp.ico" />
   </ItemGroup>
 
   <Target Name="CopyDlls" AfterTargets="Build">

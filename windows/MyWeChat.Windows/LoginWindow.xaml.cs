@@ -86,6 +86,46 @@ namespace MyWeChat.Windows
             // _trayIconService.Initialize(this);
             
             Loaded += LoginWindow_Loaded;
+            
+            // 设置窗口图标（使用uniapp.ico）
+            SetWindowIcon();
+        }
+
+        /// <summary>
+        /// 设置窗口图标（使用uniapp.ico）
+        /// </summary>
+        private void SetWindowIcon()
+        {
+            try
+            {
+                // 优先从Resources文件夹加载
+                string uniappIconPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources", "uniapp.ico");
+                if (File.Exists(uniappIconPath))
+                {
+                    this.Icon = new System.Windows.Media.Imaging.BitmapImage(new Uri(uniappIconPath));
+                    return;
+                }
+                
+                // 从程序集资源加载
+                try
+                {
+                    var resourceUri = new Uri("pack://application:,,,/Resources/uniapp.ico");
+                    this.Icon = new System.Windows.Media.Imaging.BitmapImage(resourceUri);
+                }
+                catch
+                {
+                    // 如果失败，尝试加载favicon.ico
+                    string faviconIconPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources", "favicon.ico");
+                    if (File.Exists(faviconIconPath))
+                    {
+                        this.Icon = new System.Windows.Media.Imaging.BitmapImage(new Uri(faviconIconPath));
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.LogWarning($"设置登录窗口图标失败: {ex.Message}");
+            }
         }
 
         private void LoginWindow_Loaded(object sender, RoutedEventArgs e)

@@ -102,15 +102,38 @@ namespace MyWeChat.Windows.Services
         {
             try
             {
-                // 方法1: 尝试从Resources文件夹加载
-                string iconPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources", "favicon.ico");
-                if (File.Exists(iconPath))
+                // 方法1: 优先尝试从Resources文件夹加载 uniapp.ico（反检测）
+                string uniappIconPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources", "uniapp.ico");
+                if (File.Exists(uniappIconPath))
                 {
-                    // 直接创建Icon，不使用using，因为需要返回Icon对象
-                    return new Icon(iconPath);
+                    return new Icon(uniappIconPath);
                 }
                 
-                // 方法2: 尝试从可执行文件加载
+                // 方法2: 尝试从程序集资源加载 uniapp.ico
+                try
+                {
+                    var uniappResourceStream = Assembly.GetExecutingAssembly().GetManifestResourceStream("MyWeChat.Windows.Resources.uniapp.ico");
+                    if (uniappResourceStream != null)
+                    {
+                        using (uniappResourceStream)
+                        {
+                            return new Icon(uniappResourceStream);
+                        }
+                    }
+                }
+                catch
+                {
+                    // 忽略资源加载错误
+                }
+                
+                // 方法3: 回退到 favicon.ico（从Resources文件夹）
+                string faviconIconPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources", "favicon.ico");
+                if (File.Exists(faviconIconPath))
+                {
+                    return new Icon(faviconIconPath);
+                }
+                
+                // 方法4: 尝试从可执行文件加载
                 string exePath = Assembly.GetExecutingAssembly().Location;
                 if (!string.IsNullOrEmpty(exePath) && File.Exists(exePath))
                 {
@@ -122,7 +145,7 @@ namespace MyWeChat.Windows.Services
                     }
                 }
                 
-                // 方法3: 尝试从程序集资源加载
+                // 方法5: 尝试从程序集资源加载 favicon.ico
                 try
                 {
                     var resourceStream = Assembly.GetExecutingAssembly().GetManifestResourceStream("MyWeChat.Windows.Resources.favicon.ico");
