@@ -293,7 +293,8 @@
                             <!-- Material Design风格的旋转加载圆圈 -->
                             <Path Stroke="#07C160"
                                   StrokeThickness="2.5"
-                                  StrokeLinecap="Round"
+                                  StrokeStartLineCap="Round"
+                                  StrokeEndLineCap="Round"
                                   Opacity="0.9">
                                 <Path.Data>
                                     <PathGeometry>
