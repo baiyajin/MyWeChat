@@ -11,7 +11,7 @@ namespace MyWeChat.Windows.UI.Controls
     /// 窗口关闭遮罩控件
     /// 统一处理窗口关闭时的UI显示（关闭确认弹窗和关闭进度圆环）
     /// </summary>
-    public partial class WindowCloseOverlay : UserControl
+    public partial class WindowCloseOverlay : System.Windows.Controls.UserControl
     {
         /// <summary>
         /// 关闭操作结果
