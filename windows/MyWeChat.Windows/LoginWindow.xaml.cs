@@ -47,6 +47,10 @@ namespace MyWeChat.Windows
         // 启动进度相关
         private int _currentStep = 0;
         private const int _totalSteps = 3; // 总步骤数：1.加载登录历史 2.初始化WebSocket 3.初始化微信管理器
+        
+        // 保存全局服务事件处理函数引用，以便在关闭时取消订阅
+        private EventHandler<bool>? _connectionStateChangedHandler;
+        private EventHandler<string>? _wxidReceivedHandler;
 
         public LoginWindow()
         {
@@ -677,8 +681,8 @@ namespace MyWeChat.Windows
                 // 使用全局单例服务
                 var service = WeChatInitializationService.Instance;
                 
-                // 订阅连接状态变化事件
-                service.OnConnectionStateChanged += (sender, isConnected) =>
+                // 保存事件处理函数引用，以便在关闭时取消订阅
+                _connectionStateChangedHandler = (sender, isConnected) =>
                 {
                     if (isConnected)
                     {
@@ -700,8 +704,11 @@ namespace MyWeChat.Windows
                     }
                 };
                 
-                // 订阅微信ID获取事件（1112回调）
-                service.OnWxidReceived += (sender, wxid) =>
+                // 订阅连接状态变化事件
+                service.OnConnectionStateChanged += _connectionStateChangedHandler;
+                
+                // 保存事件处理函数引用
+                _wxidReceivedHandler = (sender, wxid) =>
                 {
                     Logger.LogInfo($"获取到微信ID（登录窗口）: {wxid}");
                     
@@ -714,6 +721,9 @@ namespace MyWeChat.Windows
                         }
                     }, DispatcherPriority.Background);
                 };
+                
+                // 订阅微信ID获取事件（1112回调）
+                service.OnWxidReceived += _wxidReceivedHandler;
                 
                 // 如果已经初始化，直接完成后续操作
                 if (service.IsInitialized)
@@ -877,7 +887,22 @@ namespace MyWeChat.Windows
         /// </summary>
         private void UnsubscribeEvents()
         {
-            // WeChatManager的事件订阅在Dispose时自动清理
+            // 注意：只取消登录窗口自己的事件订阅，不取消全局服务的事件订阅
+            // 因为主页需要继续监听微信消息，全局服务的事件订阅必须保持活跃
+            
+            // 取消全局服务的事件订阅（登录窗口自己的订阅）
+            var service = WeChatInitializationService.Instance;
+            if (_connectionStateChangedHandler != null)
+            {
+                service.OnConnectionStateChanged -= _connectionStateChangedHandler;
+                _connectionStateChangedHandler = null;
+            }
+            
+            if (_wxidReceivedHandler != null)
+            {
+                service.OnWxidReceived -= _wxidReceivedHandler;
+                _wxidReceivedHandler = null;
+            }
             
             // 取消WebSocket服务事件订阅
             if (_webSocketService != null)
