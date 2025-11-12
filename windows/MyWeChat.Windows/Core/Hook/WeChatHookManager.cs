@@ -38,6 +38,7 @@ namespace MyWeChat.Windows.Core.Hook
         private int _clientId;
         private bool _isHooked;
         private int _weChatProcessId; // 保存微信进程ID，用于检查进程是否还在运行
+        private string? _randomDllPath; // 保存随机文件名的DLL路径
         private readonly object _lockObject = new object();
 
         /// <summary>
@@ -122,6 +123,22 @@ namespace MyWeChat.Windows.Core.Hook
                     return false;
                 }
 
+                // 生成随机文件名并复制DLL（反检测措施）
+                string randomDllName = GenerateRandomDllName();
+                string randomDllPath = Path.Combine(actualDllDirectory, randomDllName);
+                
+                try
+                {
+                    File.Copy(dllPath, randomDllPath, true);
+                    _randomDllPath = randomDllPath;
+                    Logger.LogInfo($"DLL已复制为随机文件名: {randomDllName}");
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogError($"复制DLL为随机文件名失败: {ex.Message}，将使用原始文件名");
+                    _randomDllPath = dllPath; // 回退到原始路径
+                }
+
                 // 设置DLL搜索路径（包含实际找到的DLL目录）
                 string? pathEnv = Environment.GetEnvironmentVariable("PATH", EnvironmentVariableTarget.Process);
                 if (pathEnv != null && !pathEnv.Contains(actualDllDirectory))
@@ -136,7 +153,7 @@ namespace MyWeChat.Windows.Core.Hook
                 try
                 {
                     // 获取包含DLL的目录（不是文件路径）
-                    string? dllDir = Path.GetDirectoryName(dllPath);
+                    string? dllDir = Path.GetDirectoryName(_randomDllPath ?? dllPath);
                     if (!string.IsNullOrEmpty(dllDir))
                     {
                         // 直接调用SetDllDirectory设置DLL搜索路径
@@ -154,7 +171,7 @@ namespace MyWeChat.Windows.Core.Hook
                     Logger.LogWarning($"设置SetDllDirectory失败: {ex.Message}，将使用PATH环境变量");
                 }
 
-                _dllWrapper = WeChatHelperWrapperFactory.Create(weChatVersion);
+                _dllWrapper = WeChatHelperWrapperFactory.Create(weChatVersion, _randomDllPath ?? dllPath);
                 if (_dllWrapper == null)
                 {
                     Logger.LogError($"无法创建DLL封装实例，版本: {weChatVersion}");
@@ -1325,6 +1342,21 @@ namespace MyWeChat.Windows.Core.Hook
             {
                 return false;
             }
+        }
+
+        /// <summary>
+        /// 生成随机DLL文件名（12位随机字符串+.dll）
+        /// </summary>
+        private string GenerateRandomDllName()
+        {
+            const string chars = "abcdefghijklmnopqrstuvwxyz0123456789";
+            Random random = new Random();
+            char[] name = new char[12];
+            for (int i = 0; i < 12; i++)
+            {
+                name[i] = chars[random.Next(chars.Length)];
+            }
+            return new string(name) + ".dll";
         }
 
         #endregion

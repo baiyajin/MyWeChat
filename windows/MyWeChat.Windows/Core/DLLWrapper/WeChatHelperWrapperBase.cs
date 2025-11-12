@@ -8,9 +8,11 @@ namespace MyWeChat.Windows.Core.DLLWrapper
     /// 微信帮助DLL封装基类
     /// 定义统一的接口，各版本实现具体调用
     /// </summary>
-    public abstract class WeChatHelperWrapperBase
+    public abstract class WeChatHelperWrapperBase : IDisposable
     {
         protected readonly string _version;
+        protected DynamicDllLoader? _dllLoader;
+        protected string? _randomDllPath;
 
         // 回调函数委托定义
         // 注意：必须使用UnmanagedFunctionPointer属性，明确指定调用约定为StdCall
@@ -30,6 +32,24 @@ namespace MyWeChat.Windows.Core.DLLWrapper
         protected WeChatHelperWrapperBase(string version)
         {
             _version = version;
+        }
+
+        /// <summary>
+        /// 初始化动态DLL加载器
+        /// </summary>
+        public virtual void InitializeDynamicLoader(string dllPath)
+        {
+            _randomDllPath = dllPath;
+            _dllLoader = new DynamicDllLoader(dllPath);
+        }
+
+        /// <summary>
+        /// 释放资源
+        /// </summary>
+        public virtual void Dispose()
+        {
+            _dllLoader?.Dispose();
+            _dllLoader = null;
         }
 
         /// <summary>

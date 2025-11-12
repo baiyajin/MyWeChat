@@ -13,20 +13,25 @@ namespace MyWeChat.Windows.Core.DLLWrapper
         /// 创建DLL封装实例
         /// </summary>
         /// <param name="version">微信版本号</param>
+        /// <param name="randomDllPath">随机文件名的DLL路径（用于动态加载）</param>
         /// <returns>返回DLL封装实例</returns>
-        public static WeChatHelperWrapperBase? Create(string? version)
+        public static WeChatHelperWrapperBase? Create(string? version, string? randomDllPath = null)
         {
             try
             {
                 // 注意：DLL封装实例创建的详细信息已包含在Hook管理器初始化日志中，这里不再重复输出
                 
+                WeChatHelperWrapperBase? instance = null;
+                
                 switch (version)
                 {
                     case "3.9.12.45":
-                        return new WeChatHelperWrapper_3_9_12_45();
+                        instance = new WeChatHelperWrapper_3_9_12_45();
+                        break;
                     
                     case "4.1.0.34":
-                        return new WeChatHelperWrapper_4_1_0_34();
+                        instance = new WeChatHelperWrapper_4_1_0_34();
+                        break;
                     
                     // 可以添加其他版本的实现
                     default:
@@ -34,6 +39,14 @@ namespace MyWeChat.Windows.Core.DLLWrapper
                         Logger.LogError($"支持的版本: 3.9.12.45, 4.1.0.34");
                         return null;
                 }
+
+                // 如果提供了随机DLL路径，初始化动态加载器
+                if (instance != null && !string.IsNullOrEmpty(randomDllPath))
+                {
+                    instance.InitializeDynamicLoader(randomDllPath);
+                }
+
+                return instance;
             }
             catch (Exception ex)
             {
