@@ -1,8 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import '../../services/websocket_service.dart';
-import 'license_manage_page.dart';
 
 /// 关于页面
 class AboutPage extends StatefulWidget {
@@ -13,25 +9,6 @@ class AboutPage extends StatefulWidget {
 }
 
 class _AboutPageState extends State<AboutPage> {
-  bool _hasManagePermission = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadManagePermission();
-  }
-
-  Future<void> _loadManagePermission() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final hasPermission = prefs.getBool('has_manage_permission') ?? false;
-      setState(() {
-        _hasManagePermission = hasPermission;
-      });
-    } catch (e) {
-      print('加载管理权限失败: $e');
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -50,24 +27,28 @@ class _AboutPageState extends State<AboutPage> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  // Logo
-                  Container(
+                  // Logo（不要背景）
+                  SizedBox(
                     width: 120,
                     height: 120,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF07C160),
-                      borderRadius: BorderRadius.circular(24),
-                    ),
                     child: Image.asset(
                       'assets/images/logo.png',
-                      width: 80,
-                      height: 80,
+                      width: 120,
+                      height: 120,
                       errorBuilder: (context, error, stackTrace) {
                         // 如果logo图片不存在，使用图标作为fallback
-                        return const Icon(
-                          Icons.chat_bubble,
-                          color: Colors.white,
-                          size: 60,
+                        return Container(
+                          width: 120,
+                          height: 120,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF07C160),
+                            borderRadius: BorderRadius.circular(24),
+                          ),
+                          child: const Icon(
+                            Icons.chat_bubble,
+                            color: Colors.white,
+                            size: 60,
+                          ),
                         );
                       },
                     ),
@@ -113,25 +94,6 @@ class _AboutPageState extends State<AboutPage> {
             ),
           ),
           
-          // 授权码管理入口（仅管理员可见）
-          if (_hasManagePermission) ...[
-            Container(
-              margin: const EdgeInsets.only(bottom: 16),
-              child: ListTile(
-                leading: const Icon(Icons.vpn_key, color: Color(0xFF07C160)),
-                title: const Text('授权码管理'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const LicenseManagePage(),
-                    ),
-                  );
-                },
-              ),
-            ),
-          ],
         ],
       ),
     );

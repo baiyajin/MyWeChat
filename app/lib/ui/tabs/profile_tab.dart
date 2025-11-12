@@ -3,8 +3,10 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/websocket_service.dart';
 import '../../services/api_service.dart';
+import '../pages/license_manage_page.dart';
 
 /// 我的Tab - 模仿微信App的"我"页面UI
 class ProfileTab extends StatefulWidget {
@@ -19,6 +21,7 @@ class _ProfileTabState extends State<ProfileTab> with SingleTickerProviderStateM
   Map<String, dynamic>? _systemStatus;
   late AnimationController _animationController;
   late Animation<double> _animation;
+  bool _hasManagePermission = false;
 
   @override
   void initState() {
@@ -32,6 +35,19 @@ class _ProfileTabState extends State<ProfileTab> with SingleTickerProviderStateM
     );
     _startStatusTimer();
     _refreshStatus();
+    _loadManagePermission();
+  }
+
+  Future<void> _loadManagePermission() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final hasPermission = prefs.getBool('has_manage_permission') ?? false;
+      setState(() {
+        _hasManagePermission = hasPermission;
+      });
+    } catch (e) {
+      print('加载管理权限失败: $e');
+    }
   }
 
   @override
@@ -170,6 +186,26 @@ class _ProfileTabState extends State<ProfileTab> with SingleTickerProviderStateM
                   },
                 ),
               ),
+              
+              // 授权码管理入口（仅管理员可见，在关于下方）
+              if (_hasManagePermission) ...[
+                const SizedBox(height: 10),
+                Container(
+                  color: Colors.white,
+                  child: _buildMenuItem(
+                    icon: Icons.vpn_key,
+                    title: '授权码管理',
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const LicenseManagePage(),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
               
               const SizedBox(height: 10),
               
@@ -447,24 +483,28 @@ class _ProfileTabState extends State<ProfileTab> with SingleTickerProviderStateM
         ),
       );
     } else {
-      // 没有用户数据，显示logo
-      return Container(
+      // 没有用户数据，显示logo（不要背景）
+      return SizedBox(
         width: 60,
         height: 60,
-        decoration: BoxDecoration(
-          color: const Color(0xFF07C160),
-          shape: BoxShape.circle,
-        ),
         child: Image.asset(
           'assets/images/logo.png',
-          width: 40,
-          height: 40,
+          width: 60,
+          height: 60,
           errorBuilder: (context, error, stackTrace) {
             // 如果logo图片不存在，使用图标作为fallback
-            return const Icon(
-              Icons.chat_bubble,
-              color: Colors.white,
-              size: 30,
+            return Container(
+              width: 60,
+              height: 60,
+              decoration: BoxDecoration(
+                color: const Color(0xFF07C160),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.chat_bubble,
+                color: Colors.white,
+                size: 30,
+              ),
             );
           },
         ),
