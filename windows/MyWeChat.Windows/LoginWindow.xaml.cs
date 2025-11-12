@@ -381,20 +381,32 @@ namespace MyWeChat.Windows
 
             try
             {
-                // 先查询数据库，看是否有该手机号对应的账号信息
+                // 将手机号添加到全局服务的待匹配列表（用于后续1112回调匹配）
+                WeChatInitializationService.Instance.AddPendingPhone(phone);
+                Logger.LogInfo($"登录时添加手机号到待匹配列表: phone={phone}");
+                
+                // 【核心逻辑】先查询数据库，看是否有该手机号对应的账号信息
+                // 如果数据库有wxid，立即同步到app端，让用户能够快速进行后续操作
                 if (_apiService != null)
                 {
-                    Logger.LogInfo($"登录前先查询数据库: phone={phone}");
+                    Logger.LogInfo($"[登录] 查询数据库: phone={phone}");
                     var accountInfo = await _apiService.GetAccountInfoByPhoneAsync(phone);
                     if (accountInfo != null && !string.IsNullOrEmpty(accountInfo.WeChatId))
                     {
-                        Logger.LogInfo($"从数据库找到账号信息: wxid={accountInfo.WeChatId}, nickname={accountInfo.NickName}");
-                        // 如果数据库有数据，直接使用，跳过等待1112消息
-                        // 但仍要保持监听1112消息，因为账号信息可能会更新
+                        Logger.LogInfo($"[登录] 数据库中找到账号信息: wxid={accountInfo.WeChatId}, nickname={accountInfo.NickName}");
+                        
+                        // 【关键】立即同步到app端，不需要等待1112回调
+                        // 这样用户就能快速获取wxid，进行后续操作
+                        // 其他字段（nickname、avatar等）可以等待1112回调慢慢更新
+                        Logger.LogInfo($"[登录] 立即同步wxid到app端: wxid={accountInfo.WeChatId}");
+                        SyncMyInfoToServer(accountInfo);
+                        
+                        // 注意：仍然保持监听1112消息，因为账号信息可能会更新
+                        // 1112回调来了会更新其他字段，但不影响主流程
                     }
                     else
                     {
-                        Logger.LogInfo($"数据库未找到账号信息: phone={phone}，继续等待1112消息");
+                        Logger.LogInfo($"[登录] 数据库未找到账号信息: phone={phone}，等待1112回调获取wxid");
                     }
                 }
 
