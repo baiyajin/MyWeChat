@@ -1410,7 +1410,89 @@ namespace MyWeChat.Windows
                             }
                         }
                         
-                        // 策略3: 如果消息不完整，尝试补全
+                        // 策略3: 修复被截断的字符串字段（如msg字段）
+                        if (!isFixed && ex.Message.Contains("Unterminated string"))
+                        {
+                            try
+                            {
+                                Logger.LogWarning("检测到未闭合的字符串，尝试修复");
+                                
+                                // 找到最后一个冒号后的引号位置（这应该是字符串字段的开始）
+                                int lastColon = cleanMessage.LastIndexOf(':');
+                                int lastQuote = cleanMessage.LastIndexOf('"');
+                                
+                                if (lastColon > 0 && lastQuote > lastColon)
+                                {
+                                    // 检查从最后一个引号到末尾是否有闭合引号
+                                    string afterLastQuote = cleanMessage.Substring(lastQuote + 1);
+                                    if (!afterLastQuote.Contains("\"") || afterLastQuote.IndexOf("\"") > afterLastQuote.Length - 10)
+                                    {
+                                        // 字符串未闭合，需要修复
+                                        string fixedJson = cleanMessage;
+                                        
+                                        // 转义字符串中的特殊字符（如果还没有转义）
+                                        // 注意：不要重复转义已经转义的字符
+                                        string unclosedString = afterLastQuote;
+                                        
+                                        // 在字符串末尾添加闭合引号
+                                        // 找到字符串开始的位置（最后一个引号）
+                                        int stringStart = lastQuote;
+                                        
+                                        // 在消息末尾添加闭合引号
+                                        if (!fixedJson.EndsWith("\""))
+                                        {
+                                            fixedJson = fixedJson + "\"";
+                                        }
+                                        
+                                        // 补全JSON结构
+                                        if (!fixedJson.EndsWith("}"))
+                                        {
+                                            // 计算需要补全的括号数量
+                                            int openBraces = fixedJson.Count(c => c == '{');
+                                            int closeBraces = fixedJson.Count(c => c == '}');
+                                            int openBrackets = fixedJson.Count(c => c == '[');
+                                            int closeBrackets = fixedJson.Count(c => c == ']');
+                                            
+                                            // 先补全数组
+                                            while (closeBrackets < openBrackets)
+                                            {
+                                                fixedJson += "]";
+                                                closeBrackets++;
+                                            }
+                                            // 再补全对象
+                                            while (closeBraces < openBraces)
+                                            {
+                                                fixedJson += "}";
+                                                closeBraces++;
+                                            }
+                                        }
+                                        
+                                        try
+                                        {
+                                            messageObj = Newtonsoft.Json.JsonConvert.DeserializeObject<dynamic>(fixedJson) ?? null;
+                                            if (messageObj != null)
+                                            {
+                                                Logger.LogInfo("通过修复被截断的字符串字段成功解析");
+                                                cleanMessage = fixedJson;
+                                                isFixed = true;
+                                            }
+                                        }
+                                        catch (Exception fixEx)
+                                        {
+                                            Logger.LogWarning($"修复字符串字段后仍解析失败: {fixEx.Message}");
+                                            // 继续尝试其他策略
+                                        }
+                                    }
+                                }
+                            }
+                            catch (Exception fixEx)
+                            {
+                                Logger.LogWarning($"修复被截断字符串字段时出错: {fixEx.Message}");
+                                // 继续尝试其他策略
+                            }
+                        }
+                        
+                        // 策略4: 如果消息不完整，尝试补全
                         if (!isFixed && cleanMessage.StartsWith("{") && !cleanMessage.EndsWith("}"))
                         {
                             // 尝试找到最后一个逗号或冒号，然后补全
@@ -1422,19 +1504,39 @@ namespace MyWeChat.Windows
                             {
                                 // 如果最后是字符串值，尝试补全
                                 string fixedJson = cleanMessage;
-                                if (fixedJson.EndsWith("\""))
+                                
+                                // 检查最后一个引号是否是字符串的开始（前面有冒号）
+                                int quoteBeforeColon = cleanMessage.LastIndexOf(':', lastQuote);
+                                if (quoteBeforeColon > 0 && quoteBeforeColon < lastQuote)
                                 {
-                                    fixedJson = fixedJson + "}";
+                                    // 这是一个字符串字段，需要闭合引号
+                                    if (!cleanMessage.Substring(lastQuote + 1).Contains("\""))
+                                    {
+                                        fixedJson = cleanMessage + "\"";
+                                    }
                                 }
-                                // 注意：type:1112 是正确的类型，不需要修复
-                                // 如果消息以 "type":1112 结尾，只需要补全闭合括号
-                                else if (fixedJson.EndsWith("\"type\":1112"))
+                                
+                                // 补全JSON结构
+                                if (!fixedJson.EndsWith("}"))
                                 {
-                                    fixedJson = fixedJson + "}";
-                        }
-                        else
-                        {
-                                    fixedJson = fixedJson + "}";
+                                    // 计算需要补全的括号数量
+                                    int openBraces = fixedJson.Count(c => c == '{');
+                                    int closeBraces = fixedJson.Count(c => c == '}');
+                                    int openBrackets = fixedJson.Count(c => c == '[');
+                                    int closeBrackets = fixedJson.Count(c => c == ']');
+                                    
+                                    // 先补全数组
+                                    while (closeBrackets < openBrackets)
+                                    {
+                                        fixedJson += "]";
+                                        closeBrackets++;
+                                    }
+                                    // 再补全对象
+                                    while (closeBraces < openBraces)
+                                    {
+                                        fixedJson += "}";
+                                        closeBraces++;
+                                    }
                                 }
                                 
                                 try
