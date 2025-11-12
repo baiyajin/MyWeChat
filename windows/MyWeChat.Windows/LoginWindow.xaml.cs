@@ -35,6 +35,9 @@ namespace MyWeChat.Windows
         
         // 微信连接相关（使用全局单例服务）
         private CommandService? _commandService;
+        
+        // API服务（用于查询数据库中的账号信息）
+        private ApiService? _apiService;
 
         // 统一窗口关闭服务
         private UnifiedWindowCloseService? _unifiedCloseService;
@@ -51,6 +54,7 @@ namespace MyWeChat.Windows
         // 保存全局服务事件处理函数引用，以便在关闭时取消订阅
         private EventHandler<bool>? _connectionStateChangedHandler;
         private EventHandler<string>? _wxidReceivedHandler;
+        private EventHandler<string>? _messageReceivedHandler;
 
         public LoginWindow()
         {
@@ -351,6 +355,23 @@ namespace MyWeChat.Windows
 
             try
             {
+                // 先查询数据库，看是否有该手机号对应的账号信息
+                if (_apiService != null)
+                {
+                    Logger.LogInfo($"登录前先查询数据库: phone={phone}");
+                    var accountInfo = await _apiService.GetAccountInfoByPhoneAsync(phone);
+                    if (accountInfo != null && !string.IsNullOrEmpty(accountInfo.WeChatId))
+                    {
+                        Logger.LogInfo($"从数据库找到账号信息: wxid={accountInfo.WeChatId}, nickname={accountInfo.NickName}");
+                        // 如果数据库有数据，直接使用，跳过等待1112消息
+                        // 但仍要保持监听1112消息，因为账号信息可能会更新
+                    }
+                    else
+                    {
+                        Logger.LogInfo($"数据库未找到账号信息: phone={phone}，继续等待1112消息");
+                    }
+                }
+
                 if (_webSocketService != null && _webSocketService.IsConnected)
                 {
                     await _webSocketService.SendMessageAsync(new
@@ -725,6 +746,20 @@ namespace MyWeChat.Windows
                 // 订阅微信ID获取事件（1112回调）
                 service.OnWxidReceived += _wxidReceivedHandler;
                 
+                // 保存消息接收事件处理函数引用
+                _messageReceivedHandler = (sender, message) =>
+                {
+                    // 处理1112消息，保存到数据库
+                    HandleWeChatMessageForAccountInfo(message);
+                };
+                
+                // 订阅消息接收事件（用于处理1112消息并保存到数据库）
+                service.OnMessageReceived += _messageReceivedHandler;
+                
+                // 初始化API服务（用于查询数据库中的账号信息）
+                string serverUrl = ConfigHelper.GetServerUrl();
+                _apiService = new ApiService(serverUrl);
+                
                 // 如果已经初始化，直接完成后续操作
                 if (service.IsInitialized)
                 {
@@ -904,6 +939,12 @@ namespace MyWeChat.Windows
                 _wxidReceivedHandler = null;
             }
             
+            if (_messageReceivedHandler != null)
+            {
+                service.OnMessageReceived -= _messageReceivedHandler;
+                _messageReceivedHandler = null;
+            }
+            
             // 取消WebSocket服务事件订阅
             if (_webSocketService != null)
             {
@@ -933,6 +974,205 @@ namespace MyWeChat.Windows
             {
                 // 如果关闭服务未初始化，直接关闭窗口
                 e.Cancel = false;
+            }
+        }
+
+        /// <summary>
+        /// 处理微信消息（用于处理1112消息并保存到数据库）
+        /// </summary>
+        private void HandleWeChatMessageForAccountInfo(string message)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(message))
+                {
+                    return;
+                }
+
+                // 清理消息
+                string cleanMessage = message.Trim();
+                System.Text.StringBuilder sb = new System.Text.StringBuilder();
+                foreach (char c in cleanMessage)
+                {
+                    if (char.IsControl(c) && c != '\n' && c != '\r' && c != '\t')
+                    {
+                        continue;
+                    }
+                    sb.Append(c);
+                }
+                cleanMessage = sb.ToString();
+
+                dynamic? messageObj = null;
+                try
+                {
+                    messageObj = JsonConvert.DeserializeObject<dynamic>(cleanMessage);
+                }
+                catch (JsonException ex)
+                {
+                    Logger.LogWarning($"JSON解析失败: {ex.Message}");
+                    return;
+                }
+
+                if (messageObj == null) return;
+
+                // 获取消息类型
+                int messageType = 0;
+                if (messageObj.type != null)
+                {
+                    int.TryParse(messageObj.type.ToString(), out messageType);
+                }
+
+                // 只处理1112消息（账号信息回调）
+                if (messageType == 1112)
+                {
+                    dynamic? loginInfo = null;
+
+                    if (messageObj?.data != null)
+                    {
+                        string dataJson = messageObj.data?.ToString() ?? string.Empty;
+                        if (!string.IsNullOrEmpty(dataJson) && dataJson.TrimStart().StartsWith("{"))
+                        {
+                            try
+                            {
+                                loginInfo = JsonConvert.DeserializeObject<dynamic>(dataJson) ?? null;
+                            }
+                            catch
+                            {
+                                loginInfo = messageObj.data;
+                            }
+                        }
+                        else
+                        {
+                            loginInfo = messageObj.data;
+                        }
+                    }
+
+                    if (loginInfo != null)
+                    {
+                        // 尝试多种方式获取wxid
+                        string wxid = loginInfo.wxid?.ToString() ?? "";
+                        if (string.IsNullOrEmpty(wxid))
+                        {
+                            wxid = loginInfo.wxId?.ToString() ?? "";
+                        }
+                        if (string.IsNullOrEmpty(wxid))
+                        {
+                            wxid = loginInfo.WxId?.ToString() ?? "";
+                        }
+
+                        // 检查是否是进程ID（纯数字）
+                        if (!string.IsNullOrEmpty(wxid) && !int.TryParse(wxid, out _))
+                        {
+                            // 解析账号信息
+                            string nickname = loginInfo.nickname?.ToString() ?? "";
+                            string avatar = loginInfo.avatar?.ToString() ?? "";
+                            string account = loginInfo.account?.ToString() ?? wxid;
+                            string deviceId = loginInfo.device_id?.ToString() ?? loginInfo.deviceId?.ToString() ?? "";
+                            string phone = loginInfo.phone?.ToString() ?? "";
+                            string wxUserDir = loginInfo.wx_user_dir?.ToString() ?? loginInfo.wxUserDir?.ToString() ?? "";
+                            int unreadMsgCount = 0;
+                            int.TryParse(loginInfo.unread_msg_count?.ToString() ?? loginInfo.unreadMsgCount?.ToString() ?? "0", out unreadMsgCount);
+                            int isFakeDeviceId = 0;
+                            int.TryParse(loginInfo.is_fake_device_id?.ToString() ?? loginInfo.isFakeDeviceId?.ToString() ?? "0", out isFakeDeviceId);
+                            int pid = 0;
+                            int.TryParse(loginInfo.pid?.ToString() ?? "0", out pid);
+
+                            // 创建AccountInfo对象
+                            var accountInfo = new AccountInfo
+                            {
+                                WeChatId = wxid,
+                                NickName = nickname,
+                                Avatar = avatar,
+                                BoundAccount = account,
+                                Phone = phone,
+                                DeviceId = deviceId,
+                                WxUserDir = wxUserDir,
+                                UnreadMsgCount = unreadMsgCount,
+                                IsFakeDeviceId = isFakeDeviceId,
+                                Pid = pid
+                            };
+
+                            Logger.LogInfo($"登录窗口收到1112消息，准备保存到数据库: wxid={wxid}, nickname={nickname}");
+
+                            // 保存到数据库（通过WebSocket同步到服务器）
+                            _ = Task.Run(async () =>
+                            {
+                                await Task.Delay(500); // 延迟一点时间，确保WebSocket连接稳定
+                                SyncMyInfoToServer(accountInfo);
+                            });
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError($"处理微信消息失败: {ex.Message}", ex);
+            }
+        }
+
+        /// <summary>
+        /// 同步我的信息到服务器（发送所有字段）
+        /// </summary>
+        private void SyncMyInfoToServer(AccountInfo? accountInfo)
+        {
+            try
+            {
+                if (accountInfo == null)
+                {
+                    Logger.LogWarning("账号信息为空，无法同步到服务器");
+                    return;
+                }
+
+                // 只同步有真正wxid的账号信息
+                if (string.IsNullOrEmpty(accountInfo.WeChatId) || int.TryParse(accountInfo.WeChatId, out _))
+                {
+                    Logger.LogWarning($"账号信息wxid无效（{accountInfo.WeChatId}），无法同步到服务器");
+                    return;
+                }
+
+                // 检查WebSocket是否已连接
+                if (_webSocketService == null || !_webSocketService.IsConnected)
+                {
+                    Logger.LogWarning("WebSocket未连接，无法同步账号信息到服务器，将在连接后重试");
+                    // 如果WebSocket未连接，延迟重试
+                    Task.Delay(1000).ContinueWith(_ =>
+                    {
+                        if (_webSocketService != null && _webSocketService.IsConnected)
+                        {
+                            Logger.LogInfo("WebSocket已连接，重试同步账号信息");
+                            SyncMyInfoToServer(accountInfo);
+                        }
+                    });
+                    return;
+                }
+
+                Logger.LogInfo($"开始同步我的信息到服务器: wxid={accountInfo.WeChatId}, nickname={accountInfo.NickName}");
+
+                // 通过WebSocket发送到服务器（发送所有字段）
+                var syncData = new
+                {
+                    type = "sync_my_info",
+                    data = new
+                    {
+                        wxid = accountInfo.WeChatId,
+                        nickname = accountInfo.NickName ?? "",
+                        avatar = accountInfo.Avatar ?? "",
+                        account = accountInfo.BoundAccount ?? accountInfo.WeChatId,
+                        device_id = accountInfo.DeviceId ?? "",
+                        phone = accountInfo.Phone ?? "",
+                        wx_user_dir = accountInfo.WxUserDir ?? "",
+                        unread_msg_count = accountInfo.UnreadMsgCount,
+                        is_fake_device_id = accountInfo.IsFakeDeviceId,
+                        pid = accountInfo.Pid
+                    }
+                };
+
+                _ = _webSocketService.SendMessageAsync(syncData);
+                Logger.LogInfo($"账号信息已同步到服务器: wxid={accountInfo.WeChatId}");
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError($"同步账号信息到服务器失败: {ex.Message}", ex);
             }
         }
 
