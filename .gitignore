@@ -268,3 +268,4 @@ decrypt_password.py
 decrypted_passwords.txt
 account_info.json
 *.log
+commit_message.txt
