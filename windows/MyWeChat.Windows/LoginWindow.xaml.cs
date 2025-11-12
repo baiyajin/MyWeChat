@@ -16,6 +16,7 @@ using MyWeChat.Windows.Core.Connection;
 using MyWeChat.Windows.Models;
 using MyWeChat.Windows.Services;
 using MyWeChat.Windows.Services.WebSocket;
+using MyWeChat.Windows.UI.Controls;
 using MyWeChat.Windows.Utils;
 using Newtonsoft.Json;
 
@@ -35,11 +36,8 @@ namespace MyWeChat.Windows
         // 微信连接相关（使用全局单例服务）
         private CommandService? _commandService;
 
-        // 窗口关闭处理器
-        private WindowCloseHandler? _closeHandler;
-        
-        // 关闭进度遮罩辅助类
-        private ClosingProgressHelper? _closingProgressHelper;
+        // 统一窗口关闭服务
+        private UnifiedWindowCloseService? _unifiedCloseService;
         
         // 强制关闭标志（登录成功后不显示关闭确认对话框）
         private bool _forceClose = false;
@@ -833,42 +831,27 @@ namespace MyWeChat.Windows
         /// </summary>
         private void InitializeCloseHandler()
         {
-            // 初始化关闭进度遮罩辅助类
-            _closingProgressHelper = new ClosingProgressHelper(
-                ClosingOverlayCanvas,
-                ClosingOverlayBorder,
-                ClosingProgressArc,
-                ClosingProgressText,
-                ClosingStatusText,
-                "登录窗口"
-            );
-
             // 使用全局单例服务
             var service = WeChatInitializationService.Instance;
-            var config = new WindowCloseHandler.CleanupConfig
+            var config = new UnifiedWindowCloseService.CleanupConfig
             {
                 WeChatManager = service.WeChatManager,
                 WebSocketService = _webSocketService,
                 StopAllTimersCallback = StopAllTimers,
                 UnsubscribeEventsCallback = UnsubscribeEvents,
                 CleanupSyncServicesCallback = null, // LoginWindow 没有同步服务
-                ClearAccountListCallback = null, // LoginWindow 没有账号列表
-                UpdateProgressCallback = (progress, status) => _closingProgressHelper?.UpdateClosingProgress(progress, status),
-                ShowProgressOverlayCallback = (show) => _closingProgressHelper?.ShowProgressOverlay(show)
+                ClearAccountListCallback = null // LoginWindow 没有账号列表
             };
 
-            _closeHandler = new WindowCloseHandler(this, config);
+            _unifiedCloseService = new UnifiedWindowCloseService(this, CloseOverlay, config);
             
             // 设置最小化到托盘的回调
-            _closeHandler.MinimizeToTrayCallback = () =>
+            _unifiedCloseService.MinimizeToTrayCallback = () =>
             {
                 this.WindowState = WindowState.Minimized;
                 this.Hide();
             };
         }
-
-        // 注意：ShowProgressOverlay、UpdateClosingProgress、UpdateClosingProgressRing 方法已移至 ClosingProgressHelper 类
-        // 这些方法现在通过 _closingProgressHelper 调用
 
         /// <summary>
         /// 停止所有定时器
@@ -914,39 +897,14 @@ namespace MyWeChat.Windows
                 return;
             }
             
-            // 如果关闭处理器已初始化，使用它处理关闭（会显示进度）
-            if (_closeHandler != null)
+            // 如果统一关闭服务已初始化，使用它处理关闭
+            if (_unifiedCloseService != null)
             {
-                _closeHandler.HandleClosing(e);
+                _unifiedCloseService.HandleClosing(e);
             }
             else
             {
-                // 如果关闭处理器未初始化，仍然显示关闭确认对话框
-                e.Cancel = true;
-                
-                // 显示微信风格的自定义对话框
-                var dialog = new Windows.CloseConfirmDialog
-                {
-                    Owner = this
-                };
-                
-                bool? dialogResult = dialog.ShowDialog();
-                
-                if (dialogResult == false || dialog.Result == Windows.CloseConfirmDialog.CloseDialogResult.Cancel)
-                {
-                    // 用户取消，不做任何操作
-                    return;
-                }
-
-                if (dialog.Result == Windows.CloseConfirmDialog.CloseDialogResult.MinimizeToTray)
-                {
-                    // 用户选择最小化到托盘
-                    this.WindowState = WindowState.Minimized;
-                    this.Hide();
-                    return;
-                }
-                
-                // 用户选择直接关闭，直接关闭窗口（不显示进度，因为服务未初始化）
+                // 如果关闭服务未初始化，直接关闭窗口
                 e.Cancel = false;
             }
         }

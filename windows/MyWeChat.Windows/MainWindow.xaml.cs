@@ -17,6 +17,7 @@ using MyWeChat.Windows.Core.Connection;
 using MyWeChat.Windows.Models;
 using MyWeChat.Windows.Services;
 using MyWeChat.Windows.Services.WebSocket;
+using MyWeChat.Windows.UI.Controls;
 using MyWeChat.Windows.Utils;
 
 namespace MyWeChat.Windows
@@ -43,11 +44,8 @@ namespace MyWeChat.Windows
         // 定时器：获取微信账号信息
         private DispatcherTimer? _accountInfoFetchTimer;
         
-        // 窗口关闭处理器
-        private WindowCloseHandler? _closeHandler;
-        
-        // 关闭进度遮罩辅助类
-        private ClosingProgressHelper? _closingProgressHelper;
+        // 统一窗口关闭服务
+        private UnifiedWindowCloseService? _unifiedCloseService;
         
         // 系统托盘服务
         private TrayIconService? _trayIconService;
@@ -2464,33 +2462,22 @@ namespace MyWeChat.Windows
             _trayIconService = new TrayIconService();
             _trayIconService.Initialize(this);
 
-            // 初始化关闭进度遮罩辅助类
-            _closingProgressHelper = new ClosingProgressHelper(
-                ClosingOverlayCanvas,
-                ClosingOverlayBorder,
-                ClosingProgressArc,
-                ClosingProgressText,
-                ClosingStatusText,
-                "主窗口"
-            );
-
+            // 初始化统一窗口关闭服务
             var service = WeChatInitializationService.Instance;
-            var config = new WindowCloseHandler.CleanupConfig
+            var config = new UnifiedWindowCloseService.CleanupConfig
             {
                 WeChatManager = service.WeChatManager,
                 WebSocketService = _webSocketService,
                 StopAllTimersCallback = StopAllTimers,
                 UnsubscribeEventsCallback = UnsubscribeEvents,
                 CleanupSyncServicesCallback = CleanupSyncServices,
-                ClearAccountListCallback = ClearAccountList,
-                UpdateProgressCallback = (progress, status) => _closingProgressHelper?.UpdateClosingProgress(progress, status),
-                ShowProgressOverlayCallback = (show) => _closingProgressHelper?.ShowProgressOverlay(show)
+                ClearAccountListCallback = ClearAccountList
             };
 
-            _closeHandler = new WindowCloseHandler(this, config);
+            _unifiedCloseService = new UnifiedWindowCloseService(this, CloseOverlay, config);
             
             // 设置最小化到托盘的回调
-            _closeHandler.MinimizeToTrayCallback = () =>
+            _unifiedCloseService.MinimizeToTrayCallback = () =>
             {
                 this.WindowState = WindowState.Minimized;
                 this.Hide();
@@ -2561,13 +2548,13 @@ namespace MyWeChat.Windows
 
         protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
         {
-            if (_closeHandler != null)
+            if (_unifiedCloseService != null)
             {
-                _closeHandler.HandleClosing(e);
+                _unifiedCloseService.HandleClosing(e);
             }
             else
             {
-                // 如果关闭处理器未初始化，直接关闭
+                // 如果关闭服务未初始化，直接关闭
                 base.OnClosing(e);
             }
         }
