@@ -306,6 +306,178 @@ namespace MyWeChat.Windows.Services
         }
 
         /// <summary>
+        /// 智能修复JSON字符串，处理各种截断和不完整的情况
+        /// </summary>
+        /// <param name="json">需要修复的JSON字符串</param>
+        /// <returns>修复后的JSON字符串</returns>
+        private string FixJsonString(string json)
+        {
+            if (string.IsNullOrWhiteSpace(json))
+            {
+                return json;
+            }
+
+            // 步骤1: 找到第一个有效的JSON起始字符
+            int startIndex = -1;
+            for (int i = 0; i < json.Length; i++)
+            {
+                if (json[i] == '{' || json[i] == '[')
+                {
+                    startIndex = i;
+                    break;
+                }
+            }
+
+            if (startIndex < 0)
+            {
+                return json; // 没有找到JSON起始字符
+            }
+
+            // 提取从起始字符开始的内容
+            string jsonContent = json.Substring(startIndex).Trim();
+            
+            // 步骤2: 分析JSON结构，计算各种符号的平衡
+            int openBraces = 0;      // { 的数量
+            int openBrackets = 0;    // [ 的数量
+            bool inString = false;   // 是否在字符串内
+            bool escaped = false;    // 是否在转义字符后
+            int lastValidPos = -1;    // 最后一个有效字符的位置
+            
+            for (int i = 0; i < jsonContent.Length; i++)
+            {
+                char c = jsonContent[i];
+                
+                if (escaped)
+                {
+                    escaped = false;
+                    lastValidPos = i;
+                    continue;
+                }
+                
+                if (c == '\\')
+                {
+                    escaped = true;
+                    lastValidPos = i;
+                    continue;
+                }
+                
+                if (c == '"')
+                {
+                    inString = !inString;
+                    lastValidPos = i;
+                    continue;
+                }
+                
+                // 只在字符串外计算括号和进行修复
+                if (!inString)
+                {
+                    if (c == '{')
+                    {
+                        openBraces++;
+                        lastValidPos = i;
+                    }
+                    else if (c == '}')
+                    {
+                        openBraces--;
+                        lastValidPos = i;
+                    }
+                    else if (c == '[')
+                    {
+                        openBrackets++;
+                        lastValidPos = i;
+                    }
+                    else if (c == ']')
+                    {
+                        openBrackets--;
+                        lastValidPos = i;
+                    }
+                    else if (!char.IsWhiteSpace(c))
+                    {
+                        lastValidPos = i;
+                    }
+                }
+                else
+                {
+                    // 在字符串内，记录位置
+                    lastValidPos = i;
+                }
+            }
+            
+            // 步骤3: 截取到最后一个有效位置（移除末尾无效字符）
+            string workingJson = jsonContent;
+            if (lastValidPos >= 0 && lastValidPos < jsonContent.Length - 1)
+            {
+                workingJson = jsonContent.Substring(0, lastValidPos + 1);
+            }
+            
+            // 步骤4: 检查并修复字符串引号不平衡
+            // 如果字符串没有闭合，尝试闭合它
+            bool stillInString = false;
+            escaped = false;
+            for (int i = 0; i < workingJson.Length; i++)
+            {
+                if (escaped)
+                {
+                    escaped = false;
+                    continue;
+                }
+                if (workingJson[i] == '\\')
+                {
+                    escaped = true;
+                    continue;
+                }
+                if (workingJson[i] == '"')
+                {
+                    stillInString = !stillInString;
+                }
+            }
+            
+            // 如果字符串没有闭合，闭合它
+            if (stillInString)
+            {
+                // 找到最后一个引号的位置，检查是否被转义
+                int lastQuoteIndex = workingJson.LastIndexOf('"');
+                if (lastQuoteIndex >= 0)
+                {
+                    // 检查这个引号是否被转义
+                    int backslashCount = 0;
+                    for (int i = lastQuoteIndex - 1; i >= 0 && workingJson[i] == '\\'; i--)
+                    {
+                        backslashCount++;
+                    }
+                    // 如果转义字符数量是偶数，说明这个引号是有效的字符串结束符
+                    // 如果转义字符数量是奇数，说明这个引号被转义了，字符串还没结束
+                    if (backslashCount % 2 == 0)
+                    {
+                        // 引号是有效的，但字符串还没闭合，说明后面被截断了
+                        // 在末尾添加闭合引号
+                        workingJson += "\"";
+                    }
+                }
+            }
+            
+            // 步骤5: 移除末尾多余的逗号
+            string trimmedJson = workingJson.TrimEnd();
+            while (trimmedJson.EndsWith(","))
+            {
+                trimmedJson = trimmedJson.Substring(0, trimmedJson.Length - 1).TrimEnd();
+            }
+            
+            // 步骤6: 补全缺失的闭合括号
+            string fixedJson = trimmedJson;
+            for (int i = 0; i < openBraces; i++)
+            {
+                fixedJson += "}";
+            }
+            for (int i = 0; i < openBrackets; i++)
+            {
+                fixedJson += "]";
+            }
+            
+            return fixedJson;
+        }
+
+        /// <summary>
         /// 处理微信消息（用于获取1112回调）
         /// </summary>
         private void OnWeChatMessageReceived(object? sender, string message)
@@ -379,14 +551,42 @@ namespace MyWeChat.Windows.Services
                         }
                         catch
                         {
-                            Logger.LogWarning($"提取JSON对象后仍解析失败，忽略此消息");
-                            return;
+                            // 策略2: 使用智能修复方法
+                            try
+                            {
+                                string fixedJson = FixJsonString(extractedJson);
+                                messageObj = JsonConvert.DeserializeObject<dynamic>(fixedJson);
+                                Logger.LogInfo("通过智能修复JSON成功解析");
+                            }
+                            catch (Exception fixEx)
+                            {
+                                Logger.LogWarning($"智能修复JSON后仍解析失败: {fixEx.Message}，忽略此消息");
+                                return;
+                            }
                         }
                     }
                     else
                     {
-                        Logger.LogWarning($"无法找到完整的JSON对象，忽略此消息");
-                        return;
+                        // 如果没有找到闭合括号，使用智能修复方法
+                        if (firstBrace >= 0)
+                        {
+                            try
+                            {
+                                string fixedJson = FixJsonString(cleanMessage);
+                                messageObj = JsonConvert.DeserializeObject<dynamic>(fixedJson);
+                                Logger.LogInfo("通过智能修复JSON（无闭合括号）成功解析");
+                            }
+                            catch (Exception fixEx)
+                            {
+                                Logger.LogWarning($"智能修复JSON后仍解析失败: {fixEx.Message}，忽略此消息");
+                                return;
+                            }
+                        }
+                        else
+                        {
+                            Logger.LogWarning($"无法找到JSON对象起始位置，忽略此消息");
+                            return;
+                        }
                     }
                 }
 
