@@ -66,7 +66,19 @@ class _HomePageState extends State<HomePage> {
   /// 从服务器加载账号信息
   Future<void> _loadAccountInfoFromServer(ApiService apiService, WebSocketService wsService) async {
     try {
-      final accountInfo = await apiService.getAccountInfo();
+      // 优先使用当前登录的wxid获取账号信息
+      final currentWxid = wsService.currentWeChatId;
+      Map<String, dynamic>? accountInfo;
+      
+      if (currentWxid != null && currentWxid.isNotEmpty) {
+        accountInfo = await apiService.getAccountInfo(wxid: currentWxid);
+      }
+      
+      // 如果通过wxid获取失败，尝试获取最新的账号信息（兼容旧逻辑）
+      if (accountInfo == null) {
+        accountInfo = await apiService.getAccountInfo();
+      }
+      
       if (accountInfo != null) {
         // 更新WebSocketService中的账号信息
         wsService.updateMyInfo(accountInfo);

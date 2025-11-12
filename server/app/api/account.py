@@ -12,15 +12,18 @@ router = APIRouter()
 
 
 @router.get("/account", response_model=Optional[AccountInfoResponse])
-async def get_account_info(wxid: Optional[str] = None):
+async def get_account_info(wxid: Optional[str] = None, phone: Optional[str] = None):
     """获取账号信息"""
     async with AsyncSessionLocal() as session:
         try:
             stmt = select(AccountInfo)
             if wxid:
                 stmt = stmt.where(AccountInfo.wxid == wxid)
+            elif phone:
+                # 如果指定了手机号，根据手机号查询
+                stmt = stmt.where(AccountInfo.phone == phone)
             else:
-                # 如果没有指定wxid，返回最新的账号信息
+                # 如果没有指定wxid和phone，返回最新的账号信息
                 stmt = stmt.order_by(AccountInfo.updated_at.desc())
             
             result = await session.execute(stmt)

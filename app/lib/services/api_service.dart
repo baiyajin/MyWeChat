@@ -115,11 +115,13 @@ class ApiService extends ChangeNotifier {
   }
 
   /// 获取账号信息
-  Future<Map<String, dynamic>?> getAccountInfo({String? wxid}) async {
+  Future<Map<String, dynamic>?> getAccountInfo({String? wxid, String? phone}) async {
     try {
       String url = '$_serverUrl/api/account';
       if (wxid != null) {
         url += '?wxid=$wxid';
+      } else if (phone != null) {
+        url += '?phone=$phone';
       }
 
       final response = await http.get(Uri.parse(url));

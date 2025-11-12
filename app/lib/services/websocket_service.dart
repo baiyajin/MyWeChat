@@ -592,10 +592,13 @@ class WebSocketService extends ChangeNotifier {
       final jsonString = prefs.getString('my_info');
       if (jsonString != null && jsonString.isNotEmpty) {
         final myInfoData = jsonDecode(jsonString) as Map<String, dynamic>;
-        _myInfo = myInfoData;
-        // 更新当前微信账号ID
-        _currentWeChatId = myInfoData['wxid']?.toString() ?? myInfoData['account']?.toString();
-        notifyListeners();
+        // 只有在没有当前账号信息时才从本地加载（避免覆盖登录时获取的账号信息）
+        if (_myInfo == null && _currentWeChatId == null) {
+          _myInfo = myInfoData;
+          // 更新当前微信账号ID
+          _currentWeChatId = myInfoData['wxid']?.toString() ?? myInfoData['account']?.toString();
+          notifyListeners();
+        }
       }
     } catch (e) {
       print('从本地加载账号信息失败: $e');
