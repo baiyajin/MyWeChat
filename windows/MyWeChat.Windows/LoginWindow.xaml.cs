@@ -32,8 +32,7 @@ namespace MyWeChat.Windows
         private readonly object _loginHistoryLock = new object();
         private string _loginHistoryFilePath;
         
-        // 微信连接相关
-        private WeChatManager? _weChatManager;
+        // 微信连接相关（使用全局单例服务）
         private CommandService? _commandService;
 
         // 窗口关闭处理器
@@ -42,8 +41,8 @@ namespace MyWeChat.Windows
         // 关闭进度遮罩辅助类
         private ClosingProgressHelper? _closingProgressHelper;
         
-        // 系统托盘服务
-        private TrayIconService? _trayIconService;
+        // 强制关闭标志（登录成功后不显示关闭确认对话框）
+        private bool _forceClose = false;
         
         private bool _isUpdatingPhoneText = false;
         
@@ -71,8 +70,9 @@ namespace MyWeChat.Windows
             textInputScope.Names.Add(new System.Windows.Input.InputScopeName { NameValue = System.Windows.Input.InputScopeNameValue.Default });
             LicenseKeyTextBox.InputScope = textInputScope;
             
-            _trayIconService = new TrayIconService();
-            _trayIconService.Initialize(this);
+            // 登录页不需要托盘图标（避免出现两个托盘图标）
+            // _trayIconService = new TrayIconService();
+            // _trayIconService.Initialize(this);
             
             Loaded += LoginWindow_Loaded;
         }
@@ -210,12 +210,13 @@ namespace MyWeChat.Windows
                                string? content = commandData?.content?.ToString();
                                
                                // 如果是发送给自己的消息，且包含验证码，可以在这里处理
-                               string? currentWxid = _weChatManager?.CurrentWxid;
+                               string? currentWxid = WeChatInitializationService.Instance.WeChatManager?.CurrentWxid;
                                if (!string.IsNullOrEmpty(targetWxid) && targetWxid == currentWxid && !string.IsNullOrEmpty(content))
                                {
                                    Logger.LogInfo($"收到发送给自己的消息命令: {content}");
                                    // 这里可以显示验证码消息，或者直接通过CommandService发送
-                                   if (_commandService != null && _weChatManager?.ConnectionManager != null && _weChatManager.IsConnected)
+                                   var service = WeChatInitializationService.Instance;
+                                   if (_commandService != null && service.WeChatManager?.ConnectionManager != null && service.WeChatManager.IsConnected)
                                    {
                                        // 通过CommandService发送消息
                                        string commandJson = JsonConvert.SerializeObject(new
@@ -259,10 +260,15 @@ namespace MyWeChat.Windows
                 ShowSuccess("登录成功");
                 Logger.LogInfo("登录成功");
                 
+                // 标记为强制关闭，不显示关闭确认对话框
+                _forceClose = true;
+                
                 // 打开主窗口（使用空字符串作为wxid，主窗口会从服务器获取）
                 var mainWindow = new MainWindow("");
-                    mainWindow.Show();
-                    this.Close();
+                mainWindow.Show();
+                
+                // 强制关闭登录页
+                this.Close();
             }
             else
             {
@@ -304,9 +310,14 @@ namespace MyWeChat.Windows
                         await SaveLoginHistoryAsync(accountInfo);
                     });
 
+                    // 标记为强制关闭，不显示关闭确认对话框
+                    _forceClose = true;
+                    
                     // 打开主窗口
                     var mainWindow = new MainWindow(accountInfo.WeChatId);
                     mainWindow.Show();
+                    
+                    // 强制关闭登录页
                     this.Close();
                 }
             }
@@ -659,17 +670,17 @@ namespace MyWeChat.Windows
 
         /// <summary>
         /// 初始化微信管理器（异步方法，不阻塞UI）
+        /// 使用全局单例服务，避免重复创建
         /// </summary>
         private void InitializeWeChatManagerAsync()
         {
             try
             {
-                // 在后台线程创建微信管理器
-                // 注意：WeChatManager的初始化操作（如版本检测）在后台线程执行
-                var weChatManager = new WeChatManager(Dispatcher);
+                // 使用全局单例服务
+                var service = WeChatInitializationService.Instance;
                 
                 // 订阅连接状态变化事件
-                weChatManager.OnConnectionStateChanged += (sender, isConnected) =>
+                service.OnConnectionStateChanged += (sender, isConnected) =>
                 {
                     if (isConnected)
                     {
@@ -692,54 +703,65 @@ namespace MyWeChat.Windows
                 };
                 
                 // 订阅微信ID获取事件（1112回调）
-                weChatManager.OnWxidReceived += (sender, wxid) =>
+                service.OnWxidReceived += (sender, wxid) =>
                 {
                     Logger.LogInfo($"获取到微信ID（登录窗口）: {wxid}");
                     
                     // 初始化命令服务（在UI线程上执行，使用低优先级确保不阻塞UI）
                     _ = Dispatcher.InvokeAsync(() =>
                     {
-                        if (weChatManager?.ConnectionManager != null && _commandService == null)
+                        if (service.WeChatManager?.ConnectionManager != null && _commandService == null)
                         {
-                            _commandService = new CommandService(weChatManager.ConnectionManager);
+                            _commandService = new CommandService(service.WeChatManager.ConnectionManager);
                         }
                     }, DispatcherPriority.Background);
                 };
                 
-                // 初始化微信管理器（在后台线程执行，包含文件系统操作）
-                // 这些操作不会阻塞UI线程，因为它们完全在后台线程执行
-                if (!weChatManager.Initialize())
+                // 如果已经初始化，直接完成后续操作
+                if (service.IsInitialized)
                 {
-                    Logger.LogError("微信管理器初始化失败（登录窗口）");
-                    // 使用 InvokeAsync 避免阻塞，使用低优先级确保不阻塞UI
+                    Logger.LogInfo("微信管理器已在其他窗口初始化，直接完成后续操作");
                     _ = Dispatcher.InvokeAsync(() =>
                     {
-                        ShowError("微信管理器初始化失败");
-                    }, DispatcherPriority.Background);
-                    return;
+                        try
+                        {
+                            // 微信管理器初始化完成后，初始化窗口关闭处理器
+                            InitializeCloseHandler();
+                        }
+                        catch (Exception ex)
+                        {
+                            Logger.LogError($"初始化窗口关闭处理器失败: {ex.Message}", ex);
+                        }
+                    }, DispatcherPriority.Normal);
                 }
-                
-                // 保存引用（在后台线程上保存，线程安全）
-                _weChatManager = weChatManager;
-                
-                // 启动进程检测定时器（必须在UI线程上执行，因为DispatcherTimer必须在UI线程创建）
-                // 使用正常优先级，因为这是必要的初始化操作
-                _ = Dispatcher.InvokeAsync(() =>
+                else
                 {
-                    try
+                    // 初始化微信管理器（如果还没初始化）
+                    service.InitializeAsync(Dispatcher, (log) =>
                     {
-                        _weChatManager?.StartProcessCheckTimer();
-                        
-                        // 微信管理器初始化完成后，初始化窗口关闭处理器
-                        InitializeCloseHandler();
-                    }
-                    catch (Exception ex)
+                        Logger.LogInfo(log);
+                    });
+                    
+                    // 等待初始化完成后，初始化窗口关闭处理器
+                    _ = Dispatcher.InvokeAsync(() =>
                     {
-                        Logger.LogError($"启动进程检测定时器失败: {ex.Message}", ex);
-                    }
-                }, DispatcherPriority.Normal);
-                
-                Logger.LogInfo("微信管理器初始化成功（登录窗口）");
+                        try
+                        {
+                            // 延迟一点时间，确保初始化完成
+                            Task.Delay(500).ContinueWith(_ =>
+                            {
+                                Dispatcher.InvokeAsync(() =>
+                                {
+                                    InitializeCloseHandler();
+                                });
+                            });
+                        }
+                        catch (Exception ex)
+                        {
+                            Logger.LogError($"初始化窗口关闭处理器失败: {ex.Message}", ex);
+                        }
+                    }, DispatcherPriority.Normal);
+                }
             }
             catch (Exception ex)
             {
@@ -759,7 +781,7 @@ namespace MyWeChat.Windows
         {
             try
             {
-                string? currentWxid = _weChatManager?.CurrentWxid;
+                string? currentWxid = WeChatInitializationService.Instance.WeChatManager?.CurrentWxid;
                 if (string.IsNullOrEmpty(currentWxid))
                 {
                     Logger.LogWarning("未获取到微信ID，无法发送验证码消息给自己");
@@ -821,10 +843,11 @@ namespace MyWeChat.Windows
                 "登录窗口"
             );
 
-            // 托盘图标服务已在构造函数中初始化，这里不需要重复初始化
+            // 使用全局单例服务
+            var service = WeChatInitializationService.Instance;
             var config = new WindowCloseHandler.CleanupConfig
             {
-                WeChatManager = _weChatManager,
+                WeChatManager = service.WeChatManager,
                 WebSocketService = _webSocketService,
                 StopAllTimersCallback = StopAllTimers,
                 UnsubscribeEventsCallback = UnsubscribeEvents,
@@ -854,12 +877,9 @@ namespace MyWeChat.Windows
         {
             try
             {
-                // 停止微信进程检测定时器
-            if (_weChatManager != null)
-            {
-                    _weChatManager.StopProcessCheckTimer();
-                    Logger.LogInfo("已停止微信进程检测定时器（登录窗口）");
-                }
+                // 注意：不停止全局服务的定时器，因为主页还要用
+                // 全局服务的定时器会在应用退出时统一停止
+                Logger.LogInfo("登录窗口关闭，定时器由全局服务管理");
             }
             catch (Exception ex)
             {
@@ -887,6 +907,13 @@ namespace MyWeChat.Windows
         /// </summary>
         protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
         {
+            // 如果是强制关闭（登录成功后），直接关闭，不显示确认对话框
+            if (_forceClose)
+            {
+                e.Cancel = false;
+                return;
+            }
+            
             // 如果关闭处理器已初始化，使用它处理关闭（会显示进度）
             if (_closeHandler != null)
             {
@@ -934,15 +961,15 @@ namespace MyWeChat.Windows
             {
                 Logger.LogInfo("========== 最终清理资源（登录窗口） ==========");
                 
-                // 清空所有服务引用
-                _weChatManager?.Dispose();
-                _weChatManager = null;
+                // 注意：不要释放全局微信初始化服务，因为主页还要用
+                // 全局服务会在应用退出时统一释放
+                
                 _webSocketService = null;
                 _commandService = null;
                 
-                // 释放托盘图标服务
-                _trayIconService?.Dispose();
-                _trayIconService = null;
+                // 登录页没有托盘图标，不需要释放
+                // _trayIconService?.Dispose();
+                // _trayIconService = null;
                 
                 Logger.LogInfo("登录窗口已关闭，所有资源已清理");
             }
@@ -952,7 +979,7 @@ namespace MyWeChat.Windows
             }
             finally
             {
-            base.OnClosed(e);
+                base.OnClosed(e);
             }
         }
     }

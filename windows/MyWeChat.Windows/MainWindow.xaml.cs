@@ -26,7 +26,7 @@ namespace MyWeChat.Windows
     /// </summary>
     public partial class MainWindow : Window
     {
-        private WeChatManager? _weChatManager;
+        // 使用全局单例服务，不再需要 _weChatManager 字段
         private bool _isInitializing = false;
         private bool _isInitialized = false; // 标记是否已完成初始化
         private readonly object _initLock = new object(); // 初始化锁
@@ -139,7 +139,8 @@ namespace MyWeChat.Windows
                     return;
                 }
                 
-                if (_weChatManager != null)
+                // 检查全局服务是否已初始化
+                if (WeChatInitializationService.Instance.IsInitialized)
                 {
                     Logger.LogWarning("微信管理器已初始化，跳过重复初始化");
                     _isInitialized = true;
@@ -156,49 +157,45 @@ namespace MyWeChat.Windows
                 {
                     try
                     {
-                        // 在 Task.Run 内部再次检查，防止重复初始化
-                        lock (_initLock)
-                        {
-                            if (_weChatManager != null)
-                            {
-                                Logger.LogWarning("微信管理器已在后台线程中初始化，跳过重复初始化");
-                                return;
-                            }
-                        }
-
+                        // 使用全局单例服务
+                        var service = WeChatInitializationService.Instance;
+                        
                         // 使用 BeginInvoke 异步调用，避免阻塞后台线程
                         _ = Dispatcher.BeginInvoke(new Action(() =>
                         {
                             AddLog("正在初始化微信管理器...", "INFO");
                         }));
 
-                        // 初始化微信管理器（在锁内创建，确保只创建一次）
-                        WeChatManager? weChatManager = null;
-                        lock (_initLock)
+                        // 如果已经初始化，直接订阅事件
+                        if (service.IsInitialized)
                         {
-                            if (_weChatManager == null)
-                            {
-                                weChatManager = new WeChatManager(Dispatcher);
-                                _weChatManager = weChatManager;
-                            }
-                            else
-                            {
-                                Logger.LogWarning("微信管理器已在其他线程中创建，跳过重复创建");
-                                return;
-                            }
+                            Logger.LogInfo("微信管理器已在登录窗口初始化，直接订阅事件");
                         }
-
-                        // 在锁外订阅事件和初始化，避免死锁
-                        weChatManager.OnConnectionStateChanged += OnConnectionStateChanged;
-                        weChatManager.OnMessageReceived += OnWeChatMessageReceived;
-                        
-                        if (!weChatManager.Initialize())
+                        else
                         {
-                            Logger.LogError("微信管理器初始化失败");
-                            _ = Dispatcher.BeginInvoke(new Action(() =>
+                            // 订阅事件
+                            service.OnConnectionStateChanged += OnConnectionStateChanged;
+                            service.OnMessageReceived += OnWeChatMessageReceived;
+                            
+                            // 初始化微信管理器
+                            service.InitializeAsync(Dispatcher, (log) =>
                             {
-                                UpdateUI(); // 即使初始化失败，也更新UI显示
-                            }));
+                                Logger.LogInfo(log);
+                            });
+                            
+                            // 等待初始化完成
+                            Thread.Sleep(1000);
+                        }
+                        
+                        // 订阅事件（无论是否已初始化，都需要订阅）
+                        service.OnConnectionStateChanged += OnConnectionStateChanged;
+                        service.OnMessageReceived += OnWeChatMessageReceived;
+                        
+                        // 获取微信管理器
+                        var weChatManager = service.WeChatManager;
+                        if (weChatManager == null)
+                        {
+                            Logger.LogError("无法获取微信管理器");
                             return;
                         }
                         
@@ -217,16 +214,6 @@ namespace MyWeChat.Windows
                         // 初始化API服务（用于查询数据库中的账号信息）
                         string serverUrl = ConfigHelper.GetServerUrl();
                         _apiService = new ApiService(serverUrl);
-
-                        // 再次检查微信管理器是否仍然有效
-                        lock (_initLock)
-                        {
-                            if (_weChatManager == null || _weChatManager != weChatManager)
-                            {
-                                Logger.LogWarning("微信管理器已被其他线程修改，跳过后续初始化");
-                                return;
-                            }
-                        }
 
                         // 获取连接管理器
                         WeChatConnectionManager? connectionManager = weChatManager.ConnectionManager;
@@ -253,13 +240,26 @@ namespace MyWeChat.Windows
 
                         Logger.LogInfo("服务初始化完成");
                         
-                        // 启动定时器检测微信进程
+                        // 启动定时器检测微信进程（如果还没启动）
                         _ = Dispatcher.BeginInvoke(new Action(() =>
                         {
-                            weChatManager.StartProcessCheckTimer();
-                            
-                            // 服务初始化完成后，初始化窗口关闭处理器
-                            InitializeCloseHandler();
+                            // 定时器由全局服务管理，如果已初始化则已启动
+                            if (!service.IsInitialized)
+                            {
+                                // 如果还没初始化，等待一下再初始化窗口关闭处理器
+                                Task.Delay(500).ContinueWith(_ =>
+                                {
+                                    Dispatcher.InvokeAsync(() =>
+                                    {
+                                        InitializeCloseHandler();
+                                    });
+                                });
+                            }
+                            else
+                            {
+                                // 服务初始化完成后，初始化窗口关闭处理器
+                                InitializeCloseHandler();
+                            }
                         }));
                     }
                     catch (Exception ex)
@@ -455,7 +455,8 @@ namespace MyWeChat.Windows
         {
             try
             {
-                if (_weChatManager == null || !_weChatManager.IsConnected)
+                var weChatManager = GetWeChatManager();
+                if (weChatManager == null || !weChatManager.IsConnected)
                 {
                     Logger.LogInfo("[定时器] 微信未连接，跳过账号信息检查");
                     return;
@@ -602,13 +603,9 @@ namespace MyWeChat.Windows
 
                 if (hasCompleteAccountInfo)
                 {
-                    // 停止微信进程检测定时器
-                    if (_weChatManager != null)
-                    {
-                        _weChatManager.StopProcessCheckTimer();
-                        Logger.LogInfo("已获取到完整账号信息（account、nickname等字段），停止微信进程检测定时器");
-                        AddLog("已获取到完整账号信息，停止微信进程检测定时器", "SUCCESS");
-                    }
+                    // 定时器由全局服务管理，不需要手动停止
+                    Logger.LogInfo("已获取到完整账号信息（account、nickname等字段）");
+                    AddLog("已获取到完整账号信息", "SUCCESS");
 
                     // 停止账号信息获取定时器
                     StopAccountInfoFetchTimer();
@@ -706,18 +703,20 @@ namespace MyWeChat.Windows
 
                 AddLog("步骤1: 检查连接管理器状态...", "INFO");
                 
-                if (_weChatManager == null || !_weChatManager.IsConnected)
+                var weChatManager = GetWeChatManager();
+                if (weChatManager == null || !weChatManager.IsConnected)
                 {
                     AddLog("步骤2: 微信未连接，尝试连接...", "INFO");
                     
-                    bool result = _weChatManager?.Connect() ?? false;
+                    var weChatManager2 = GetWeChatManager();
+                    bool result = weChatManager2?.Connect() ?? false;
                     
                     if (result)
                     {
                         AddLog("========== 微信连接成功 ==========", "SUCCESS");
-                    AddLog($"微信版本: {_weChatManager?.ConnectionManager?.WeChatVersion ?? "未知"}", "SUCCESS");
-                    AddLog($"客户端ID: {_weChatManager?.ConnectionManager?.ClientId ?? 0}", "SUCCESS");
-                    AddLog($"连接状态: {(_weChatManager?.IsConnected == true ? "已连接" : "未连接")}", _weChatManager?.IsConnected == true ? "SUCCESS" : "WARN");
+                            AddLog($"微信版本: {weChatManager2?.ConnectionManager?.WeChatVersion ?? "未知"}", "SUCCESS");
+                        AddLog($"客户端ID: {weChatManager2?.ConnectionManager?.ClientId ?? 0}", "SUCCESS");
+                        AddLog($"连接状态: {(weChatManager2?.IsConnected == true ? "已连接" : "未连接")}", weChatManager2?.IsConnected == true ? "SUCCESS" : "WARN");
                         
                         // 连接成功后，自动更新账号列表
                         UpdateAccountList();
@@ -731,7 +730,8 @@ namespace MyWeChat.Windows
                         AddLog("  3. DLL文件不存在或版本不匹配", "WARN");
                         AddLog("  4. 未以管理员权限运行（需要管理员权限）", "WARN");
                         AddLog("  5. 微信版本不支持", "WARN");
-                        AddLog($"当前微信版本: {_weChatManager?.ConnectionManager?.WeChatVersion ?? "未知"}", "WARN");
+                        var weChatManager = GetWeChatManager();
+                        AddLog($"当前微信版本: {weChatManager?.ConnectionManager?.WeChatVersion ?? "未知"}", "WARN");
                         AddLog("提示: 如果微信已登录，请稍等片刻，程序会自动检测", "INFO");
                     }
                 }
@@ -768,11 +768,13 @@ namespace MyWeChat.Windows
             try
             {
                 // 获取微信版本（即使未连接，如果已检测到版本也显示）
-                string weChatVersion = _weChatManager?.ConnectionManager?.WeChatVersion ?? "未知";
+                var weChatManager = GetWeChatManager();
+                string weChatVersion = weChatManager?.ConnectionManager?.WeChatVersion ?? "未知";
                 
                 // 更新连接状态（UI元素已移除，不再更新）
                 // 如果有账号信息，更新显示
-                if (_weChatManager != null && _weChatManager.IsConnected)
+                var weChatManager = GetWeChatManager();
+                if (weChatManager != null && weChatManager.IsConnected)
                 {
                     UpdateAccountInfoDisplay();
                 }
@@ -848,7 +850,8 @@ namespace MyWeChat.Windows
         {
             try
             {
-                if (_weChatManager == null || !_weChatManager.IsConnected)
+                var weChatManager = GetWeChatManager();
+                if (weChatManager == null || !weChatManager.IsConnected)
                 {
                     Logger.LogWarning("连接管理器未初始化或未连接，无法更新账号信息显示");
                     // 显示等待状态
@@ -868,7 +871,8 @@ namespace MyWeChat.Windows
 
                 // 从账号列表中查找当前登录的账号
                 // 优先查找有昵称和头像的账号（从WebSocket同步过来的）
-                int clientId = _weChatManager?.ConnectionManager?.ClientId ?? 0;
+                var weChatManager = GetWeChatManager();
+                int clientId = weChatManager?.ConnectionManager?.ClientId ?? 0;
                 
                 if (_accountList == null)
                 {
@@ -1044,14 +1048,16 @@ namespace MyWeChat.Windows
         {
             try
             {
-                if (_weChatManager == null || !_weChatManager.IsConnected)
+                var weChatManager = GetWeChatManager();
+                if (weChatManager == null || !weChatManager.IsConnected)
                 {
                     return;
                 }
 
                 // 检查是否已存在该账号
                 // 注意：不要使用clientId（进程ID）作为WeChatId，应该等待真正的wxid
-                int clientId = _weChatManager?.ConnectionManager?.ClientId ?? 0;
+                var weChatManager = GetWeChatManager();
+                int clientId = weChatManager?.ConnectionManager?.ClientId ?? 0;
                 
                 // 只查找有真正wxid的账号（不是进程ID），不查找以进程ID作为WeChatId的账号
                 bool exists = false;
@@ -1093,7 +1099,8 @@ namespace MyWeChat.Windows
         {
             try
             {
-                if (_weChatManager == null || !_weChatManager.IsConnected)
+                var weChatManager = GetWeChatManager();
+                if (weChatManager == null || !weChatManager.IsConnected)
                 {
                     Logger.LogWarning("微信未连接，无法检查账号信息");
                     return;
@@ -1515,7 +1522,8 @@ namespace MyWeChat.Windows
 
                         if (loginInfo != null)
                         {
-                            int clientId = _weChatManager?.ConnectionManager?.ClientId ?? 0;
+                            var weChatManager = GetWeChatManager();
+                int clientId = weChatManager?.ConnectionManager?.ClientId ?? 0;
                             if (loginInfo.clientId != null)
                             {
                                 int.TryParse(loginInfo.clientId.ToString(), out clientId);
@@ -1793,7 +1801,8 @@ namespace MyWeChat.Windows
                              messageObj.nickName != null || messageObj.NickName != null ||
                              messageObj.Avatar != null || messageObj.wxId != null || messageObj.WxId != null)
                     {
-                        int clientId = _weChatManager?.ConnectionManager?.ClientId ?? 0;
+                        var weChatManager = GetWeChatManager();
+                int clientId = weChatManager?.ConnectionManager?.ClientId ?? 0;
                         
                         // 尝试多种方式获取wxid
                         string weChatId = messageObj.wxid?.ToString() ?? 
@@ -2352,9 +2361,10 @@ namespace MyWeChat.Windows
                 "主窗口"
             );
 
+            var service = WeChatInitializationService.Instance;
             var config = new WindowCloseHandler.CleanupConfig
             {
-                WeChatManager = _weChatManager,
+                WeChatManager = service.WeChatManager,
                 WebSocketService = _webSocketService,
                 StopAllTimersCallback = StopAllTimers,
                 UnsubscribeEventsCallback = UnsubscribeEvents,

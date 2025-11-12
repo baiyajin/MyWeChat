@@ -5,6 +5,7 @@ using System.Windows;
 using WinForms = System.Windows.Forms;
 using Newtonsoft.Json;
 using MyWeChat.Windows.Utils;
+using MyWeChat.Windows.Services;
 
 namespace MyWeChat.Windows
 {
@@ -34,6 +35,22 @@ namespace MyWeChat.Windows
                 var mainWindow = new MainWindow(wxid);
                 mainWindow.Show();
             }
+        }
+
+        protected override void OnExit(ExitEventArgs e)
+        {
+            // 应用退出时，释放全局微信初始化服务
+            try
+            {
+                WeChatInitializationService.Instance.Dispose();
+                Logger.LogInfo("全局微信初始化服务已释放");
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError($"释放全局微信初始化服务失败: {ex.Message}", ex);
+            }
+            
+            base.OnExit(e);
         }
 
         /// <summary>
