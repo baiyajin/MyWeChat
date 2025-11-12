@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Text.RegularExpressions;
 using System.Windows.Threading;
 using MyWeChat.Windows.Core.Connection;
+using MyWeChat.Windows.Models;
 using MyWeChat.Windows.Utils;
 using Newtonsoft.Json;
 
@@ -56,6 +57,11 @@ namespace MyWeChat.Windows.Services
         /// 微信消息接收事件（所有消息，包括1112）
         /// </summary>
         public event EventHandler<string>? OnMessageReceived;
+
+        /// <summary>
+        /// 账号信息接收事件（1112回调，包含完整账号信息）
+        /// </summary>
+        public event EventHandler<AccountInfo>? OnAccountInfoReceived;
 
         /// <summary>
         /// 构造函数
@@ -476,15 +482,52 @@ namespace MyWeChat.Windows.Services
                             // ========== 全局服务日志：账号信息解析结果 ==========
                             string nickname = loginInfo.nickname?.ToString() ?? "";
                             string avatar = loginInfo.avatar?.ToString() ?? "";
-                            string account = loginInfo.account?.ToString() ?? "";
+                            string account = loginInfo.account?.ToString() ?? wxid;
+                            
+                            // 提取phone字段（支持多种命名方式）
+                            string phone = loginInfo.phone?.ToString() ?? "";
+                            if (string.IsNullOrEmpty(phone))
+                            {
+                                phone = loginInfo.Phone?.ToString() ?? "";
+                            }
+                            
+                            // 提取其他字段
+                            string deviceId = loginInfo.device_id?.ToString() ?? loginInfo.deviceId?.ToString() ?? "";
+                            string wxUserDir = loginInfo.wx_user_dir?.ToString() ?? loginInfo.wxUserDir?.ToString() ?? "";
+                            int unreadMsgCount = 0;
+                            int.TryParse(loginInfo.unread_msg_count?.ToString() ?? loginInfo.unreadMsgCount?.ToString() ?? "0", out unreadMsgCount);
+                            int isFakeDeviceId = 0;
+                            int.TryParse(loginInfo.is_fake_device_id?.ToString() ?? loginInfo.isFakeDeviceId?.ToString() ?? "0", out isFakeDeviceId);
+                            int pid = 0;
+                            int.TryParse(loginInfo.pid?.ToString() ?? "0", out pid);
+                            
                             Logger.LogInfo($"[全局服务] ========== 收到微信账号数据（1112回调） ==========");
                             Logger.LogInfo($"[全局服务] wxid: {wxid}");
                             Logger.LogInfo($"[全局服务] nickname: {nickname}");
                             Logger.LogInfo($"[全局服务] avatar: {avatar}");
                             Logger.LogInfo($"[全局服务] account: {account}");
+                            Logger.LogInfo($"[全局服务] phone: {phone}");
 
-                            // 触发wxid获取事件
+                            // 创建AccountInfo对象
+                            var accountInfo = new AccountInfo
+                            {
+                                WeChatId = wxid,
+                                NickName = nickname,
+                                Avatar = avatar,
+                                BoundAccount = account,
+                                Phone = phone,
+                                DeviceId = deviceId,
+                                WxUserDir = wxUserDir,
+                                UnreadMsgCount = unreadMsgCount,
+                                IsFakeDeviceId = isFakeDeviceId,
+                                Pid = pid
+                            };
+
+                            // 触发wxid获取事件（保持向后兼容）
                             OnWxidReceived?.Invoke(this, wxid);
+                            
+                            // 触发账号信息接收事件（包含完整信息）
+                            OnAccountInfoReceived?.Invoke(this, accountInfo);
                         }
                         else
                         {
