@@ -50,8 +50,10 @@ namespace MyWeChat.Windows.UI.Controls
             OverlayCanvas.IsHitTestVisible = true;
             OverlayCanvas.IsEnabled = true;
             
-            // 居中显示弹窗
-            CenterBorder(ConfirmDialogBorder);
+            // Grid会自动居中，不需要手动计算位置
+            // 强制更新布局确保立即显示
+            this.UpdateLayout();
+            OverlayCanvas.UpdateLayout();
         }
 
         /// <summary>
@@ -59,17 +61,30 @@ namespace MyWeChat.Windows.UI.Controls
         /// </summary>
         public void ShowProgress()
         {
-            ConfirmDialogBorder.Visibility = Visibility.Collapsed;
-            ProgressBorder.Visibility = Visibility.Visible;
-            OverlayCanvas.Visibility = Visibility.Visible;
-            OverlayCanvas.IsHitTestVisible = false; // 进度显示时不可交互
-            OverlayCanvas.IsEnabled = false;
-            
-            // 居中显示进度
-            CenterBorder(ProgressBorder);
-            
-            // 重置进度
-            UpdateProgress(0, "准备关闭...");
+            try
+            {
+                ConfirmDialogBorder.Visibility = Visibility.Collapsed;
+                ProgressBorder.Visibility = Visibility.Visible;
+                OverlayCanvas.Visibility = Visibility.Visible;
+                OverlayCanvas.IsHitTestVisible = false; // 进度显示时不可交互
+                OverlayCanvas.IsEnabled = false;
+                
+                // Grid会自动居中，不需要手动计算位置
+                // 强制更新布局确保立即显示
+                this.UpdateLayout();
+                OverlayCanvas.UpdateLayout();
+                
+                // 重置进度
+                UpdateProgress(0, "准备关闭...");
+                
+                // 强制渲染
+                this.InvalidateVisual();
+                OverlayCanvas.InvalidateVisual();
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError($"显示进度圆环失败: {ex.Message}", ex);
+            }
         }
 
         /// <summary>
@@ -140,40 +155,7 @@ namespace MyWeChat.Windows.UI.Controls
             }
         }
 
-        /// <summary>
-        /// 居中显示Border
-        /// </summary>
-        private void CenterBorder(Border border)
-        {
-            if (border == null) return;
-
-            // 等待布局更新
-            OverlayCanvas.UpdateLayout();
-            
-            // 获取UserControl的实际大小（从父容器）
-            double canvasWidth = this.ActualWidth > 0 ? this.ActualWidth : OverlayCanvas.ActualWidth;
-            double canvasHeight = this.ActualHeight > 0 ? this.ActualHeight : OverlayCanvas.ActualHeight;
-            
-            // 如果还是0，尝试从父窗口获取
-            if (canvasWidth == 0 || canvasHeight == 0)
-            {
-                var parent = this.Parent as FrameworkElement;
-                if (parent != null)
-                {
-                    canvasWidth = parent.ActualWidth;
-                    canvasHeight = parent.ActualHeight;
-                }
-            }
-            
-            double borderWidth = border.Width;
-            double borderHeight = border.Height;
-
-            if (canvasWidth > 0 && canvasHeight > 0)
-            {
-                Canvas.SetLeft(border, (canvasWidth - borderWidth) / 2);
-                Canvas.SetTop(border, (canvasHeight - borderHeight) / 2);
-            }
-        }
+        // 注意：CenterBorder方法已移除，现在使用Grid自动居中
 
         /// <summary>
         /// 最小化到托盘按钮点击

@@ -282,31 +282,51 @@
                 <StackPanel Orientation="Horizontal"
                             HorizontalAlignment="Center"
                             VerticalAlignment="Center">
-                    <!-- 加载动画图标（旋转） -->
-                    <Ellipse Name="LoadingIndicator"
+                    <!-- 加载动画图标（Material Design风格，围绕中心旋转） -->
+                    <Viewbox Name="LoadingIndicator"
                              Width="16"
                              Height="16"
-                             Stroke="#07C160"
-                             StrokeThickness="2"
-                             StrokeDashArray="3 3"
                              Margin="0,0,10,0"
-                             Visibility="Visible">
-                        <Ellipse.RenderTransform>
-                            <RotateTransform x:Name="LoadingRotateTransform"/>
-                        </Ellipse.RenderTransform>
-                        <Ellipse.Triggers>
+                             Visibility="Visible"
+                             RenderTransformOrigin="0.5,0.5">
+                        <Grid Width="24" Height="24">
+                            <!-- Material Design风格的旋转加载圆圈 -->
+                            <Path Stroke="#07C160"
+                                  StrokeThickness="2.5"
+                                  StrokeLinecap="Round"
+                                  Opacity="0.9">
+                                <Path.Data>
+                                    <PathGeometry>
+                                        <PathFigure StartPoint="12,2">
+                                            <ArcSegment Size="10,10"
+                                                        SweepDirection="Clockwise"
+                                                        Point="12,22"
+                                                        IsLargeArc="False"/>
+                                        </PathFigure>
+                                    </PathGeometry>
+                                </Path.Data>
+                                <!-- 虚线效果：只显示约1/4的圆弧，形成Material Design风格 -->
+                                <Path.StrokeDashArray>
+                                    <DoubleCollection>6 18</DoubleCollection>
+                                </Path.StrokeDashArray>
+                                <Path.RenderTransform>
+                                    <RotateTransform x:Name="LoadingRotateTransform"/>
+                                </Path.RenderTransform>
+                            </Path>
+                        </Grid>
+                        <Viewbox.Triggers>
                             <EventTrigger RoutedEvent="Loaded">
                                 <BeginStoryboard>
                                     <Storyboard RepeatBehavior="Forever">
                                         <DoubleAnimation Storyboard.TargetName="LoadingRotateTransform"
                                                          Storyboard.TargetProperty="Angle"
                                                          From="0" To="360"
-                                                         Duration="0:0:1"/>
+                                                         Duration="0:0:1.2"/>
                                     </Storyboard>
                                 </BeginStoryboard>
                             </EventTrigger>
-                        </Ellipse.Triggers>
-                    </Ellipse>
+                        </Viewbox.Triggers>
+                    </Viewbox>
                     
                     <!-- 完成图标（对勾） -->
                     <Path Name="CompletedIndicator"

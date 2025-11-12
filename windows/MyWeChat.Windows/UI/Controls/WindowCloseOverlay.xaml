@@ -7,28 +7,24 @@
              d:DesignHeight="450" d:DesignWidth="800"
              HorizontalAlignment="Stretch"
              VerticalAlignment="Stretch">
-    <Canvas Name="OverlayCanvas"
-            Visibility="Collapsed"
-            Panel.ZIndex="9999"
-            IsHitTestVisible="False"
-            IsEnabled="False"
-            HorizontalAlignment="Stretch"
-            VerticalAlignment="Stretch">
+    <Grid Name="OverlayCanvas"
+          Visibility="Collapsed"
+          Panel.ZIndex="9999"
+          IsHitTestVisible="False"
+          IsEnabled="False"
+          HorizontalAlignment="Stretch"
+          VerticalAlignment="Stretch">
         <!-- 半透明背景层 -->
-        <Border Background="#80000000"
-                Width="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=Canvas}}"
-                Height="{Binding ActualHeight, RelativeSource={RelativeSource AncestorType=Canvas}}"/>
+        <Border Background="#80000000"/>
         
         <!-- 毛玻璃效果层（模糊背景） -->
-        <Border Background="#40FFFFFF"
-                Width="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=Canvas}}"
-                Height="{Binding ActualHeight, RelativeSource={RelativeSource AncestorType=Canvas}}">
+        <Border Background="#40FFFFFF">
             <Border.Effect>
                 <BlurEffect Radius="20"/>
             </Border.Effect>
         </Border>
         
-        <!-- 关闭确认弹窗 -->
+        <!-- 关闭确认弹窗 - 使用Grid自动居中 -->
         <Border Name="ConfirmDialogBorder"
                 Background="#F0FFFFFF"
                 CornerRadius="10"
@@ -36,7 +32,9 @@
                 BorderBrush="#E5E5E5"
                 Width="360"
                 Height="200"
-                Margin="20">
+                Margin="20"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
@@ -184,7 +182,7 @@
             </Grid>
         </Border>
         
-        <!-- 关闭进度圆环 -->
+        <!-- 关闭进度圆环 - 使用Grid自动居中 -->
         <Border Name="ProgressBorder"
                 Background="#F0FFFFFF"
                 CornerRadius="10"
@@ -193,6 +191,8 @@
                 Width="360"
                 Height="280"
                 Margin="20"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
                 Visibility="Collapsed">
             <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
                 <TextBlock Text="正在关闭程序..." 
@@ -245,6 +245,6 @@
                            Margin="0,0,0,10"/>
             </StackPanel>
         </Border>
-    </Canvas>
+    </Grid>
 </UserControl>
 

@@ -149,11 +149,22 @@ namespace MyWeChat.Windows.Services
         {
             _isClosing = true;
 
-            // 在UI线程上切换遮罩内容为进度圆环
-            _dispatcher.InvokeAsync(() =>
+            // 在UI线程上切换遮罩内容为进度圆环（使用Invoke确保同步执行）
+            _dispatcher.Invoke(() =>
             {
-                _overlay.ShowProgress();
-            }, DispatcherPriority.Normal);
+                try
+                {
+                    // 确保overlay控件已经加载
+                    if (_overlay != null)
+                    {
+                        _overlay.ShowProgress();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogError($"显示进度圆环失败: {ex.Message}", ex);
+                }
+            }, DispatcherPriority.Render); // 使用Render优先级，确保立即渲染
 
             // 异步执行资源清理
             Task.Run(async () =>
