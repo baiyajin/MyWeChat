@@ -1179,12 +1179,52 @@ namespace MyWeChat.Windows.Core.Hook
                 try
                 {
                     Logger.LogInfo("刷新进程信息...");
-                    process.Refresh();
-                    Logger.LogInfo("进程信息已刷新");
+                    try
+                    {
+                        process.Refresh();
+                        Logger.LogInfo("进程信息已刷新");
+                    }
+                    catch (Exception refreshEx)
+                    {
+                        Logger.LogWarning($"刷新进程信息失败: {refreshEx.Message}，跳过模块检查");
+                        Logger.LogInfo("========== 步骤9：跳过模块检查（刷新失败） ==========");
+                        goto SkipModuleCheck;
+                    }
                     
                     Logger.LogInfo("尝试访问进程模块...");
-                    var modules = process.Modules;
-                    Logger.LogInfo("进程模块访问成功");
+                    ProcessModuleCollection? modules = null;
+                    try
+                    {
+                        modules = process.Modules;
+                        Logger.LogInfo("进程模块访问成功");
+                    }
+                    catch (System.ComponentModel.Win32Exception winEx)
+                    {
+                        Logger.LogWarning($"无法访问进程模块（可能是架构不匹配或权限不足）: {winEx.Message}");
+                        Logger.LogWarning($"错误代码: {winEx.NativeErrorCode}");
+                        Logger.LogInfo("========== 步骤9：跳过模块检查（访问失败） ==========");
+                        goto SkipModuleCheck;
+                    }
+                    catch (System.UnauthorizedAccessException authEx)
+                    {
+                        Logger.LogWarning($"访问进程模块时权限不足: {authEx.Message}");
+                        Logger.LogInfo("========== 步骤9：跳过模块检查（权限不足） ==========");
+                        goto SkipModuleCheck;
+                    }
+                    catch (Exception modEx)
+                    {
+                        Logger.LogError($"访问进程模块时发生未知错误: {modEx.Message}");
+                        Logger.LogError($"异常类型: {modEx.GetType().Name}");
+                        Logger.LogInfo("========== 步骤9：跳过模块检查（未知错误） ==========");
+                        goto SkipModuleCheck;
+                    }
+                    
+                    if (modules == null)
+                    {
+                        Logger.LogWarning("进程模块集合为null，跳过模块检查");
+                        Logger.LogInfo("========== 步骤9：跳过模块检查（模块为null） ==========");
+                        goto SkipModuleCheck;
+                    }
                     
                     int moduleCount = modules?.Count ?? 0;
                     Logger.LogInfo($"微信进程已加载 {moduleCount} 个模块");
@@ -1195,33 +1235,37 @@ namespace MyWeChat.Windows.Core.Hook
                         // 等待一段时间后重试
                         Logger.LogInfo("等待2秒后重试...");
                         Thread.Sleep(2000);
-                        Logger.LogInfo("重试：刷新进程信息...");
-                        process.Refresh();
-                        Logger.LogInfo("重试：访问进程模块...");
-                        moduleCount = process.Modules?.Count ?? 0;
-                        Logger.LogInfo($"重试后模块数量: {moduleCount}");
+                        try
+                        {
+                            Logger.LogInfo("重试：刷新进程信息...");
+                            process.Refresh();
+                            Logger.LogInfo("重试：访问进程模块...");
+                            if (modules != null)
+                            {
+                                moduleCount = modules.Count;
+                                Logger.LogInfo($"重试后模块数量: {moduleCount}");
+                            }
+                            else
+                            {
+                                Logger.LogWarning("重试时模块集合为null，跳过重试");
+                            }
+                        }
+                        catch (Exception retryEx)
+                        {
+                            Logger.LogWarning($"重试访问进程模块失败: {retryEx.Message}，使用初始模块数量");
+                        }
                     }
                     Logger.LogInfo("========== 步骤9：进程模块检查完成 ==========");
                 }
-                catch (System.ComponentModel.Win32Exception winEx)
-                {
-                    // 架构不匹配（32位应用访问64位进程），无法访问模块
-                    Logger.LogWarning($"无法访问进程模块（可能是架构不匹配）: {winEx.Message}");
-                    Logger.LogWarning($"错误代码: {winEx.NativeErrorCode}");
-                    Logger.LogInfo("========== 步骤9：跳过模块检查 ==========");
-                }
-                catch (System.UnauthorizedAccessException authEx)
-                {
-                    Logger.LogWarning($"访问进程模块时权限不足: {authEx.Message}");
-                    Logger.LogInfo("========== 步骤9：跳过模块检查（权限不足） ==========");
-                }
                 catch (Exception ex)
                 {
-                    Logger.LogError($"检查进程模块时出错: {ex.Message}");
+                    Logger.LogError($"检查进程模块时发生未预期的错误: {ex.Message}");
                     Logger.LogError($"异常类型: {ex.GetType().Name}");
                     Logger.LogError($"堆栈跟踪: {ex.StackTrace}");
                     Logger.LogInfo("========== 步骤9：模块检查失败，继续执行 ==========");
                 }
+                
+                SkipModuleCheck:
                 Logger.LogInfo("步骤9完成后等待200ms...");
                 Thread.Sleep(200);
                 Logger.LogInfo("步骤9等待完成");
