@@ -739,7 +739,6 @@ namespace MyWeChat.Windows
                         AddLog("  3. DLL文件不存在或版本不匹配", "WARN");
                         AddLog("  4. 未以管理员权限运行（需要管理员权限）", "WARN");
                         AddLog("  5. 微信版本不支持", "WARN");
-                        var weChatManager = GetWeChatManager();
                         AddLog($"当前微信版本: {weChatManager?.ConnectionManager?.WeChatVersion ?? "未知"}", "WARN");
                         AddLog("提示: 如果微信已登录，请稍等片刻，程序会自动检测", "INFO");
                     }
@@ -782,7 +781,6 @@ namespace MyWeChat.Windows
                 
                 // 更新连接状态（UI元素已移除，不再更新）
                 // 如果有账号信息，更新显示
-                var weChatManager = GetWeChatManager();
                 if (weChatManager != null && weChatManager.IsConnected)
                 {
                     UpdateAccountInfoDisplay();
@@ -881,7 +879,6 @@ namespace MyWeChat.Windows
 
                 // 从账号列表中查找当前登录的账号
                 // 优先查找有昵称和头像的账号（从WebSocket同步过来的）
-                var weChatManager = GetWeChatManager();
                 int clientId = weChatManager?.ConnectionManager?.ClientId ?? 0;
                 
                 if (_accountList == null)
@@ -1066,7 +1063,6 @@ namespace MyWeChat.Windows
 
                 // 检查是否已存在该账号
                 // 注意：不要使用clientId（进程ID）作为WeChatId，应该等待真正的wxid
-                var weChatManager = GetWeChatManager();
                 int clientId = weChatManager?.ConnectionManager?.ClientId ?? 0;
                 
                 // 只查找有真正wxid的账号（不是进程ID），不查找以进程ID作为WeChatId的账号
