@@ -1192,7 +1192,6 @@ namespace MyWeChat.Windows.Core.Hook
                     Logger.LogInfo("========== 步骤9：跳过模块检查（架构检查失败） ==========");
                 }
                 
-                SkipModuleCheck:
                 Logger.LogInfo("步骤9完成后等待200ms...");
                 Thread.Sleep(200);
                 Logger.LogInfo("步骤9等待完成");
