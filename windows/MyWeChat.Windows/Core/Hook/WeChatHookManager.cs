@@ -17,6 +17,9 @@ namespace MyWeChat.Windows.Core.Hook
     /// </summary>
     public class WeChatHookManager
     {
+        // P/Invoke声明：检查窗口是否可见
+        [DllImport("user32.dll")]
+        private static extern bool IsWindowVisible(IntPtr hWnd);
         private WeChatHelperWrapperBase? _dllWrapper;
         
         // 回调函数委托
@@ -425,6 +428,57 @@ namespace MyWeChat.Windows.Core.Hook
 
                     // 保存微信进程ID，用于后续检查进程是否还在运行
                     _weChatProcessId = weChatProcess.Id;
+
+                    // ========== 等待微信完全启动（防止注入时机过早导致崩溃） ==========
+                    Logger.LogInfo("等待微信完全启动（检查窗口可见性和主线程初始化）...");
+                    bool isWindowVisible = false;
+                    int windowWaitCount = 0;
+                    int maxWindowWaitCount = 100; // 最多等待10秒
+
+                    while (windowWaitCount < maxWindowWaitCount && !isWindowVisible)
+                    {
+                        try
+                        {
+                            // 刷新进程信息
+                            weChatProcess.Refresh();
+                            IntPtr mainWindowHandle = weChatProcess.MainWindowHandle;
+                            
+                            if (mainWindowHandle != IntPtr.Zero)
+                            {
+                                // 检查窗口是否可见
+                                isWindowVisible = IsWindowVisible(mainWindowHandle);
+                                
+                                if (isWindowVisible)
+                                {
+                                    Logger.LogInfo("微信窗口已可见，微信主线程已初始化");
+                                    break;
+                                }
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            // 忽略异常，继续等待
+                            Logger.LogWarning($"检查微信窗口状态时出错（继续等待）: {ex.Message}");
+                        }
+                        
+                        Thread.Sleep(100);
+                        windowWaitCount++;
+                    }
+
+                    if (!isWindowVisible)
+                    {
+                        Logger.LogWarning("微信窗口在10秒内未可见，但继续尝试注入（可能微信在后台启动）");
+                        // 即使窗口不可见，也等待额外时间确保微信初始化完成
+                        Logger.LogInfo("额外等待3秒确保微信主线程完全初始化...");
+                        Thread.Sleep(3000);
+                    }
+                    else
+                    {
+                        // 窗口可见后，再等待2秒确保完全初始化
+                        Logger.LogInfo("微信窗口已可见，等待2秒确保主线程完全初始化...");
+                        Thread.Sleep(2000);
+                    }
+                    // ========== 等待逻辑结束 ==========
 
                     // 注入到微信进程
                     Logger.LogInfo($"正在注入到微信进程 (PID: {weChatProcess.Id})...");
