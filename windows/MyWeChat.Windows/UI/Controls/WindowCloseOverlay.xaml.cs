@@ -183,6 +183,95 @@ namespace MyWeChat.Windows.UI.Controls
             SelectedAction = CloseAction.Cancel;
             ActionSelected?.Invoke(this, CloseAction.Cancel);
         }
+
+        /// <summary>
+        /// 显示启动进度圆环
+        /// </summary>
+        public void ShowStartupProgress()
+        {
+            try
+            {
+                ConfirmDialogBorder.Visibility = Visibility.Collapsed;
+                ProgressBorder.Visibility = Visibility.Collapsed;
+                StartupProgressBorder.Visibility = Visibility.Visible;
+                OverlayCanvas.Visibility = Visibility.Visible;
+                OverlayCanvas.IsHitTestVisible = false; // 进度显示时不可交互
+                OverlayCanvas.IsEnabled = false;
+                
+                this.UpdateLayout();
+                OverlayCanvas.UpdateLayout();
+                
+                // 重置进度
+                UpdateStartupProgress(0, 15, "准备启动...");
+                
+                this.InvalidateVisual();
+                OverlayCanvas.InvalidateVisual();
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError($"显示启动进度圆环失败: {ex.Message}", ex);
+            }
+        }
+
+        /// <summary>
+        /// 更新启动进度
+        /// </summary>
+        /// <param name="step">当前步骤（从1开始）</param>
+        /// <param name="totalSteps">总步骤数</param>
+        /// <param name="status">状态文本</param>
+        public void UpdateStartupProgress(int step, int totalSteps, string status)
+        {
+            // 计算进度百分比
+            int progress = totalSteps > 0 ? (int)((step / (double)totalSteps) * 100) : 0;
+            UpdateStartupProgressRing(progress);
+            
+            if (StartupStatusText != null)
+            {
+                StartupStatusText.Text = status;
+            }
+            if (StartupProgressText != null)
+            {
+                StartupProgressText.Text = $"{progress}%";
+            }
+            if (StartupStepText != null)
+            {
+                StartupStepText.Text = $"步骤 {step}/{totalSteps}";
+            }
+        }
+
+        /// <summary>
+        /// 更新启动进度圆环
+        /// </summary>
+        /// <param name="progress">进度值（0-100）</param>
+        private void UpdateStartupProgressRing(int progress)
+        {
+            try
+            {
+                if (StartupProgressArc == null) return;
+
+                progress = Math.Max(0, Math.Min(100, progress));
+
+                double angle = (progress / 100.0) * 360.0;
+                double angleRad = (angle - 90) * Math.PI / 180.0; // 转换为弧度，-90度使起点在顶部
+
+                double centerX = 60;
+                double centerY = 60;
+                double radius = 50;
+
+                double endX = centerX + radius * Math.Cos(angleRad);
+                double endY = centerY + radius * Math.Sin(angleRad);
+
+                bool isLargeArc = progress > 50;
+
+                StartupProgressArc.Point = new System.Windows.Point(endX, endY);
+                StartupProgressArc.IsLargeArc = isLargeArc;
+                StartupProgressArc.Size = new System.Windows.Size(radius, radius);
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError($"更新启动进度圆环失败: {ex.Message}", ex);
+            }
+        }
     }
 }
 
