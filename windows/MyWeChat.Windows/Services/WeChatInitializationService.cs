@@ -129,6 +129,10 @@ namespace MyWeChat.Windows.Services
                         {
                             OnMessageReceived?.Invoke(this, message);
                         };
+                        
+                        // ========== 全局服务日志：监听激活 ==========
+                        Logger.LogInfo("========== [全局服务] 微信消息监听已激活 ==========");
+                        Logger.LogInfo("[全局服务] 正在监听微信账号数据消息...");
 
                         // 初始化微信管理器
                         if (!weChatManager.Initialize())

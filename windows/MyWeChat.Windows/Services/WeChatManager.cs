@@ -310,6 +310,11 @@ namespace MyWeChat.Windows.Services
                     return;
                 }
 
+                // ========== 全局服务日志：微信消息接收 ==========
+                Logger.LogInfo($"========== [全局服务] 收到微信消息 ==========");
+                Logger.LogInfo($"[全局服务] 消息长度: {message?.Length ?? 0}");
+                Logger.LogInfo($"[全局服务] 收到时间: {DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}");
+
                 // 先触发通用消息接收事件
                 OnMessageReceived?.Invoke(this, message);
 
@@ -370,6 +375,41 @@ namespace MyWeChat.Windows.Services
                     int.TryParse(messageObj.type.ToString(), out messageType);
                 }
 
+                // ========== 全局服务日志：消息类型 ==========
+                Logger.LogInfo($"[全局服务] 消息类型: {messageType}");
+
+                // 根据消息类型输出相应日志
+                switch (messageType)
+                {
+                    case 1112:
+                        // 账号信息回调，在下面处理
+                        break;
+                    case 11126:
+                        Logger.LogInfo($"[全局服务] 收到联系人列表消息（11126）");
+                        break;
+                    case 11132:
+                        Logger.LogInfo($"[全局服务] 收到文本消息（11132）");
+                        break;
+                    case 11144:
+                        Logger.LogInfo($"[全局服务] 收到朋友圈消息（11144）");
+                        break;
+                    case 11241:
+                        Logger.LogInfo($"[全局服务] 收到标签消息（11241）");
+                        break;
+                    case 11238:
+                        Logger.LogInfo($"[全局服务] 收到其他消息（11238）");
+                        break;
+                    case 5:
+                        Logger.LogInfo($"[全局服务] 收到公众号消息（5）");
+                        break;
+                    default:
+                        if (messageType > 0)
+                        {
+                            Logger.LogInfo($"[全局服务] 收到未知类型消息: {messageType}");
+                        }
+                        break;
+                }
+
                 // 1112 表示账号信息回调
                 if (messageType == 1112)
                 {
@@ -415,10 +455,23 @@ namespace MyWeChat.Windows.Services
                             {
                                 _currentWxid = wxid;
                             }
-                            Logger.LogInfo($"获取到微信ID: {wxid}");
+                            
+                            // ========== 全局服务日志：账号信息解析结果 ==========
+                            string nickname = loginInfo.nickname?.ToString() ?? "";
+                            string avatar = loginInfo.avatar?.ToString() ?? "";
+                            string account = loginInfo.account?.ToString() ?? "";
+                            Logger.LogInfo($"[全局服务] ========== 收到微信账号数据（1112回调） ==========");
+                            Logger.LogInfo($"[全局服务] wxid: {wxid}");
+                            Logger.LogInfo($"[全局服务] nickname: {nickname}");
+                            Logger.LogInfo($"[全局服务] avatar: {avatar}");
+                            Logger.LogInfo($"[全局服务] account: {account}");
 
                             // 触发wxid获取事件
                             OnWxidReceived?.Invoke(this, wxid);
+                        }
+                        else
+                        {
+                            Logger.LogWarning($"[全局服务] 收到的wxid无效（可能是进程ID）: {wxid}");
                         }
                     }
                 }
