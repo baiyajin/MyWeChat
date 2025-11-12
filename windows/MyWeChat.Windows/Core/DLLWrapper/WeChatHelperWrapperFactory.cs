@@ -18,16 +18,14 @@ namespace MyWeChat.Windows.Core.DLLWrapper
         {
             try
             {
-                Logger.LogInfo($"创建DLL封装实例，版本: {version}");
+                // 注意：DLL封装实例创建的详细信息已包含在Hook管理器初始化日志中，这里不再重复输出
                 
                 switch (version)
                 {
                     case "3.9.12.45":
-                        Logger.LogInfo("使用3.9.12.45版本的DLL封装");
                         return new WeChatHelperWrapper_3_9_12_45();
                     
                     case "4.1.0.34":
-                        Logger.LogInfo("使用4.1.0.34版本的DLL封装");
                         return new WeChatHelperWrapper_4_1_0_34();
                     
                     // 可以添加其他版本的实现

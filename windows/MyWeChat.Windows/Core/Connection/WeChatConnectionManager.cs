@@ -166,17 +166,13 @@ namespace MyWeChat.Windows.Core.Connection
                     throw new InvalidOperationException(errorMsg);
                 }
 
-                Logger.LogInfo($"Hook管理器状态: 已初始化");
-                Logger.LogInfo($"微信版本: {_weChatVersion ?? "未知"}");
-                Logger.LogInfo($"指定的微信路径: {weChatExePath ?? "自动查找"}");
+                // 注意：Hook管理器状态、微信版本等信息在初始化时已输出，这里不再重复输出
                 
                 bool result = _hookManager.OpenAndHook(weChatExePath);
                 
                 if (result)
                 {
-                    Logger.LogInfo("========== 微信连接成功 ==========");
-                    Logger.LogInfo($"客户端ID: {ClientId}");
-                    Logger.LogInfo($"连接状态: {IsConnected}");
+                    Logger.LogInfo($"========== 微信连接成功，ClientId: {ClientId} ==========");
                 }
                 else
                 {

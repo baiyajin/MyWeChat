@@ -160,11 +160,11 @@ namespace MyWeChat.Windows
                 bool connected = await _webSocketService.ConnectAsync();
                 if (connected)
                 {
-                    Logger.LogInfo("WebSocket连接成功（登录窗口）");
+                    // 注意：WebSocket连接成功的日志已在WebSocketService中输出，这里不再重复输出
                 }
                 else
                 {
-                    Logger.LogWarning("WebSocket连接失败（登录窗口）");
+                    Logger.LogWarning("WebSocket连接失败");
                 }
             }
             catch (Exception ex)
@@ -719,7 +719,7 @@ namespace MyWeChat.Windows
                 {
                     if (isConnected)
                     {
-                        Logger.LogInfo("微信连接成功（登录窗口）");
+                        // 注意：连接成功的日志已在全局服务中输出，这里不再重复输出
                         // 使用 InvokeAsync 避免阻塞，使用低优先级确保不阻塞UI
                         _ = Dispatcher.InvokeAsync(() =>
                         {
@@ -728,7 +728,7 @@ namespace MyWeChat.Windows
                     }
                     else
                     {
-                        Logger.LogWarning("微信连接断开（登录窗口）");
+                        // 注意：连接断开的日志已在全局服务中输出，这里不再重复输出
                         // 使用 InvokeAsync 避免阻塞，使用低优先级确保不阻塞UI
                         _ = Dispatcher.InvokeAsync(() =>
                         {
@@ -921,7 +921,7 @@ namespace MyWeChat.Windows
             {
                 // 注意：不停止全局服务的定时器，因为主页还要用
                 // 全局服务的定时器会在应用退出时统一停止
-                Logger.LogInfo("登录窗口关闭，定时器由全局服务管理");
+                // 注意：定时器管理的详细信息是内部实现细节，不再输出日志
             }
             catch (Exception ex)
             {

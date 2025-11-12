@@ -175,14 +175,12 @@ namespace MyWeChat.Windows.Services
 
                     // 0. 停止所有定时器
                     UpdateProgress(5, "正在停止所有定时器...");
-                    Logger.LogInfo("正在停止所有定时器...");
                     try
                     {
                         if (_cleanupConfig.StopAllTimersCallback != null)
                         {
                             await _dispatcher.InvokeAsync(() => _cleanupConfig.StopAllTimersCallback());
                         }
-                        Logger.LogInfo("所有定时器已停止");
                     }
                     catch (Exception ex)
                     {
@@ -191,14 +189,12 @@ namespace MyWeChat.Windows.Services
 
                     // 1. 取消事件订阅（防止内存泄漏）
                     UpdateProgress(15, "正在取消事件订阅...");
-                    Logger.LogInfo("正在取消事件订阅...");
                     try
                     {
                         if (_cleanupConfig.UnsubscribeEventsCallback != null)
                         {
                             await _dispatcher.InvokeAsync(() => _cleanupConfig.UnsubscribeEventsCallback());
                         }
-                        Logger.LogInfo("事件订阅已取消");
                     }
                     catch (Exception ex)
                     {
@@ -209,11 +205,9 @@ namespace MyWeChat.Windows.Services
                     UpdateProgress(30, "正在断开WebSocket连接...");
                     if (_cleanupConfig.WebSocketService != null)
                     {
-                        Logger.LogInfo("正在断开WebSocket连接...");
                         try
                         {
                             await _cleanupConfig.WebSocketService.DisconnectAsync().ConfigureAwait(false);
-                            Logger.LogInfo("WebSocket连接已断开");
                         }
                         catch (Exception ex)
                         {
@@ -225,17 +219,13 @@ namespace MyWeChat.Windows.Services
                     UpdateProgress(50, "正在关闭微信连接...");
                     if (_cleanupConfig.WeChatManager != null)
                     {
-                        Logger.LogInfo("正在关闭微信连接...");
                         try
                         {
                             await _dispatcher.InvokeAsync(() => _cleanupConfig.WeChatManager.Disconnect());
-                            Logger.LogInfo("微信连接已关闭");
 
                             // 等待资源释放（给系统时间释放文件句柄）
                             UpdateProgress(60, "等待资源释放（2秒）...");
-                            Logger.LogInfo("等待资源释放（2秒）...");
                             await Task.Delay(2000).ConfigureAwait(false);
-                            Logger.LogInfo("资源已释放");
                         }
                         catch (Exception ex)
                         {
@@ -245,14 +235,12 @@ namespace MyWeChat.Windows.Services
 
                     // 4. 清理同步服务（释放服务资源）
                     UpdateProgress(75, "正在清理同步服务...");
-                    Logger.LogInfo("正在清理同步服务...");
                     try
                     {
                         if (_cleanupConfig.CleanupSyncServicesCallback != null)
                         {
                             await _dispatcher.InvokeAsync(() => _cleanupConfig.CleanupSyncServicesCallback());
                         }
-                        Logger.LogInfo("同步服务已清理");
                     }
                     catch (Exception ex)
                     {
@@ -261,14 +249,12 @@ namespace MyWeChat.Windows.Services
 
                     // 5. 清空账号列表（释放集合资源）
                     UpdateProgress(85, "正在清空账号列表...");
-                    Logger.LogInfo("正在清空账号列表...");
                     try
                     {
                         if (_cleanupConfig.ClearAccountListCallback != null)
                         {
                             await _dispatcher.InvokeAsync(() => _cleanupConfig.ClearAccountListCallback());
                         }
-                        Logger.LogInfo("账号列表已清空");
                     }
                     catch (Exception ex)
                     {
@@ -277,11 +263,9 @@ namespace MyWeChat.Windows.Services
 
                     // 6. 等待后台任务完成（给正在运行的任务时间完成）
                     UpdateProgress(90, "等待后台任务完成（1秒）...");
-                    Logger.LogInfo("等待后台任务完成（1秒）...");
                     try
                     {
                         await Task.Delay(1000).ConfigureAwait(false);
-                        Logger.LogInfo("后台任务等待完成");
                     }
                     catch (Exception ex)
                     {

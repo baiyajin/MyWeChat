@@ -283,7 +283,7 @@ namespace MyWeChat.Windows.Services
                             if (result)
                             {
                                 _isWeChatConnected = true;
-                                Logger.LogInfo("微信自动启动成功");
+                                // 注意：连接成功的日志已在WeChatConnectionManager中输出，这里不再重复输出
                             }
                         }
                         catch (Exception ex)
@@ -320,8 +320,6 @@ namespace MyWeChat.Windows.Services
 
                 // ========== 全局服务日志：微信消息接收 ==========
                 Logger.LogInfo($"========== [全局服务] 收到微信消息 ==========");
-                Logger.LogInfo($"[全局服务] 消息长度: {nonNullMessage.Length}");
-                Logger.LogInfo($"[全局服务] 收到时间: {DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}");
 
                 // 先触发通用消息接收事件
                 OnMessageReceived?.Invoke(this, nonNullMessage);
@@ -396,13 +394,12 @@ namespace MyWeChat.Windows.Services
                 }
 
                 // ========== 全局服务日志：消息类型 ==========
-                Logger.LogInfo($"[全局服务] 消息类型: {messageType}");
-
                 // 根据消息类型输出相应日志
                 switch (messageType)
                 {
                     case 1112:
                         // 账号信息回调，在下面处理
+                        Logger.LogInfo($"[全局服务] 收到账号信息消息（1112）");
                         break;
                     case 11126:
                         Logger.LogInfo($"[全局服务] 收到联系人列表消息（11126）");

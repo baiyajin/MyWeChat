@@ -114,10 +114,6 @@ namespace MyWeChat.Windows.Core.Hook
                         actualDllDirectory = Path.GetDirectoryName(sourceDllPath) ?? string.Empty;
                     }
                 }
-                else
-                {
-                    Logger.LogInfo($"在当前版本目录找到WxHelp.dll: {dllPath}");
-                }
 
                 // 确保DLL文件存在
                 if (!File.Exists(dllPath))
@@ -133,7 +129,7 @@ namespace MyWeChat.Windows.Core.Hook
                     Environment.SetEnvironmentVariable("PATH", 
                         $"{actualDllDirectory};{dllDirectory};{pathEnv}", 
                         EnvironmentVariableTarget.Process);
-                    Logger.LogInfo($"已设置PATH环境变量: {actualDllDirectory}");
+                    // 注意：PATH环境变量设置的详细信息是内部实现细节，不再输出
                 }
 
                 // 使用SetDllDirectory API设置DLL搜索路径（优先级更高）
@@ -145,15 +141,12 @@ namespace MyWeChat.Windows.Core.Hook
                     {
                         // 直接调用SetDllDirectory设置DLL搜索路径
                         bool result = WeChatHelperWrapper_3_9_12_45.SetDllDirectory(dllDir);
-                        if (result)
-                        {
-                            Logger.LogInfo($"已使用SetDllDirectory设置DLL搜索路径: {dllDir}");
-                        }
-                        else
+                        if (!result)
                         {
                             int errorCode = System.Runtime.InteropServices.Marshal.GetLastWin32Error();
                             Logger.LogWarning($"SetDllDirectory失败，错误码: {errorCode}，将使用PATH环境变量");
                         }
+                        // 注意：SetDllDirectory成功的详细信息是内部实现细节，不再输出
                     }
                 }
                 catch (Exception ex)
@@ -377,13 +370,13 @@ namespace MyWeChat.Windows.Core.Hook
                     else if (result > 0)
                     {
                         // 返回值 > 0 表示微信已运行，返回值是进程ID
-                        Logger.LogInfo($"微信已运行，进程ID: {result}");
+                        // 注意：如果前面已经有"微信已启动，进程ID"的日志，这里不再重复输出
                         
                         // 尝试通过进程ID获取进程对象
                         try
                         {
                             weChatProcess = Process.GetProcessById(result);
-                            Logger.LogInfo($"通过进程ID找到微信进程，PID: {weChatProcess.Id}, 进程名: {weChatProcess.ProcessName}");
+                            // 注意：找到进程的日志将在后面统一输出，这里不再重复输出
                         }
                         catch (ArgumentException)
                         {
@@ -572,10 +565,7 @@ namespace MyWeChat.Windows.Core.Hook
                             return false;
                         }
                     }
-                    else
-                    {
-                        Logger.LogInfo($"OnAcceptCallback已被调用，使用回调中的clientId: {_clientId}");
-                    }
+                    // 注意：OnAcceptCallback已被调用的信息已包含在"Hook成功"日志中，这里不再重复输出
 
                     _isHooked = true;
 
@@ -814,11 +804,7 @@ namespace MyWeChat.Windows.Core.Hook
                 Marshal.Copy(message, buffer, 0, length);
                 string jsonMessage = Encoding.UTF8.GetString(buffer);
 
-                // 只在重要消息时输出日志（如登录回调）
-                if (jsonMessage.Contains("\"type\":1112") || jsonMessage.Contains("\"messageType\":1112"))
-                {
-                    Logger.LogInfo($"收到微信登录回调消息");
-                }
+                // 注意：登录回调消息的日志已在WeChatConnectionManager中输出，这里不再重复输出
                 
                 if (OnMessageReceived != null)
                 {
@@ -1080,7 +1066,7 @@ namespace MyWeChat.Windows.Core.Hook
                     string rootExePath = Path.Combine(installPath, exeName);
                     if (File.Exists(rootExePath))
                     {
-                        Logger.LogInfo($"找到微信可执行文件（根目录）: {rootExePath}");
+                        // 注意：找到文件的日志已在调用处输出，这里不再重复输出
                         return rootExePath;
                     }
                 }

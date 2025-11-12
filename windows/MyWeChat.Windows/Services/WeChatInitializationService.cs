@@ -144,7 +144,7 @@ namespace MyWeChat.Windows.Services
                         _weChatManager = weChatManager;
                         _isInitialized = true;
 
-                        onLog?.Invoke("微信管理器初始化成功");
+                        // 注意：微信管理器初始化成功和定时器启动的日志已在WeChatManager中输出，这里不再重复输出
 
                         // 启动进程检测定时器（必须在UI线程上执行）
                         dispatcher.InvokeAsync(() =>
@@ -156,7 +156,7 @@ namespace MyWeChat.Windows.Services
                                     if (_weChatManager != null && !_isDisposed)
                                     {
                                         _weChatManager.StartProcessCheckTimer();
-                                        onLog?.Invoke("微信进程检测定时器已启动");
+                                        // 注意：定时器启动的日志已在WeChatManager中输出，这里不再重复输出
                                     }
                                 }
                             }

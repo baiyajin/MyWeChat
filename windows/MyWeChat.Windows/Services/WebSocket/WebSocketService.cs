@@ -197,10 +197,7 @@ namespace MyWeChat.Windows.Services.WebSocket
                             Logger.LogInfo($"WebSocket关闭时状态异常（可能已关闭）: {state}, 错误: {closeEx.Message}");
                         }
                     }
-                    else
-                    {
-                        Logger.LogInfo($"WebSocket已处于关闭状态: {state}");
-                    }
+                    // 注意：如果WebSocket已处于关闭状态，不再输出日志，因为下面会统一输出"WebSocket已断开连接"
                 }
 
                 _isConnected = false;
@@ -325,8 +322,7 @@ namespace MyWeChat.Windows.Services.WebSocket
                 }
                 catch (OperationCanceledException)
                 {
-                    // 正常取消
-                    Logger.LogInfo("WebSocket接收消息任务已取消");
+                    // 正常取消，不再输出日志（这是正常的关闭流程）
                     break;
                 }
                 catch (WebSocketException wsEx)
