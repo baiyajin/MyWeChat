@@ -48,13 +48,15 @@ namespace MyWeChat.Windows
         private bool _isUpdatingPhoneText = false;
         
         // 启动进度相关
-        private int _currentStep = 0;
-        private const int _totalSteps = 3; // 总步骤数：1.加载登录历史 2.初始化WebSocket 3.初始化微信管理器
+        private const int _totalSteps = 15; // 总步骤数：15个步骤
         
         // 保存全局服务事件处理函数引用，以便在关闭时取消订阅
         private EventHandler<bool>? _connectionStateChangedHandler;
         private EventHandler<string>? _wxidReceivedHandler;
         private EventHandler<string>? _messageReceivedHandler;
+        
+        // 微信启动进度事件处理
+        private EventHandler<(int step, int totalSteps, string status)>? _weChatProgressHandler;
 
         public LoginWindow()
         {
@@ -96,36 +98,44 @@ namespace MyWeChat.Windows
             PhoneTextBox.IsHitTestVisible = true;
             LicenseKeyTextBox.IsHitTestVisible = true;
             
-            // 注意：CloseOverlay 控件在初始化时会自动设置 IsHitTestVisible 和 IsEnabled
-            // 这里不需要手动设置，因为遮罩默认是隐藏的
-            
-            UpdateLoadingStatus(1, "正在加载登录历史...");
+            // 立即显示启动进度圆环
+            CloseOverlay.ShowStartupProgress();
             
             _ = Task.Run(async () =>
             {
+                // 步骤1：加载登录历史
+                Dispatcher.Invoke(() => CloseOverlay.UpdateStartupProgress(1, _totalSteps, "正在加载登录历史..."));
                 await LoadLoginHistoryAsync();
-                Dispatcher.Invoke(() => UpdateLoadingStatus(2, "正在初始化WebSocket连接..."));
                 
+                // 步骤2：初始化WebSocket连接
+                Dispatcher.Invoke(() => CloseOverlay.UpdateStartupProgress(2, _totalSteps, "正在初始化WebSocket连接..."));
                 await Task.Delay(300);
-                
                 await InitializeWebSocketAsync();
-                Dispatcher.Invoke(() => UpdateLoadingStatus(3, "正在初始化微信管理器..."));
+                
+                // 步骤3：初始化微信管理器（这会触发后续的微信启动和DLL注入）
+                Dispatcher.Invoke(() => CloseOverlay.UpdateStartupProgress(3, _totalSteps, "正在初始化微信管理器..."));
+                
+                // 订阅微信启动进度事件
+                var hookManager = GetWeChatHookManager();
+                if (hookManager != null)
+                {
+                    _weChatProgressHandler = (sender, args) =>
+                    {
+                        Dispatcher.Invoke(() => CloseOverlay.UpdateStartupProgress(args.step, args.totalSteps, args.status));
+                    };
+                    hookManager.OnProgressUpdate += _weChatProgressHandler;
+                }
                 
                 await Task.Run(() => InitializeWeChatManagerAsync());
                 
+                // 步骤15：初始化完成
                 Dispatcher.Invoke(() =>
                 {
-                    UpdateLoadingStatus(_totalSteps, "初始化完成");
-                    Task.Delay(2000).ContinueWith(_ =>
+                    CloseOverlay.UpdateStartupProgress(_totalSteps, _totalSteps, "初始化完成");
+                    // 延迟1秒后关闭进度圆环
+                    Task.Delay(1000).ContinueWith(_ =>
                     {
-                        Dispatcher.Invoke(() =>
-                        {
-                            var loadingBorder = FindName("LoadingStatusBorder") as Border;
-                            if (loadingBorder != null)
-                            {
-                                loadingBorder.Visibility = Visibility.Collapsed;
-                            }
-                        });
+                        Dispatcher.Invoke(() => CloseOverlay.HideOverlay());
                     });
                 });
             });
@@ -656,28 +666,30 @@ namespace MyWeChat.Windows
 
 
         /// <summary>
-        /// 更新加载状态
+        /// 获取微信Hook管理器（用于订阅进度事件）
         /// </summary>
-        private void UpdateLoadingStatus(int step, string message)
+        private Core.Hook.WeChatHookManager? GetWeChatHookManager()
         {
-            _currentStep = step;
-            if (LoadingStatusText != null)
+            try
             {
-                LoadingStatusText.Text = $"{message} ({step}/{_totalSteps})";
+                var service = Services.WeChatInitializationService.Instance;
+                var connectionManager = service?.ConnectionManager;
+                if (connectionManager != null)
+                {
+                    // 通过反射或公共属性获取HookManager
+                    var hookManagerField = connectionManager.GetType().GetField("_hookManager", 
+                        System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                    if (hookManagerField != null)
+                    {
+                        return hookManagerField.GetValue(connectionManager) as Core.Hook.WeChatHookManager;
+                    }
+                }
             }
-            
-            // 根据进度状态切换图标显示
-            bool isCompleted = step >= _totalSteps;
-            
-            if (LoadingIndicator != null)
+            catch (Exception ex)
             {
-                LoadingIndicator.Visibility = isCompleted ? Visibility.Collapsed : Visibility.Visible;
+                Logger.LogWarning($"获取微信Hook管理器失败: {ex.Message}");
             }
-            
-            if (CompletedIndicator != null)
-            {
-                CompletedIndicator.Visibility = isCompleted ? Visibility.Visible : Visibility.Collapsed;
-            }
+            return null;
         }
 
         /// <summary>
@@ -943,6 +955,14 @@ namespace MyWeChat.Windows
             {
                 service.OnMessageReceived -= _messageReceivedHandler;
                 _messageReceivedHandler = null;
+            }
+            
+            // 取消微信启动进度事件订阅
+            var hookManager = GetWeChatHookManager();
+            if (hookManager != null && _weChatProgressHandler != null)
+            {
+                hookManager.OnProgressUpdate -= _weChatProgressHandler;
+                _weChatProgressHandler = null;
             }
             
             // 取消WebSocket服务事件订阅
