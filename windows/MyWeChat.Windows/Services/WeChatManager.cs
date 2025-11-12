@@ -310,16 +310,23 @@ namespace MyWeChat.Windows.Services
                     return;
                 }
 
+                // 确保message不为null（编译器警告修复）
+                string nonNullMessage = message ?? string.Empty;
+                if (string.IsNullOrWhiteSpace(nonNullMessage))
+                {
+                    return;
+                }
+
                 // ========== 全局服务日志：微信消息接收 ==========
                 Logger.LogInfo($"========== [全局服务] 收到微信消息 ==========");
-                Logger.LogInfo($"[全局服务] 消息长度: {message?.Length ?? 0}");
+                Logger.LogInfo($"[全局服务] 消息长度: {nonNullMessage.Length}");
                 Logger.LogInfo($"[全局服务] 收到时间: {DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}");
 
                 // 先触发通用消息接收事件
-                OnMessageReceived?.Invoke(this, message);
+                OnMessageReceived?.Invoke(this, nonNullMessage);
 
                 // 清理消息：移除空白和控制字符
-                string cleanMessage = message.Trim();
+                string cleanMessage = nonNullMessage.Trim();
                 
                 // 清理无效的控制字符（保留JSON必需字符）
                 System.Text.StringBuilder sb = new System.Text.StringBuilder();
