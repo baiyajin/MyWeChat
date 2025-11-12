@@ -18,6 +18,7 @@ class WebSocketService extends ChangeNotifier {
   List<MomentsModel> _moments = [];
   Map<String, dynamic>? _myInfo;
   String? _currentWeChatId; // 当前微信账号ID
+  String? _loggedInPhone; // 当前登录的手机号
 
   bool get isConnected => _isConnected;
   List<ContactModel> get contacts => _contacts;
@@ -376,6 +377,12 @@ class WebSocketService extends ChangeNotifier {
     if (success) {
       final accountInfo = data['account_info'] as Map<String, dynamic>?;
       if (accountInfo != null) {
+        // 更新登录手机号（快速登录时使用账号信息中的手机号）
+        final accountPhone = accountInfo['phone']?.toString() ?? '';
+        if (accountPhone.isNotEmpty) {
+          _loggedInPhone = accountPhone;
+        }
+        
         _myInfo = accountInfo;
         _currentWeChatId = accountInfo['wxid']?.toString();
         _saveMyInfoToLocal(accountInfo);
@@ -391,6 +398,7 @@ class WebSocketService extends ChangeNotifier {
   /// 登录（手机号+授权码）
   Future<bool> login(String phone, String licenseKey) async {
     _loginCompleter = Completer<bool>();
+    _loggedInPhone = phone; // 保存登录的手机号
     _sendMessage({
       'type': 'login',
       'phone': phone,
@@ -469,6 +477,7 @@ class WebSocketService extends ChangeNotifier {
       await prefs.remove('logged_in_wxid');
       _currentWeChatId = null;
       _myInfo = null;
+      _loggedInPhone = null; // 清除登录手机号
       notifyListeners();
       print('登录状态已清除');
     } catch (e) {
@@ -554,6 +563,16 @@ class WebSocketService extends ChangeNotifier {
     try {
       print('========== 收到我的信息同步 ==========');
       print('数据: $myInfoData');
+      
+      // 验证账号信息的手机号是否匹配当前登录的手机号
+      final accountPhone = myInfoData['phone']?.toString() ?? '';
+      if (_loggedInPhone != null && _loggedInPhone!.isNotEmpty) {
+        if (accountPhone != _loggedInPhone) {
+          print('警告: 账号信息手机号($accountPhone)与登录手机号($_loggedInPhone)不匹配，忽略此同步消息');
+          return;
+        }
+      }
+      
       _myInfo = myInfoData;
       // 更新当前微信账号ID
       _currentWeChatId = myInfoData['wxid']?.toString() ?? myInfoData['account']?.toString();
@@ -611,9 +630,31 @@ class WebSocketService extends ChangeNotifier {
   /// 更新账号信息（用于从服务器获取后更新）
   void updateMyInfo(Map<String, dynamic> myInfoData) {
     try {
+      // 如果传入的是空字典，清除账号信息
+      if (myInfoData.isEmpty) {
+        _myInfo = null;
+        _currentWeChatId = null;
+        notifyListeners();
+        print('账号信息已清除');
+        return;
+      }
+      
+      // 验证账号信息的手机号是否匹配当前登录的手机号（如果已登录）
+      final accountPhone = myInfoData['phone']?.toString() ?? '';
+      if (_loggedInPhone != null && _loggedInPhone!.isNotEmpty) {
+        if (accountPhone != _loggedInPhone) {
+          print('警告: 账号信息手机号($accountPhone)与登录手机号($_loggedInPhone)不匹配，忽略此更新');
+          return;
+        }
+      }
+      
       _myInfo = myInfoData;
       // 更新当前微信账号ID
       _currentWeChatId = myInfoData['wxid']?.toString() ?? myInfoData['account']?.toString();
+      // 如果还没有登录手机号，使用账号信息中的手机号
+      if (_loggedInPhone == null && accountPhone.isNotEmpty) {
+        _loggedInPhone = accountPhone;
+      }
       // 保存账号信息到本地
       _saveMyInfoToLocal(myInfoData);
       notifyListeners();

@@ -150,18 +150,24 @@ class _LoginPageState extends State<LoginPage> {
         // 登录成功后，根据手机号从服务器获取账号信息
         try {
           final accountInfo = await apiService.getAccountInfo(phone: phone);
-          if (accountInfo != null) {
+          if (accountInfo != null && accountInfo['phone'] == phone) {
             // 更新WebSocketService中的账号信息
             wsService.updateMyInfo(accountInfo);
             // 保存登录历史
             await _saveLoginHistory(accountInfo);
             print('登录成功，已更新账号信息: ${accountInfo['nickname']} (${accountInfo['phone']})');
           } else {
-            print('警告: 未找到手机号为 $phone 的账号信息，可能是新账号还没有同步');
+            print('警告: 未找到手机号为 $phone 的账号信息，可能是新账号还没有同步，等待服务器同步');
+            // 清除可能存在的旧账号信息，避免显示错误的账号
+            // 等待服务器通过 sync_my_info 消息同步正确的账号信息
+            wsService.updateMyInfo({});
           }
         } catch (e) {
           print('获取账号信息失败: $e');
           // 即使获取账号信息失败，也允许登录，因为可能是新账号还没有同步
+          // 清除可能存在的旧账号信息，避免显示错误的账号
+          // 等待服务器通过 sync_my_info 消息同步正确的账号信息
+          wsService.updateMyInfo({});
         }
         
         // 保存登录状态
