@@ -305,10 +305,62 @@ namespace MyWeChat.Windows.Services
         {
             try
             {
+                if (string.IsNullOrWhiteSpace(message))
+                {
+                    return;
+                }
+
                 // 先触发通用消息接收事件
                 OnMessageReceived?.Invoke(this, message);
 
-                var messageObj = JsonConvert.DeserializeObject<dynamic>(message);
+                // 清理消息：移除空白和控制字符
+                string cleanMessage = message.Trim();
+                
+                // 清理无效的控制字符（保留JSON必需字符）
+                System.Text.StringBuilder sb = new System.Text.StringBuilder();
+                foreach (char c in cleanMessage)
+                {
+                    if (char.IsControl(c) && c != '\n' && c != '\r' && c != '\t')
+                    {
+                        continue;
+                    }
+                    sb.Append(c);
+                }
+                cleanMessage = sb.ToString();
+
+                dynamic? messageObj = null;
+                try
+                {
+                    messageObj = JsonConvert.DeserializeObject<dynamic>(cleanMessage);
+                }
+                catch (JsonException ex)
+                {
+                    Logger.LogWarning($"JSON解析失败，尝试修复: {ex.Message}");
+                    
+                    // 策略1: 提取第一个完整的JSON对象
+                    int firstBrace = cleanMessage.IndexOf('{');
+                    int lastBrace = cleanMessage.LastIndexOf('}');
+                    if (firstBrace >= 0 && lastBrace > firstBrace)
+                    {
+                        string extractedJson = cleanMessage.Substring(firstBrace, lastBrace - firstBrace + 1);
+                        try
+                        {
+                            messageObj = JsonConvert.DeserializeObject<dynamic>(extractedJson);
+                            Logger.LogInfo("通过提取JSON对象成功解析");
+                        }
+                        catch
+                        {
+                            Logger.LogWarning($"提取JSON对象后仍解析失败，忽略此消息");
+                            return;
+                        }
+                    }
+                    else
+                    {
+                        Logger.LogWarning($"无法找到完整的JSON对象，忽略此消息");
+                        return;
+                    }
+                }
+
                 if (messageObj == null) return;
 
                 // 获取消息类型
