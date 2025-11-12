@@ -25,8 +25,8 @@ namespace MyWeChat.Windows.Utils
         
         private class LogEntry
         {
-            public string Level { get; set; }
-            public string Message { get; set; }
+            public required string Level { get; set; }
+            public required string Message { get; set; }
             public DateTime Timestamp { get; set; }
         }
 
