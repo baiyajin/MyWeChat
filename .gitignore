@@ -128,6 +128,8 @@ eggs/
 .eggs/
 lib/
 lib64/
+# 排除 Flutter app/lib 目录（Flutter 源代码目录）
+!app/lib/
 parts/
 sdist/
 var/
