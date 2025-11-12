@@ -287,10 +287,17 @@
                              Width="16"
                              Height="16"
                              Margin="0,0,10,0"
-                             Visibility="Visible"
-                             RenderTransformOrigin="0.5,0.5">
-                        <Grid Width="24" Height="24">
-                            <!-- Material Design风格的旋转加载圆圈 -->
+                             Visibility="Visible">
+                        <Grid Width="24" Height="24"
+                              RenderTransformOrigin="0.5,0.5">
+                            <!-- 背景圆环（灰色底色） -->
+                            <Ellipse Width="24"
+                                     Height="24"
+                                     Stroke="#E0E0E0"
+                                     StrokeThickness="2.5"
+                                     Opacity="0.5"/>
+                            
+                            <!-- 进度圆环（绿色，旋转） -->
                             <Path Stroke="#07C160"
                                   StrokeThickness="2.5"
                                   StrokeStartLineCap="Round"
@@ -310,10 +317,12 @@
                                 <Path.StrokeDashArray>
                                     <DoubleCollection>6 18</DoubleCollection>
                                 </Path.StrokeDashArray>
-                                <Path.RenderTransform>
-                                    <RotateTransform x:Name="LoadingRotateTransform"/>
-                                </Path.RenderTransform>
                             </Path>
+                            
+                            <!-- 旋转动画应用到整个Grid，确保围绕中心旋转 -->
+                            <Grid.RenderTransform>
+                                <RotateTransform x:Name="LoadingRotateTransform"/>
+                            </Grid.RenderTransform>
                         </Grid>
                         <Viewbox.Triggers>
                             <EventTrigger RoutedEvent="Loaded">
