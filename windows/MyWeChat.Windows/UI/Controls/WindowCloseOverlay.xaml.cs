@@ -130,9 +130,9 @@ namespace MyWeChat.Windows.UI.Controls
                 bool isLargeArc = progress > 50;
 
                 // 更新ArcSegment
-                ProgressArc.Point = new Point(endX, endY);
+                ProgressArc.Point = new System.Windows.Point(endX, endY);
                 ProgressArc.IsLargeArc = isLargeArc;
-                ProgressArc.Size = new Size(radius, radius);
+                ProgressArc.Size = new System.Windows.Size(radius, radius);
             }
             catch (Exception ex)
             {

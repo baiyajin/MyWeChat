@@ -88,8 +88,8 @@ namespace MyWeChat.Windows
             PhoneTextBox.IsHitTestVisible = true;
             LicenseKeyTextBox.IsHitTestVisible = true;
             
-            ClosingOverlayCanvas.IsHitTestVisible = false;
-            ClosingOverlayCanvas.IsEnabled = false;
+            // 注意：CloseOverlay 控件在初始化时会自动设置 IsHitTestVisible 和 IsEnabled
+            // 这里不需要手动设置，因为遮罩默认是隐藏的
             
             UpdateLoadingStatus(1, "正在加载登录历史...");
             
