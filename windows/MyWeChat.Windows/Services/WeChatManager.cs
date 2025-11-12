@@ -1,6 +1,5 @@
 using System;
 using System.Diagnostics;
-using System.Linq;
 using System.Text.RegularExpressions;
 using System.Windows.Threading;
 using MyWeChat.Windows.Core.Connection;
@@ -351,40 +350,17 @@ namespace MyWeChat.Windows.Services
                 {
                     // 输出原始消息的详细信息
                     Logger.LogWarning($"JSON解析失败，尝试修复: {ex.Message}");
-                    Logger.LogWarning($"原始消息长度: {nonNullMessage.Length}");
                     
-                    // 输出原始消息的十六进制表示（前100个字符）
-                    string hexDump = string.Join(" ", 
-                        nonNullMessage.Take(100).Select(c => ((int)c).ToString("X2")));
-                    Logger.LogWarning($"原始消息十六进制（前100字符）: {hexDump}");
+                    // 输出完整的原始消息
+                    Logger.LogWarning($"原始消息（完整）: {nonNullMessage}");
                     
-                    // 输出原始消息的字符详情（位置30-40附近）
-                    int startPos = Math.Max(0, 30);
-                    int endPos = Math.Min(nonNullMessage.Length, 40);
-                    Logger.LogWarning($"原始消息字符详情（位置{startPos}-{endPos}）:");
-                    for (int i = startPos; i < endPos; i++)
-                    {
-                        char c = nonNullMessage[i];
-                        string charInfo = char.IsControl(c) ? $"[控制字符:0x{((int)c):X2}]" : c.ToString();
-                        Logger.LogWarning($"  位置{i}: '{charInfo}' (0x{((int)c):X2})");
-                    }
-                    
-                    // 输出原始消息的完整内容（转义不可见字符）
+                    // 输出完整的转义后消息（转义不可见字符）
                     string escapedMessage = System.Text.RegularExpressions.Regex.Replace(
                         nonNullMessage,
                         @"[\x00-\x1F\x7F-\x9F]",
                         m => $"[0x{((int)m.Value[0]):X2}]"
                     );
-                    Logger.LogWarning($"原始消息（转义后）: {escapedMessage}");
-                    
-                    // 输出清理后的消息
-                    Logger.LogWarning($"清理后消息长度: {cleanMessage.Length}");
-                    string escapedCleanMessage = System.Text.RegularExpressions.Regex.Replace(
-                        cleanMessage,
-                        @"[\x00-\x1F\x7F-\x9F]",
-                        m => $"[0x{((int)m.Value[0]):X2}]"
-                    );
-                    Logger.LogWarning($"清理后消息（转义后）: {escapedCleanMessage}");
+                    Logger.LogWarning($"原始消息（转义后，完整）: {escapedMessage}");
                     
                     // 策略1: 提取第一个完整的JSON对象
                     int firstBrace = cleanMessage.IndexOf('{');
