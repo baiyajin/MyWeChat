@@ -29,6 +29,7 @@ namespace MyWeChat.Windows
         private WebSocketService? _webSocketService;
         private string _serverUrl;
         private List<AccountInfo> _loginHistory = new List<AccountInfo>();
+        private readonly object _loginHistoryLock = new object();
         private string _loginHistoryFilePath;
         
         // 微信连接相关
@@ -44,9 +45,7 @@ namespace MyWeChat.Windows
         // 系统托盘服务
         private TrayIconService? _trayIconService;
         
-        // 防止TextChanged事件递归调用的标志
         private bool _isUpdatingPhoneText = false;
-        private bool _isUpdatingLicenseKeyText = false;
         
         // 启动进度相关
         private int _currentStep = 0;
@@ -55,12 +54,10 @@ namespace MyWeChat.Windows
         public LoginWindow()
         {
             InitializeComponent();
-            // 设置窗口标题为"w"
             this.Title = "w";
             _serverUrl = ConfigHelper.GetServerUrl();
             _loginHistoryFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "login_history.json");
             
-            // 在构造函数中立即设置输入框属性，确保窗口创建时即可使用
             PhoneTextBox.IsEnabled = true;
             LicenseKeyTextBox.IsEnabled = true;
             PhoneTextBox.Focusable = true;
@@ -70,12 +67,10 @@ namespace MyWeChat.Windows
             PhoneTextBox.IsHitTestVisible = true;
             LicenseKeyTextBox.IsHitTestVisible = true;
             
-            // 设置授权码输入框的InputScope为Default，允许输入所有字符（字母、数字、特殊符号）
             var textInputScope = new System.Windows.Input.InputScope();
             textInputScope.Names.Add(new System.Windows.Input.InputScopeName { NameValue = System.Windows.Input.InputScopeNameValue.Default });
             LicenseKeyTextBox.InputScope = textInputScope;
             
-            // 提前初始化托盘图标服务，确保最小化后能看到图标
             _trayIconService = new TrayIconService();
             _trayIconService.Initialize(this);
             
@@ -84,11 +79,8 @@ namespace MyWeChat.Windows
 
         private void LoginWindow_Loaded(object sender, RoutedEventArgs e)
         {
-            // 确保窗口标题为"w"（在Loaded事件中再次设置，确保覆盖任何默认值）
             this.Title = "w";
             
-            // 确保输入框可以立即使用（必须在UI线程上设置）
-            // 这些设置必须在任何异步操作之前完成，确保UI立即可用
             PhoneTextBox.IsEnabled = true;
             LicenseKeyTextBox.IsEnabled = true;
             PhoneTextBox.Focusable = true;
@@ -98,34 +90,26 @@ namespace MyWeChat.Windows
             PhoneTextBox.IsHitTestVisible = true;
             LicenseKeyTextBox.IsHitTestVisible = true;
             
-            // 确保Canvas遮罩层不会阻挡输入
             ClosingOverlayCanvas.IsHitTestVisible = false;
             ClosingOverlayCanvas.IsEnabled = false;
             
-            // 显示启动进度
             UpdateLoadingStatus(1, "正在加载登录历史...");
             
-            // 异步加载登录历史（不阻塞UI）
             _ = Task.Run(async () =>
             {
                 await LoadLoginHistoryAsync();
                 Dispatcher.Invoke(() => UpdateLoadingStatus(2, "正在初始化WebSocket连接..."));
                 
-                // 延迟初始化，确保UI完全加载后再开始后台任务
                 await Task.Delay(300);
                 
-                // 异步初始化WebSocket连接（不阻塞UI）
                 await InitializeWebSocketAsync();
                 Dispatcher.Invoke(() => UpdateLoadingStatus(3, "正在初始化微信管理器..."));
                 
-                // 异步初始化微信管理器（完全在后台线程，不阻塞UI）
                 await Task.Run(() => InitializeWeChatManagerAsync());
                 
-                // 初始化完成，显示完成图标
                 Dispatcher.Invoke(() =>
                 {
                     UpdateLoadingStatus(_totalSteps, "初始化完成");
-                    // 2秒后隐藏进度提示
                     Task.Delay(2000).ContinueWith(_ =>
                     {
                         Dispatcher.Invoke(() =>
@@ -314,11 +298,11 @@ namespace MyWeChat.Windows
                         Pid = accountInfoData.pid ?? 0
                     };
 
-                    // 保存登录状态
-                    SaveLoginState(accountInfo.WeChatId);
-                    
-                    // 保存登录历史
-                    SaveLoginHistory(accountInfo);
+                    _ = Task.Run(async () =>
+                    {
+                        await SaveLoginStateAsync(accountInfo.WeChatId);
+                        await SaveLoginHistoryAsync(accountInfo);
+                    });
 
                     // 打开主窗口
                     var mainWindow = new MainWindow(accountInfo.WeChatId);
@@ -332,9 +316,6 @@ namespace MyWeChat.Windows
             }
         }
 
-        /// <summary>
-        /// 登录按钮点击事件（手机号+授权码）
-        /// </summary>
         private async void LoginButton_Click(object sender, RoutedEventArgs e)
         {
             string phone = PhoneTextBox.Text.Trim();
@@ -357,7 +338,6 @@ namespace MyWeChat.Windows
 
             try
             {
-                // 通过WebSocket发送登录请求（手机号+授权码）
                 if (_webSocketService != null && _webSocketService.IsConnected)
                 {
                     await _webSocketService.SendMessageAsync(new
@@ -447,17 +427,14 @@ namespace MyWeChat.Windows
             });
         }
 
-        /// <summary>
-        /// 保存登录状态
-        /// </summary>
-        private void SaveLoginState(string wxid)
+        private async Task SaveLoginStateAsync(string wxid)
         {
             try
             {
                 string stateFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "login_state.json");
                 var state = new { wxid = wxid, loginTime = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") };
                 string json = JsonConvert.SerializeObject(state, Formatting.Indented);
-                File.WriteAllText(stateFilePath, json, Encoding.UTF8);
+                await File.WriteAllTextAsync(stateFilePath, json, Encoding.UTF8);
                 Logger.LogInfo($"登录状态已保存: {wxid}");
             }
             catch (Exception ex)
@@ -493,10 +470,12 @@ namespace MyWeChat.Windows
                     {
                         if (history != null)
                         {
-                            _loginHistory = history;
+                            lock (_loginHistoryLock)
+                            {
+                                _loginHistory = history;
+                            }
                             HistoryItemsControl.ItemsSource = _loginHistory;
                             
-                            // 显示/隐藏登录历史标题
                             if (HistoryTitleTextBlock != null)
                             {
                                 HistoryTitleTextBlock.Visibility = _loginHistory.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
@@ -511,38 +490,39 @@ namespace MyWeChat.Windows
             }
         }
 
-        /// <summary>
-        /// 保存登录历史
-        /// </summary>
-        private void SaveLoginHistory(AccountInfo accountInfo)
+        private async Task SaveLoginHistoryAsync(AccountInfo accountInfo)
         {
             try
             {
-                // 移除已存在的相同wxid的记录
-                _loginHistory.RemoveAll(a => a.WeChatId == accountInfo.WeChatId);
-                
-                // 添加到最前面
-                _loginHistory.Insert(0, accountInfo);
-                
-                // 最多保留10条历史记录
-                if (_loginHistory.Count > 10)
+                List<AccountInfo> loginHistoryCopy;
+                lock (_loginHistoryLock)
                 {
-                    _loginHistory = _loginHistory.Take(10).ToList();
+                    _loginHistory.RemoveAll(a => a.WeChatId == accountInfo.WeChatId);
+                    _loginHistory.Insert(0, accountInfo);
+                    if (_loginHistory.Count > 10)
+                    {
+                        _loginHistory = _loginHistory.Take(10).ToList();
+                    }
+                    loginHistoryCopy = new List<AccountInfo>(_loginHistory);
                 }
                 
-                // 保存到文件
-                string json = JsonConvert.SerializeObject(_loginHistory, Formatting.Indented);
-                File.WriteAllText(_loginHistoryFilePath, json, Encoding.UTF8);
+                string json = JsonConvert.SerializeObject(loginHistoryCopy, Formatting.Indented);
+                await File.WriteAllTextAsync(_loginHistoryFilePath, json, Encoding.UTF8);
                 
-                // 更新UI
-                HistoryItemsControl.ItemsSource = null;
-                HistoryItemsControl.ItemsSource = _loginHistory;
-                
-                // 显示/隐藏登录历史标题
-                if (HistoryTitleTextBlock != null)
+                await Dispatcher.InvokeAsync(() =>
                 {
-                    HistoryTitleTextBlock.Visibility = _loginHistory.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
-                }
+                    List<AccountInfo> historyCopy;
+                    lock (_loginHistoryLock)
+                    {
+                        historyCopy = new List<AccountInfo>(_loginHistory);
+                    }
+                    HistoryItemsControl.ItemsSource = null;
+                    HistoryItemsControl.ItemsSource = historyCopy;
+                    if (HistoryTitleTextBlock != null)
+                    {
+                        HistoryTitleTextBlock.Visibility = historyCopy.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+                    }
+                });
                 
                 Logger.LogInfo($"登录历史已保存: {accountInfo.WeChatId}");
             }
@@ -583,9 +563,6 @@ namespace MyWeChat.Windows
             }
         }
 
-        /// <summary>
-        /// 授权码输入框获得焦点（简化版，参考手机号输入框）
-        /// </summary>
         private void LicenseKeyTextBox_GotFocus(object sender, RoutedEventArgs e)
         {
             if (sender is System.Windows.Controls.TextBox textBox)
@@ -598,9 +575,6 @@ namespace MyWeChat.Windows
             }
         }
 
-        /// <summary>
-        /// 授权码输入框失去焦点
-        /// </summary>
         private void LicenseKeyTextBox_LostFocus(object sender, RoutedEventArgs e)
         {
             if (sender is System.Windows.Controls.TextBox textBox)
@@ -646,39 +620,6 @@ namespace MyWeChat.Windows
             }
         }
 
-        /// <summary>
-        /// 授权码输入框文本变化事件 - 自动去除空格（简化版，参考手机号输入框）
-        /// </summary>
-        private void LicenseKeyTextBox_TextChanged(object sender, TextChangedEventArgs e)
-        {
-            if (_isUpdatingLicenseKeyText) return; // 防止递归调用
-            
-            if (sender is System.Windows.Controls.TextBox textBox)
-            {
-                string originalText = textBox.Text;
-                // 只去除空格，保留所有其他字符（字母、数字、特殊符号）
-                string filteredText = originalText.Replace(" ", "").Replace("\t", "").Replace("\n", "").Replace("\r", "");
-                
-                // 如果文本被过滤了，更新文本框（避免光标位置问题）
-                if (originalText != filteredText)
-                {
-                    _isUpdatingLicenseKeyText = true;
-                    try
-                    {
-                        int selectionStart = textBox.SelectionStart;
-                        int removedSpaces = originalText.Length - filteredText.Length;
-                        textBox.Text = filteredText;
-                        // 调整光标位置（减去被删除的空格数量）
-                        textBox.SelectionStart = Math.Max(0, Math.Min(selectionStart - removedSpaces, filteredText.Length));
-                        textBox.SelectionLength = 0;
-                    }
-                    finally
-                    {
-                        _isUpdatingLicenseKeyText = false;
-                    }
-                }
-            }
-        }
 
         /// <summary>
         /// 更新加载状态
