@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/websocket_service.dart';
 import '../../services/api_service.dart';
 import '../pages/license_manage_page.dart';
+import '../pages/account_list_page.dart';
 
 /// 我的Tab - 模仿微信App的"我"页面UI
 class ProfileTab extends StatefulWidget {
@@ -207,28 +208,21 @@ class _ProfileTabState extends State<ProfileTab> with SingleTickerProviderStateM
                 ),
               ],
               
-              const SizedBox(height: 10),
-              
-              // 切换账号和退出登录
+              // 切换账号入口（在授权码管理下方）
               if (hasUserData) ...[
+                const SizedBox(height: 10),
                 Container(
                   color: Colors.white,
                   child: _buildMenuItem(
                     icon: Icons.swap_horiz,
                     title: '切换账号',
                     onTap: () {
-                      _showSwitchAccountDialog(context, wsService, apiService);
-                    },
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Container(
-                  color: Colors.white,
-                  child: _buildMenuItem(
-                    icon: Icons.logout,
-                    title: '退出登录',
-                    onTap: () {
-                      _showLogoutDialog(context, wsService);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const AccountListPage(),
+                        ),
+                      );
                     },
                   ),
                 ),
@@ -549,144 +543,6 @@ class _ProfileTabState extends State<ProfileTab> with SingleTickerProviderStateM
     );
   }
 
-  /// 构建分割线
-  Widget _buildDivider() {
-    return Divider(
-      height: 1,
-      thickness: 0.5,
-      indent: 56, // 与图标对齐
-      color: Colors.grey[200],
-    );
-  }
-  
-  /// 显示切换账号对话框
-  Future<void> _showSwitchAccountDialog(
-    BuildContext context,
-    WebSocketService wsService,
-    ApiService apiService,
-  ) async {
-    try {
-      // 获取所有账号列表
-      final accounts = await apiService.getAllAccounts();
-      
-      if (!mounted) return;
-      
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('切换账号'),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: ListView.builder(
-              shrinkWrap: true,
-              itemCount: accounts.length,
-              itemBuilder: (context, index) {
-                final account = accounts[index];
-                final currentWxid = wsService.currentWeChatId;
-                final isCurrent = account['wxid'] == currentWxid;
-                
-                return ListTile(
-                  leading: CircleAvatar(
-                    backgroundImage: account['avatar'] != null && account['avatar'].toString().isNotEmpty
-                        ? NetworkImage(account['avatar'].toString())
-                        : null,
-                    child: account['avatar'] == null || account['avatar'].toString().isEmpty
-                        ? const Icon(Icons.person)
-                        : null,
-                  ),
-                  title: Text(account['nickname']?.toString() ?? '未知'),
-                  subtitle: Text(account['phone']?.toString() ?? ''),
-                  trailing: isCurrent
-                      ? const Icon(Icons.check, color: Color(0xFF07C160))
-                      : null,
-                  onTap: () async {
-                    Navigator.of(context).pop();
-                    
-                    if (!isCurrent) {
-                      // 切换账号
-                      final success = await wsService.quickLogin(account['wxid'].toString());
-                      if (success && wsService.myInfo != null) {
-                        // 保存登录状态
-                        await wsService.saveLoginState();
-                        
-                        // 刷新页面
-                        if (mounted) {
-                          setState(() {});
-                        }
-                      } else {
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('切换账号失败'),
-                              duration: Duration(seconds: 2),
-                            ),
-                          );
-                        }
-                      }
-                    }
-                  },
-                );
-              },
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('取消'),
-            ),
-          ],
-        ),
-      );
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('获取账号列表失败: $e'),
-            duration: const Duration(seconds: 2),
-          ),
-        );
-      }
-    }
-  }
-  
-  /// 显示退出登录对话框
-  Future<void> _showLogoutDialog(
-    BuildContext context,
-    WebSocketService wsService,
-  ) async {
-    if (!mounted) return;
-    
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('退出登录'),
-        content: const Text('确定要退出登录吗？'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('取消'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text(
-              '退出',
-              style: TextStyle(color: Colors.red),
-            ),
-          ),
-        ],
-      ),
-    );
-    
-    if (confirmed == true) {
-      // 清除登录状态
-      await wsService.clearLoginState();
-      
-      // 跳转到登录页面
-      if (mounted) {
-        Navigator.of(context).pushReplacementNamed('/');
-      }
-    }
-  }
 }
 
 /// 圆形连接线绘制器
