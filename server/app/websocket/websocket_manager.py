@@ -89,9 +89,45 @@ class WebSocketManager:
             
             elif message_type == "sync_my_info":
                 # Windows端同步我的信息，保存到数据库并转发到App端
-                print("收到账号信息同步，保存到数据库并转发到App端")
+                data = message.get("data", {})
+                wxid = data.get("wxid", "") if isinstance(data, dict) else ""
+                nickname = data.get("nickname", "") if isinstance(data, dict) else ""
+                phone = data.get("phone", "") if isinstance(data, dict) else ""
+                
+                print(f"========== 收到账号信息同步 ==========")
+                print(f"wxid: {wxid}")
+                print(f"nickname: {nickname}")
+                print(f"phone: {phone}")
+                print(f"保存到数据库并转发到App端")
+                
                 await self._save_account_info_to_db(message.get("data", {}), websocket)
-                await self.broadcast_to_app_clients(message)
+                
+                # ========== 按手机号精准转发，而不是广播 ==========
+                if phone:
+                    # 只转发给登录了对应手机号的App端
+                    forwarded_count = 0
+                    message_json = json.dumps(message, ensure_ascii=False)
+                    
+                    print(f"开始按手机号精准转发: phone={phone}, App端连接数={len(self.app_clients)}, 手机号映射数={len(self.websocket_phone_map)}")
+                    
+                    for app_client, client_phone in self.websocket_phone_map.items():
+                        if client_phone == phone:
+                            try:
+                                await app_client.send_text(message_json)
+                                forwarded_count += 1
+                                print(f"✓ 已转发账号信息到App端（手机号: {phone}, wxid: {wxid}）")
+                            except Exception as e:
+                                print(f"✗ 转发消息到App端失败: {e}")
+                    
+                    if forwarded_count > 0:
+                        print(f"========== 转发完成: 已转发账号信息到 {forwarded_count} 个App端（手机号: {phone}） ==========")
+                    else:
+                        print(f"========== 转发完成: 没有找到登录了手机号 {phone} 的App端 ==========")
+                        print(f"当前手机号映射: {list(self.websocket_phone_map.values())}")
+                else:
+                    # 如果没有手机号，广播给所有App端（兼容旧逻辑）
+                    print("警告: sync_my_info消息中没有手机号，广播给所有App端")
+                    await self.broadcast_to_app_clients(message)
             
             elif message_type == "command":
                 # App端发送命令，转发到Windows端
@@ -425,6 +461,12 @@ class WebSocketManager:
                 # 如果是App端，设置App端的微信账号ID映射
                 if websocket in self.app_clients:
                     self.app_client_wxid_map[websocket] = wxid
+                
+                # ========== 维护websocket_phone_map（用于精准转发） ==========
+                # 从账号信息中提取手机号并保存到映射关系
+                if account_info.phone:
+                    self.websocket_phone_map[websocket] = account_info.phone
+                    print(f"快速登录：已保存手机号映射关系: {account_info.phone}")
                 
                 account_data = {
                     "wxid": account_info.wxid,
