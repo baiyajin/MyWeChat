@@ -673,7 +673,7 @@ namespace MyWeChat.Windows
             try
             {
                 var service = Services.WeChatInitializationService.Instance;
-                var connectionManager = service?.ConnectionManager;
+                var connectionManager = service?.WeChatManager?.ConnectionManager;
                 if (connectionManager != null)
                 {
                     // 通过反射或公共属性获取HookManager

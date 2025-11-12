@@ -1148,7 +1148,6 @@ namespace MyWeChat.Windows.Core.Hook
             try
             {
                 int currentStep = 7;
-                int totalSteps = 6; // 检查步骤数
                 
                 // 步骤7：检查进程状态
                 OnProgressUpdate?.Invoke(this, (currentStep, 15, "检查进程状态..."));
