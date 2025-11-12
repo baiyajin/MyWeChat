@@ -34,7 +34,7 @@
                 CornerRadius="10"
                 BorderThickness="1"
                 BorderBrush="#E5E5E5"
-                Width="400"
+                Width="360"
                 Height="200"
                 Margin="20">
             <Grid>
@@ -190,8 +190,9 @@
                 CornerRadius="10"
                 BorderThickness="1"
                 BorderBrush="#E5E5E5"
-                Width="400"
+                Width="360"
                 Height="280"
+                Margin="20"
                 Visibility="Collapsed">
             <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
                 <TextBlock Text="正在关闭程序..." 
