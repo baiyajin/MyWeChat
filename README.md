@@ -18,6 +18,22 @@ MyWeChat 是一个基于微信客户端的Hook工具集，通过三端协同工�
 - 🌐 **后端服务**：Python FastAPI提供RESTful API和WebSocket服务
 - 💬 **远程控制**：通过移动端发送命令，Windows端执行（发送消息、点赞、评论等）
 
+## 项目预览
+
+### App端（移动应用）
+
+<div align="center">
+  <img src="app端.png" alt="App端预览" width="300">
+  <p>App端登录界面 - 支持手机号登录和最近登录账号快速选择</p>
+</div>
+
+### Windows端（Hook客户端）
+
+<div align="center">
+  <img src="windows端.png" alt="Windows端预览" width="600">
+  <p>Windows端主界面 - 显示账号信息、连接状态和日志</p>
+</div>
+
 ### 技术架构
 
 ```
