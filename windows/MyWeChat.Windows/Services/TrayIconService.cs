@@ -100,52 +100,7 @@ namespace MyWeChat.Windows.Services
         /// </summary>
         private Icon GetApplicationIcon()
         {
-            try
-            {
-                // 使用默认系统图标（反检测措施，不显示自定义图标）
-                string faviconIconPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources", "favicon.ico");
-                if (File.Exists(faviconIconPath))
-                {
-                    return new Icon(faviconIconPath);
-                }
-                
-                // 方法4: 尝试从可执行文件加载
-                string exePath = Assembly.GetExecutingAssembly().Location;
-                if (!string.IsNullOrEmpty(exePath) && File.Exists(exePath))
-                {
-                    Icon? extractedIcon = Icon.ExtractAssociatedIcon(exePath);
-                    if (extractedIcon != null)
-                    {
-                        // 需要克隆Icon，因为ExtractAssociatedIcon返回的Icon在释放时会有问题
-                        return new Icon(extractedIcon, extractedIcon.Size);
-                    }
-                }
-                
-                // 方法5: 尝试从程序集资源加载 favicon.ico
-                try
-                {
-                    var resourceStream = Assembly.GetExecutingAssembly().GetManifestResourceStream("MyWeChat.Windows.Resources.favicon.ico");
-                    if (resourceStream != null)
-                    {
-                        using (resourceStream)
-                        {
-                            return new Icon(resourceStream);
-                        }
-                    }
-                }
-                catch
-                {
-                    // 忽略资源加载错误
-                }
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"加载图标失败: {ex.Message}");
-                Logger.LogWarning($"加载托盘图标失败: {ex.Message}");
-            }
-
-            // 如果所有方法都失败，使用默认图标
-            Logger.LogWarning("使用默认系统图标作为托盘图标");
+            // 直接使用系统默认图标（反检测措施，不显示自定义图标）
             return SystemIcons.Application;
         }
 
