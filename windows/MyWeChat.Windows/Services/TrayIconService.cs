@@ -96,37 +96,13 @@ namespace MyWeChat.Windows.Services
         }
 
         /// <summary>
-        /// 获取应用程序图标
+        /// 获取应用程序图标（使用默认系统图标，反检测措施）
         /// </summary>
         private Icon GetApplicationIcon()
         {
             try
             {
-                // 方法1: 优先尝试从Resources文件夹加载 uniapp.ico（反检测）
-                string uniappIconPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources", "uniapp.ico");
-                if (File.Exists(uniappIconPath))
-                {
-                    return new Icon(uniappIconPath);
-                }
-                
-                // 方法2: 尝试从程序集资源加载 uniapp.ico
-                try
-                {
-                    var uniappResourceStream = Assembly.GetExecutingAssembly().GetManifestResourceStream("MyWeChat.Windows.Resources.uniapp.ico");
-                    if (uniappResourceStream != null)
-                    {
-                        using (uniappResourceStream)
-                        {
-                            return new Icon(uniappResourceStream);
-                        }
-                    }
-                }
-                catch
-                {
-                    // 忽略资源加载错误
-                }
-                
-                // 方法3: 回退到 favicon.ico（从Resources文件夹）
+                // 使用默认系统图标（反检测措施，不显示自定义图标）
                 string faviconIconPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources", "favicon.ico");
                 if (File.Exists(faviconIconPath))
                 {

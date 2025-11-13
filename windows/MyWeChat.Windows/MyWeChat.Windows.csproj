@@ -31,7 +31,6 @@
 
   <ItemGroup>
     <Resource Include="Resources\favicon.ico" />
-    <Resource Include="Resources\uniapp.ico" />
   </ItemGroup>
 
   <Target Name="CopyDlls" AfterTargets="Build">

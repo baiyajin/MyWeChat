@@ -87,8 +87,7 @@ namespace MyWeChat.Windows
             
             Loaded += LoginWindow_Loaded;
             
-            // 设置窗口图标（使用uniapp.ico）
-            SetWindowIcon();
+            // 不设置窗口图标（反检测措施）
         }
 
         /// <summary>
