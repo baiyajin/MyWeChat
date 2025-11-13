@@ -480,7 +480,7 @@ if !CLEAN_ERROR! equ 1 (
     echo.
     set /p "CONTINUE_CLEAN=是否继续执行编译？(Y/N): "
     if /i not "!CONTINUE_CLEAN!"=="Y" (
-        echo "[X] 用户取消，退出执行"
+        call :echo_red "[X] 用户取消，退出执行"
         pause
         exit /b 1
     )
@@ -782,7 +782,7 @@ if "!PROCESS_FOUND!"=="0" (
     echo.
     set /p "CONTINUE_CLOSE=是否继续执行运行程序？(Y/N): "
     if /i not "!CONTINUE_CLOSE!"=="Y" (
-        echo "[X] 用户取消，退出执行"
+        call :echo_red "[X] 用户取消，退出执行"
         pause
         exit /b 1
     )
