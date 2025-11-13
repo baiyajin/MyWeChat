@@ -692,7 +692,7 @@ Server端提供以下API接口：
 ### 免费交流群
 
 <div align="center">
-  <img src="c0edd30a7395b3f49b9e6a17fa75f157.jpg" alt="MyWeChat交流3群" width="400">
+<img width="302" height="388" alt="qrcode" src="https://github.com/user-attachments/assets/cdc184b7-cf7c-4e04-a6a0-2cb4573125b1" />
   <p><strong>MyWeChat交流3群</strong><br/>用钉钉「扫一扫」加入群聊</p>
 </div>
 
