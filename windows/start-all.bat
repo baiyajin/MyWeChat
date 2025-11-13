@@ -400,35 +400,20 @@ REM 错误捕获：确保能看到错误信息
 set "ERROR_OCCURRED=0"
 
 REM 检查项目目录
-echo "[DEBUG] 检查项目目录"
-echo "[DEBUG] 脚本路径: %~dp0"
-echo "[DEBUG] 项目目录: %PROJECT_DIR%"
-echo.
-
 if not exist "%PROJECT_DIR%" (
     echo "[X] 错误: 项目目录不存在: %PROJECT_DIR%"
     echo "请检查脚本路径是否正确"
-    echo "当前脚本路径: %~dp0"
-    echo.
-    echo "按任意键退出..."
     pause >nul 2>&1
     exit /b 1
 )
 
-echo "[OK] 项目目录存在"
-echo "[DEBUG] 正在切换到项目目录"
 cd /d "%PROJECT_DIR%"
 set "CD_ERROR=!errorlevel!"
 if !CD_ERROR! neq 0 (
     echo "[X] 错误: 无法切换到项目目录: %PROJECT_DIR%"
-    echo "当前目录: %CD%"
-    echo.
-    echo "按任意键退出..."
     pause >nul 2>&1
     exit /b 1
 )
-echo "[OK] 已切换到项目目录: %CD%"
-echo.
 
 REM ========================================
 REM 步骤1: 清理编译文件
@@ -519,8 +504,6 @@ for /f "tokens=2" %%p in ('tasklist /FI "IMAGENAME eq %PROCESS_NAME%" /FO LIST 2
 )
 if "!PROCESS_FOUND!"=="0" (
     echo [OK] 程序未运行
-    echo [OK] 文件句柄已释放
-    echo [OK] 可以继续编译
     set "PROCESS_CLOSED=1"
 ) else (
     echo "检测到程序正在运行 (PID: !PROCESS_PID!)"
@@ -569,8 +552,7 @@ if errorlevel 1 (
 )
 
 echo.
-echo "[2.3] 诊断文件锁定问题..."
-echo "正在检查可能占用文件的进程..."
+echo "[2.3] 检查可能占用文件的进程..."
 echo.
 
 REM 检查程序进程
@@ -794,9 +776,7 @@ if "!PROCESS_FOUND!"=="0" (
     echo "[OK] 程序未运行，无需关闭"
 ) else (
     echo "[OK] 程序已关闭"
-    echo "[等待] 等待文件句柄释放（3秒）..."
-    timeout /t 3 /nobreak >nul 2>&1
-    echo "[OK] 文件句柄已释放，可以继续"
+    timeout /t 1 /nobreak >nul 2>&1
 )
 
 echo.
@@ -825,9 +805,6 @@ if "%EXE_PATH%"=="" (
 echo "[✓] 找到: %EXE_PATH%"
 
 echo.
-echo "[4.2] 检查 .NET Desktop Runtime..."
-echo.
-
 echo "[4.3] 检查启动器..."
 set "LAUNCHER_PATH="
 REM 从EXE_PATH提取目录路径并构建完整路径
@@ -860,16 +837,5 @@ echo ========================================
 echo "[步骤4/4] 运行完成！"
 echo ========================================
 echo.
-echo ========================================
-echo "全部执行完成！"
-echo ========================================
-echo.
-echo "所有步骤已按顺序执行完成："
-echo "  [✓] 步骤1: 清理编译文件"
-echo "  [✓] 步骤2: 编译项目"
-echo "  [✓] 步骤3: 关闭程序"
-echo "  [✓] 步骤4: 运行程序"
-echo.
-echo "按任意键退出..."
 pause >nul 2>&1
 exit /b 0
