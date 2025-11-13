@@ -69,8 +69,8 @@ namespace MyWeChat.Windows
             InitializeComponent();
             this.Title = "w";
             _serverUrl = ConfigHelper.GetServerUrl();
-            _loginHistoryFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "login_history.json");
-            _rememberedAccountFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "remembered_account.json");
+            _loginHistoryFilePath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "login_history.json");
+            _rememberedAccountFilePath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "remembered_account.json");
             
             PhoneTextBox.IsEnabled = true;
             LicenseKeyTextBox.IsEnabled = true;
@@ -102,7 +102,7 @@ namespace MyWeChat.Windows
             try
             {
                 // 优先从Resources文件夹加载
-                string uniappIconPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources", "uniapp.ico");
+                string uniappIconPath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources", "uniapp.ico");
                 if (File.Exists(uniappIconPath))
                 {
                     this.Icon = new System.Windows.Media.Imaging.BitmapImage(new Uri(uniappIconPath));
@@ -118,7 +118,7 @@ namespace MyWeChat.Windows
                 catch
                 {
                     // 如果失败，尝试加载favicon.ico
-                    string faviconIconPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources", "favicon.ico");
+                    string faviconIconPath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources", "favicon.ico");
                     if (File.Exists(faviconIconPath))
                     {
                         this.Icon = new System.Windows.Media.Imaging.BitmapImage(new Uri(faviconIconPath));
@@ -610,7 +610,7 @@ namespace MyWeChat.Windows
         {
             try
             {
-                string stateFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "login_state.json");
+                string stateFilePath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "login_state.json");
                 var state = new { wxid = wxid, loginTime = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") };
                 string json = JsonConvert.SerializeObject(state, Formatting.Indented);
                 await File.WriteAllTextAsync(stateFilePath, json, Encoding.UTF8);
