@@ -499,7 +499,7 @@ if !CLEAN_ERROR! equ 1 (
     echo.
     set /p "CONTINUE_CLEAN=是否继续执行编译？(Y/N): "
     if /i not "!CONTINUE_CLEAN!"=="Y" (
-        echo [X] 用户取消，退出执行
+        echo "[X] 用户取消，退出执行"
         pause
         exit /b 1
     )
@@ -679,7 +679,7 @@ if exist "obj\x86\Debug\net9.0-windows\MyWeChat.Windows.pdb" (
 REM 如果PDB文件无法删除，等待一段时间让文件句柄释放
 if !PDB_DELETED! equ 1 (
     echo.
-    echo [2.5.2] 等待文件句柄释放（2秒）...
+    echo "[2.5.2] 等待文件句柄释放（2秒）..."
     timeout /t 2 /nobreak >nul 2>&1
     echo "[OK] 等待完成"
 )
@@ -760,7 +760,7 @@ if "!PROCESS_FOUND!"=="0" (
     echo.
     set /p "CONTINUE_CLOSE=是否继续执行运行程序？(Y/N): "
     if /i not "!CONTINUE_CLOSE!"=="Y" (
-        echo [X] 用户取消，退出执行
+        echo "[X] 用户取消，退出执行"
         pause
         exit /b 1
     )
@@ -814,7 +814,7 @@ if !START_ERROR! equ 0 (
     echo "[OK] 程序已启动"
 ) else (
     echo "[X] 程序启动失败，可能需要管理员权限"
-    echo [X] 步骤4执行失败，退出
+    echo "[X] 步骤4执行失败，退出"
     pause
     exit /b 1
 )
