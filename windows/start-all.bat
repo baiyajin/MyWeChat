@@ -74,7 +74,7 @@ for /f "tokens=2" %%p in ('tasklist /FI "IMAGENAME eq %PROCESS_NAME%" /FO LIST 2
     set "PROCESS_FOUND=1"
 )
 if "!PROCESS_FOUND!"=="0" (
-    call :echo_green "[OK] 程序未运行"
+    call :echo_green "[✓] 程序未运行"
     goto :eof
 )
 echo "检测到程序正在运行 (PID: !PROCESS_PID!)，正在关闭"
@@ -85,10 +85,10 @@ for /L %%i in (1,1,10) do (
         tasklist /FI "PID eq !PROCESS_PID!" 2>NUL | find /I /N "!PROCESS_PID!">NUL
         set "PROCESS_EXISTS=!ERRORLEVEL!"
         if !PROCESS_EXISTS! neq 0 (
-            call :echo_green "[OK] 程序已成功关闭"
+            call :echo_green "[✓] 程序已成功关闭"
             echo [等待] 等待文件句柄释放（3秒）...
             timeout /t 3 /nobreak >nul 2>&1
-            call :echo_green "[OK] 文件句柄已释放"
+            call :echo_green "[✓] 文件句柄已释放"
             set "PROCESS_PID="
             goto :eof
         )
@@ -96,10 +96,10 @@ for /L %%i in (1,1,10) do (
         tasklist /FI "IMAGENAME eq %PROCESS_NAME%" 2>NUL | find /I /N "%PROCESS_NAME%">NUL
         set "PROCESS_EXISTS=!ERRORLEVEL!"
         if !PROCESS_EXISTS! neq 0 (
-            call :echo_green "[OK] 程序已成功关闭"
+            call :echo_green "[✓] 程序已成功关闭"
             echo [等待] 等待文件句柄释放（3秒）...
             timeout /t 3 /nobreak >nul 2>&1
-            call :echo_green "[OK] 文件句柄已释放"
+            call :echo_green "[✓] 文件句柄已释放"
             goto :eof
         )
     )
@@ -159,7 +159,7 @@ for /f "tokens=2" %%p in ('tasklist /FI "IMAGENAME eq %PROCESS_NAME%" /FO LIST 2
     set "PROCESS_FOUND=1"
 )
 if "!PROCESS_FOUND!"=="0" (
-    call :echo_green "[OK] 程序未运行"
+    call :echo_green "[✓] 程序未运行"
 ) else (
     echo "检测到程序正在运行 (PID: !PROCESS_PID!)"
     echo "正在关闭程序..."
@@ -170,7 +170,7 @@ if "!PROCESS_FOUND!"=="0" (
             tasklist /FI "PID eq !PROCESS_PID!" 2>NUL | find /I /N "!PROCESS_PID!">NUL
             set "PROCESS_EXISTS=!ERRORLEVEL!"
             if !PROCESS_EXISTS! neq 0 (
-                call :echo_green "[OK] 程序已成功关闭"
+                call :echo_green "[✓] 程序已成功关闭"
                 set "PROCESS_PID="
                 goto process_closed2
             )
@@ -178,7 +178,7 @@ if "!PROCESS_FOUND!"=="0" (
             tasklist /FI "IMAGENAME eq %PROCESS_NAME%" 2>NUL | find /I /N "%PROCESS_NAME%">NUL
             set "PROCESS_EXISTS=!ERRORLEVEL!"
             if !PROCESS_EXISTS! neq 0 (
-                call :echo_green "[OK] 程序已成功关闭"
+                call :echo_green "[✓] 程序已成功关闭"
                 goto process_closed2
             )
         )
@@ -193,10 +193,10 @@ if "!PROCESS_FOUND!"=="0" (
 :process_closed2
 tasklist /FI "IMAGENAME eq %PROCESS_NAME%" 2>NUL | find /I /N "%PROCESS_NAME%">NUL
 if errorlevel 1 (
-    call :echo_green "[OK] 程序已关闭"
+    call :echo_green "[✓] 程序已关闭"
     echo "[等待] 等待文件句柄释放（3秒）..."
     timeout /t 3 /nobreak >nul 2>&1
-    call :echo_green "[OK] 文件句柄已释放，可以继续编译"
+    call :echo_green "[✓] 文件句柄已释放，可以继续编译"
 ) else (
     call :echo_yellow "[X] 警告: 无法彻底关闭程序，编译可能会失败"
     echo "进程名称: %PROCESS_NAME%"
@@ -221,7 +221,7 @@ echo.
 REM 检查程序进程
 tasklist /FI "IMAGENAME eq %PROCESS_NAME%" 2>NUL | find /I /N "%PROCESS_NAME%">NUL
 if errorlevel 1 (
-    echo [OK] %PROCESS_NAME% 未运行
+    echo [✓] %PROCESS_NAME% 未运行
 ) else (
     call :echo_red "[X] 检测到进程正在运行"
     echo "   进程名称: %PROCESS_NAME%"
@@ -279,7 +279,7 @@ if exist "bin\x86\Debug\net9.0-windows\app.pdb" (
         call :echo_yellow "[X] 警告: 无法删除bin目录中的PDB文件，可能被其他进程占用"
         echo "建议: 关闭Visual Studio或其他可能锁定文件的程序"
     ) else (
-        call :echo_green "[OK] bin目录中的PDB文件已删除"
+        call :echo_green "[✓] bin目录中的PDB文件已删除"
     )
 )
 if exist "obj\x86\Debug\net9.0-windows\app.pdb" (
@@ -287,7 +287,7 @@ if exist "obj\x86\Debug\net9.0-windows\app.pdb" (
     if exist "obj\x86\Debug\net9.0-windows\app.pdb" (
         call :echo_yellow "[X] 警告: 无法删除obj目录中的PDB文件"
     ) else (
-        call :echo_green "[OK] obj目录中的PDB文件已删除"
+        call :echo_green "[✓] obj目录中的PDB文件已删除"
     )
 )
 echo.
@@ -332,7 +332,7 @@ for /f "tokens=2" %%p in ('tasklist /FI "IMAGENAME eq %PROCESS_NAME%" /FO LIST 2
     set "PROCESS_FOUND=1"
 )
 if "!PROCESS_FOUND!"=="0" (
-    call :echo_green "[OK] 程序未运行"
+    call :echo_green "[✓] 程序未运行"
 ) else (
     echo "检测到程序正在运行 (PID: !PROCESS_PID!)"
     echo "正在关闭程序..."
@@ -342,7 +342,7 @@ if "!PROCESS_FOUND!"=="0" (
             tasklist /FI "PID eq !PROCESS_PID!" 2>NUL | find /I /N "!PROCESS_PID!">NUL
             set "PROCESS_EXISTS=!ERRORLEVEL!"
             if !PROCESS_EXISTS! neq 0 (
-                call :echo_green "[OK] 程序已成功关闭"
+                call :echo_green "[✓] 程序已成功关闭"
                 set "PROCESS_PID="
                 goto process_closed3
             )
@@ -350,7 +350,7 @@ if "!PROCESS_FOUND!"=="0" (
             tasklist /FI "IMAGENAME eq %PROCESS_NAME%" 2>NUL | find /I /N "%PROCESS_NAME%">NUL
             set "PROCESS_EXISTS=!ERRORLEVEL!"
             if !PROCESS_EXISTS! neq 0 (
-                call :echo_green "[OK] 程序已成功关闭"
+                call :echo_green "[✓] 程序已成功关闭"
                 goto process_closed3
             )
         )
@@ -450,13 +450,13 @@ if exist "bin" (
     rmdir /s /q "bin" 2>nul
     set "RMDIR_ERROR=!errorlevel!"
     if !RMDIR_ERROR! equ 0 (
-        call :echo_green "[OK] bin 目录已删除"
+        call :echo_green "[✓] bin 目录已删除"
     ) else (
         call :echo_red "[X] bin 目录删除失败（可能被占用）"
         set "CLEAN_ERROR=1"
     )
 ) else (
-    call :echo_green "[OK] bin 目录不存在，无需清理"
+    call :echo_green "[✓] bin 目录不存在，无需清理"
 )
 
 if exist "obj" (
@@ -464,13 +464,13 @@ if exist "obj" (
     rmdir /s /q "obj" 2>nul
     set "RMDIR_ERROR=!errorlevel!"
     if !RMDIR_ERROR! equ 0 (
-        call :echo_green "[OK] obj 目录已删除"
+        call :echo_green "[✓] obj 目录已删除"
     ) else (
         call :echo_red "[X] obj 目录删除失败（可能被占用）"
         set "CLEAN_ERROR=1"
     )
 ) else (
-    call :echo_green "[OK] obj 目录不存在，无需清理"
+    call :echo_green "[✓] obj 目录不存在，无需清理"
 )
 
 if !CLEAN_ERROR! equ 1 (
@@ -510,7 +510,7 @@ if !DOTNET_ERROR! neq 0 (
     pause
     exit /b 1
 )
-call :echo_green "[OK] .NET SDK 已安装"
+call :echo_green "[✓] .NET SDK 已安装"
 
 echo.
 echo "[2.2] 检查并关闭已运行的程序"
@@ -521,7 +521,7 @@ for /f "tokens=2" %%p in ('tasklist /FI "IMAGENAME eq %PROCESS_NAME%" /FO LIST 2
     set "PROCESS_FOUND=1"
 )
 if "!PROCESS_FOUND!"=="0" (
-    call :echo_green "[OK] 程序未运行"
+    call :echo_green "[✓] 程序未运行"
     set "PROCESS_CLOSED=1"
 ) else (
     echo "检测到程序正在运行 (PID: !PROCESS_PID!)"
@@ -533,7 +533,7 @@ if "!PROCESS_FOUND!"=="0" (
             tasklist /FI "PID eq !PROCESS_PID!" 2>NUL | find /I /N "!PROCESS_PID!">NUL
             set "PROCESS_EXISTS=!ERRORLEVEL!"
             if !PROCESS_EXISTS! neq 0 (
-                call :echo_green "[OK] 程序已成功关闭"
+                call :echo_green "[✓] 程序已成功关闭"
                 set "PROCESS_PID="
                 goto process_closed_all
             )
@@ -541,7 +541,7 @@ if "!PROCESS_FOUND!"=="0" (
             tasklist /FI "IMAGENAME eq %PROCESS_NAME%" 2>NUL | find /I /N "%PROCESS_NAME%">NUL
             set "PROCESS_EXISTS=!ERRORLEVEL!"
             if !PROCESS_EXISTS! neq 0 (
-                call :echo_green "[OK] 程序已成功关闭"
+                call :echo_green "[✓] 程序已成功关闭"
                 goto process_closed_all
             )
         )
@@ -561,7 +561,7 @@ if "!PROCESS_FOUND!"=="0" (
 tasklist /FI "IMAGENAME eq %PROCESS_NAME%" 2>NUL | find /I /N "%PROCESS_NAME%">NUL
 if errorlevel 1 (
     if not defined PROCESS_CLOSED (
-        call :echo_green "[OK] 程序已关闭"
+        call :echo_green "[✓] 程序已关闭"
         timeout /t 1 /nobreak >nul 2>&1
         set "PROCESS_CLOSED=1"
     )
@@ -574,7 +574,7 @@ echo.
 REM 检查程序进程
 tasklist /FI "IMAGENAME eq %PROCESS_NAME%" 2>NUL | find /I /N "%PROCESS_NAME%">NUL
 if errorlevel 1 (
-    echo [OK] %PROCESS_NAME% 未运行
+    echo [✓] %PROCESS_NAME% 未运行
 ) else (
     call :echo_red "[X] 检测到进程正在运行"
     echo "   进程名称: %PROCESS_NAME%"
@@ -616,7 +616,7 @@ if !RESTORE_ERROR! neq 0 (
     pause
     exit /b 1
 )
-call :echo_green "[OK] NuGet包还原成功"
+call :echo_green "[✓] NuGet包还原成功"
 
 echo.
 echo "[2.5] 编译项目..."
@@ -630,7 +630,7 @@ if exist "bin\x86\Debug\net9.0-windows\app.pdb" (
         echo "建议: 关闭Visual Studio或其他可能锁定文件的程序"
         set "PDB_DELETED=1"
     ) else (
-        call :echo_green "[OK] bin目录中的PDB文件已删除"
+        call :echo_green "[✓] bin目录中的PDB文件已删除"
     )
 )
 if exist "obj\x86\Debug\net9.0-windows\app.pdb" (
@@ -639,7 +639,7 @@ if exist "obj\x86\Debug\net9.0-windows\app.pdb" (
         call :echo_yellow "[X] 警告: 无法删除obj目录中的PDB文件"
         set "PDB_DELETED=1"
     ) else (
-        call :echo_green "[OK] obj目录中的PDB文件已删除"
+        call :echo_green "[✓] obj目录中的PDB文件已删除"
     )
 )
 
@@ -648,7 +648,7 @@ if !PDB_DELETED! equ 1 (
     echo.
     echo "[2.5.2] 等待文件句柄释放（2秒）..."
     timeout /t 2 /nobreak >nul 2>&1
-    call :echo_green "[OK] 等待完成"
+    call :echo_green "[✓] 等待完成"
 )
 
 echo.
@@ -681,7 +681,7 @@ if exist "uniapp.csproj" (
     if !UNIAPP_BUILD_ERROR! neq 0 (
         call :echo_yellow "[X] 警告: 启动器项目编译失败，将使用app.exe直接启动"
     ) else (
-        call :echo_green "[OK] 启动器项目编译成功"
+        call :echo_green "[✓] 启动器项目编译成功"
     )
 ) else (
     call :echo_yellow "[X] 警告: 找不到启动器项目文件，将使用app.exe直接启动"
@@ -701,14 +701,14 @@ if not exist "%OUTPUT_DIR%" (
 if exist "%~dp0uniapp\bin\x86\Debug\net9.0-windows\uniapp.exe" (
     copy /Y "%~dp0uniapp\bin\x86\Debug\net9.0-windows\uniapp.exe" "%OUTPUT_DIR%\" >nul 2>&1
     if exist "%OUTPUT_DIR%\uniapp.exe" (
-        call :echo_green "[OK] uniapp.exe 已复制到输出目录"
+        call :echo_green "[✓] uniapp.exe 已复制到输出目录"
     ) else (
         call :echo_yellow "[X] 警告: 无法复制 uniapp.exe"
     )
 ) else if exist "%~dp0uniapp\bin\Debug\net9.0-windows\uniapp.exe" (
     copy /Y "%~dp0uniapp\bin\Debug\net9.0-windows\uniapp.exe" "%OUTPUT_DIR%\" >nul 2>&1
     if exist "%OUTPUT_DIR%\uniapp.exe" (
-        call :echo_green "[OK] uniapp.exe 已复制到输出目录"
+        call :echo_green "[✓] uniapp.exe 已复制到输出目录"
     ) else (
         call :echo_yellow "[X] 警告: 无法复制 uniapp.exe"
     )
@@ -719,7 +719,7 @@ if exist "%~dp0uniapp\bin\x86\Debug\net9.0-windows\uniapp.exe" (
 if exist "%~dp0uniapp\process_names.txt" (
     copy /Y "%~dp0uniapp\process_names.txt" "%OUTPUT_DIR%\" >nul 2>&1
     if exist "%OUTPUT_DIR%\process_names.txt" (
-        call :echo_green "[OK] process_names.txt 已复制到输出目录"
+        call :echo_green "[✓] process_names.txt 已复制到输出目录"
     ) else (
         call :echo_yellow "[X] 警告: 无法复制 process_names.txt"
     )
@@ -749,7 +749,7 @@ for /f "tokens=2" %%p in ('tasklist /FI "IMAGENAME eq %PROCESS_NAME%" /FO LIST 2
     set "PROCESS_FOUND=1"
 )
 if "!PROCESS_FOUND!"=="0" (
-    call :echo_green "[OK] 程序未运行"
+    call :echo_green "[✓] 程序未运行"
 ) else (
     echo "检测到程序正在运行 (PID: !PROCESS_PID!)"
     echo "正在关闭程序..."
@@ -760,7 +760,7 @@ if "!PROCESS_FOUND!"=="0" (
             tasklist /FI "PID eq !PROCESS_PID!" 2>NUL | find /I /N "!PROCESS_PID!">NUL
             set "PROCESS_EXISTS=!ERRORLEVEL!"
             if !PROCESS_EXISTS! neq 0 (
-                call :echo_green "[OK] 程序已成功关闭"
+                call :echo_green "[✓] 程序已成功关闭"
                 set "PROCESS_PID="
                 goto process_closed4
             )
@@ -768,7 +768,7 @@ if "!PROCESS_FOUND!"=="0" (
             tasklist /FI "IMAGENAME eq %PROCESS_NAME%" 2>NUL | find /I /N "%PROCESS_NAME%">NUL
             set "PROCESS_EXISTS=!ERRORLEVEL!"
             if !PROCESS_EXISTS! neq 0 (
-                call :echo_green "[OK] 程序已成功关闭"
+                call :echo_green "[✓] 程序已成功关闭"
                 goto process_closed4
             )
         )
@@ -789,9 +789,9 @@ if "!PROCESS_FOUND!"=="0" (
 )
 :process_closed4
 if "!PROCESS_FOUND!"=="0" (
-    call :echo_green "[OK] 程序未运行，无需关闭"
+    call :echo_green "[✓] 程序未运行，无需关闭"
 ) else (
-    call :echo_green "[OK] 程序已关闭"
+    call :echo_green "[✓] 程序已关闭"
     timeout /t 1 /nobreak >nul 2>&1
 )
 
@@ -848,7 +848,7 @@ if exist "!LAUNCHER_PATH!" (
 )
 set "START_ERROR=!errorlevel!"
 if !START_ERROR! equ 0 (
-    call :echo_green "[OK] 程序已启动"
+    call :echo_green "[✓] 程序已启动"
 ) else (
     call :echo_red "[X] 程序启动失败，可能需要管理员权限"
     call :echo_red "[X] 步骤4执行失败，退出"
