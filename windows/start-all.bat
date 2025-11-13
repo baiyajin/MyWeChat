@@ -46,9 +46,9 @@ REM 输出红色文本（错误/失败）
 powershell -Command "Write-Host '%~1' -ForegroundColor Red"
 goto :eof
 
-REM 输出黄色文本（警告）
+REM 输出橙色文本（警告）
 :echo_yellow
-powershell -Command "Write-Host '%~1' -ForegroundColor Yellow"
+powershell -Command "Write-Host '%~1' -ForegroundColor DarkYellow"
 goto :eof
 
 REM 查找可执行文件的函数
@@ -104,7 +104,7 @@ for /L %%i in (1,1,10) do (
         )
     )
 )
-echo "[X] 警告: 无法彻底关闭程序"
+call :echo_yellow "[X] 警告: 无法彻底关闭程序"
 echo "进程名称: %PROCESS_NAME%"
 if defined PROCESS_PID (
     echo "进程PID: !PROCESS_PID!"
@@ -183,7 +183,7 @@ if "!PROCESS_FOUND!"=="0" (
             )
         )
     )
-    call :echo_red "[X] 警告: 无法彻底关闭程序"
+    call :echo_yellow "[X] 警告: 无法彻底关闭程序"
     echo "进程名称: %PROCESS_NAME%"
     if defined PROCESS_PID (
         echo "进程PID: !PROCESS_PID!"
@@ -198,7 +198,7 @@ if errorlevel 1 (
     timeout /t 3 /nobreak >nul 2>&1
     call :echo_green "[OK] 文件句柄已释放，可以继续编译"
 ) else (
-    call :echo_red "[X] 警告: 无法彻底关闭程序，编译可能会失败"
+    call :echo_yellow "[X] 警告: 无法彻底关闭程序，编译可能会失败"
     echo "进程名称: %PROCESS_NAME%"
     for /f "tokens=2" %%p in ('tasklist /FI "IMAGENAME eq %PROCESS_NAME%" /FO LIST 2^>NUL ^| findstr /I "PID:"') do (
         echo "进程PID: %%p"
@@ -252,7 +252,7 @@ if errorlevel 1 (
         if errorlevel 1 (
             echo "微信进程已关闭"
         ) else (
-            echo "警告: 无法关闭微信进程，可能需要管理员权限"
+            call :echo_yellow "警告: 无法关闭微信进程，可能需要管理员权限"
         )
     ) else (
         call :echo_red "跳过关闭微信进程，编译可能会失败"
@@ -276,7 +276,7 @@ echo "[5.1] 强制删除可能被锁定的PDB文件..."
 if exist "bin\x86\Debug\net9.0-windows\app.pdb" (
     del /f /q "bin\x86\Debug\net9.0-windows\app.pdb" >nul 2>&1
     if exist "bin\x86\Debug\net9.0-windows\app.pdb" (
-        call :echo_red "[X] 警告: 无法删除bin目录中的PDB文件，可能被其他进程占用"
+        call :echo_yellow "[X] 警告: 无法删除bin目录中的PDB文件，可能被其他进程占用"
         echo "建议: 关闭Visual Studio或其他可能锁定文件的程序"
     ) else (
         call :echo_green "[OK] bin目录中的PDB文件已删除"
@@ -285,7 +285,7 @@ if exist "bin\x86\Debug\net9.0-windows\app.pdb" (
 if exist "obj\x86\Debug\net9.0-windows\app.pdb" (
     del /f /q "obj\x86\Debug\net9.0-windows\app.pdb" >nul 2>&1
     if exist "obj\x86\Debug\net9.0-windows\app.pdb" (
-        call :echo_red "[X] 警告: 无法删除obj目录中的PDB文件"
+        call :echo_yellow "[X] 警告: 无法删除obj目录中的PDB文件"
     ) else (
         call :echo_green "[OK] obj目录中的PDB文件已删除"
     )
@@ -355,7 +355,7 @@ if "!PROCESS_FOUND!"=="0" (
             )
         )
     )
-    call :echo_red "[X] 警告: 无法彻底关闭程序"
+    call :echo_yellow "[X] 警告: 无法彻底关闭程序"
     echo "进程名称: %PROCESS_NAME%"
     if defined PROCESS_PID (
         echo "进程PID: !PROCESS_PID!"
@@ -475,7 +475,7 @@ if exist "obj" (
 
 if !CLEAN_ERROR! equ 1 (
     echo.
-    call :echo_red "[X] 警告: 清理过程中有错误，可能影响编译"
+    call :echo_yellow "[X] 警告: 清理过程中有错误，可能影响编译"
     echo "建议: 手动关闭可能占用文件的程序后重试"
     echo.
     set /p "CONTINUE_CLEAN=是否继续执行编译？(Y/N): "
@@ -546,7 +546,7 @@ if "!PROCESS_FOUND!"=="0" (
             )
         )
     )
-    call :echo_red "[X] 警告: 无法彻底关闭程序"
+    call :echo_yellow "[X] 警告: 无法彻底关闭程序"
     echo "进程名称: %PROCESS_NAME%"
     if defined PROCESS_PID (
         echo "进程PID: !PROCESS_PID!"
@@ -603,7 +603,7 @@ if errorlevel 1 (
     if errorlevel 1 (
         call :echo_green "[✓] 微信进程已关闭"
     ) else (
-        echo "[*] 警告: 无法关闭微信进程，可能需要管理员权限，继续编译..."
+        call :echo_yellow "[*] 警告: 无法关闭微信进程，可能需要管理员权限，继续编译..."
     )
 )
 
@@ -626,7 +626,7 @@ set "PDB_DELETED=0"
 if exist "bin\x86\Debug\net9.0-windows\app.pdb" (
     del /f /q "bin\x86\Debug\net9.0-windows\app.pdb" >nul 2>&1
     if exist "bin\x86\Debug\net9.0-windows\app.pdb" (
-        call :echo_red "[X] 警告: 无法删除bin目录中的PDB文件，可能被其他进程占用"
+        call :echo_yellow "[X] 警告: 无法删除bin目录中的PDB文件，可能被其他进程占用"
         echo "建议: 关闭Visual Studio或其他可能锁定文件的程序"
         set "PDB_DELETED=1"
     ) else (
@@ -636,7 +636,7 @@ if exist "bin\x86\Debug\net9.0-windows\app.pdb" (
 if exist "obj\x86\Debug\net9.0-windows\app.pdb" (
     del /f /q "obj\x86\Debug\net9.0-windows\app.pdb" >nul 2>&1
     if exist "obj\x86\Debug\net9.0-windows\app.pdb" (
-        call :echo_red "[X] 警告: 无法删除obj目录中的PDB文件"
+        call :echo_yellow "[X] 警告: 无法删除obj目录中的PDB文件"
         set "PDB_DELETED=1"
     ) else (
         call :echo_green "[OK] obj目录中的PDB文件已删除"
@@ -679,12 +679,12 @@ if exist "uniapp.csproj" (
     dotnet build -c Debug --no-incremental
     set "UNIAPP_BUILD_ERROR=!errorlevel!"
     if !UNIAPP_BUILD_ERROR! neq 0 (
-        call :echo_red "[X] 警告: 启动器项目编译失败，将使用app.exe直接启动"
+        call :echo_yellow "[X] 警告: 启动器项目编译失败，将使用app.exe直接启动"
     ) else (
         call :echo_green "[OK] 启动器项目编译成功"
     )
 ) else (
-    call :echo_red "[X] 警告: 找不到启动器项目文件，将使用app.exe直接启动"
+    call :echo_yellow "[X] 警告: 找不到启动器项目文件，将使用app.exe直接启动"
 )
 cd /d "%~dp0MyWeChat.Windows"
 
@@ -703,17 +703,17 @@ if exist "%~dp0uniapp\bin\x86\Debug\net9.0-windows\uniapp.exe" (
     if exist "%OUTPUT_DIR%\uniapp.exe" (
         call :echo_green "[OK] uniapp.exe 已复制到输出目录"
     ) else (
-        call :echo_red "[X] 警告: 无法复制 uniapp.exe"
+        call :echo_yellow "[X] 警告: 无法复制 uniapp.exe"
     )
 ) else if exist "%~dp0uniapp\bin\Debug\net9.0-windows\uniapp.exe" (
     copy /Y "%~dp0uniapp\bin\Debug\net9.0-windows\uniapp.exe" "%OUTPUT_DIR%\" >nul 2>&1
     if exist "%OUTPUT_DIR%\uniapp.exe" (
         call :echo_green "[OK] uniapp.exe 已复制到输出目录"
     ) else (
-        call :echo_red "[X] 警告: 无法复制 uniapp.exe"
+        call :echo_yellow "[X] 警告: 无法复制 uniapp.exe"
     )
 ) else (
-    call :echo_red "[X] 警告: 找不到 uniapp.exe，将使用 app.exe 直接启动"
+    call :echo_yellow "[X] 警告: 找不到 uniapp.exe，将使用 app.exe 直接启动"
 )
 
 if exist "%~dp0uniapp\process_names.txt" (
@@ -721,10 +721,10 @@ if exist "%~dp0uniapp\process_names.txt" (
     if exist "%OUTPUT_DIR%\process_names.txt" (
         call :echo_green "[OK] process_names.txt 已复制到输出目录"
     ) else (
-        call :echo_red "[X] 警告: 无法复制 process_names.txt"
+        call :echo_yellow "[X] 警告: 无法复制 process_names.txt"
     )
 ) else (
-    call :echo_red "[X] 警告: 找不到 process_names.txt"
+    call :echo_yellow "[X] 警告: 找不到 process_names.txt"
 )
 
 echo.
@@ -773,7 +773,7 @@ if "!PROCESS_FOUND!"=="0" (
             )
         )
     )
-    call :echo_red "[X] 警告: 无法彻底关闭程序"
+    call :echo_yellow "[X] 警告: 无法彻底关闭程序"
     echo "进程名称: %PROCESS_NAME%"
     if defined PROCESS_PID (
         echo "进程PID: !PROCESS_PID!"
