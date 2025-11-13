@@ -544,9 +544,7 @@ tasklist /FI "IMAGENAME eq %PROCESS_NAME%" 2>NUL | find /I /N "%PROCESS_NAME%">N
 if errorlevel 1 (
     if not defined PROCESS_CLOSED (
         echo "[OK] 程序已关闭"
-        echo "[等待] 等待文件句柄释放（3秒）..."
-        timeout /t 3 /nobreak >nul 2>&1
-        echo "[OK] 文件句柄已释放，可以继续编译"
+        timeout /t 1 /nobreak >nul 2>&1
         set "PROCESS_CLOSED=1"
     )
 )
