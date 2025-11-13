@@ -239,8 +239,9 @@ namespace MyWeChat.Windows.Core.Hook
         /// 打开微信并Hook
         /// </summary>
         /// <param name="weChatExePath">微信可执行文件路径，如果为空则自动查找</param>
+        /// <param name="autoStartWeChat">是否自动启动微信（如果微信未运行）。false表示不自动启动，仅检测已运行的微信</param>
         /// <returns>返回是否成功</returns>
-        public bool OpenAndHook(string? weChatExePath = null)
+        public bool OpenAndHook(string? weChatExePath = null, bool autoStartWeChat = false)
         {
             lock (_lockObject)
             {
@@ -293,55 +294,66 @@ namespace MyWeChat.Windows.Core.Hook
                     Process? existingWeChatProcess = FindWeChatProcess();
                     if (existingWeChatProcess == null)
                     {
-                        // 步骤5：启动微信
-                        OnProgressUpdate?.Invoke(this, (5, 15, "启动微信..."));
-                        // 微信未运行，需要启动微信
-                        try
+                        if (autoStartWeChat)
                         {
-                            ProcessStartInfo startInfo = new ProcessStartInfo
+                            // 步骤5：启动微信（仅在允许自动启动时）
+                            OnProgressUpdate?.Invoke(this, (5, 15, "启动微信..."));
+                            Logger.LogInfo("微信未运行，正在启动微信...");
+                            try
                             {
-                                FileName = weChatExePath,
-                                UseShellExecute = true,
-                                WorkingDirectory = Path.GetDirectoryName(weChatExePath) ?? string.Empty
-                            };
-                            
-                            Process? startedProcess = Process.Start(startInfo);
-                            if (startedProcess == null)
-                            {
-                                string errorMsg = "启动微信失败，无法创建进程";
-                                Logger.LogError(errorMsg);
-                                throw new InvalidOperationException(errorMsg);
-                            }
-                            
-                            Logger.LogInfo("微信未运行，正在启动微信，等待微信启动...");
-                            
-                            // 等待微信启动（最多等待10秒）
-                            int startWaitCount = 0;
-                            int startMaxWaitCount = 100; // 10秒 = 100 * 100ms
-                            while (startWaitCount < startMaxWaitCount)
-                            {
-                                Thread.Sleep(100);
-                                existingWeChatProcess = FindWeChatProcess();
-                                if (existingWeChatProcess != null)
+                                ProcessStartInfo startInfo = new ProcessStartInfo
                                 {
-                                    Logger.LogInfo($"微信已启动，进程ID: {existingWeChatProcess.Id}");
-                                    break;
+                                    FileName = weChatExePath,
+                                    UseShellExecute = true,
+                                    WorkingDirectory = Path.GetDirectoryName(weChatExePath) ?? string.Empty
+                                };
+                                
+                                Process? startedProcess = Process.Start(startInfo);
+                                if (startedProcess == null)
+                                {
+                                    string errorMsg = "启动微信失败，无法创建进程";
+                                    Logger.LogError(errorMsg);
+                                    throw new InvalidOperationException(errorMsg);
                                 }
-                                startWaitCount++;
+                                
+                                Logger.LogInfo("微信未运行，正在启动微信，等待微信启动...");
+                                
+                                // 等待微信启动（最多等待10秒）
+                                int startWaitCount = 0;
+                                int startMaxWaitCount = 100; // 10秒 = 100 * 100ms
+                                while (startWaitCount < startMaxWaitCount)
+                                {
+                                    Thread.Sleep(100);
+                                    existingWeChatProcess = FindWeChatProcess();
+                                    if (existingWeChatProcess != null)
+                                    {
+                                        Logger.LogInfo($"微信已启动，进程ID: {existingWeChatProcess.Id}");
+                                        break;
+                                    }
+                                    startWaitCount++;
+                                }
+                                
+                                if (existingWeChatProcess == null)
+                                {
+                                    string errorMsg = "微信启动超时，未找到运行中的微信进程。可能原因：1. 微信启动失败 2. 进程名称不匹配 3. 等待时间不足";
+                                    Logger.LogError(errorMsg);
+                                    throw new InvalidOperationException(errorMsg);
+                                }
                             }
-                            
-                            if (existingWeChatProcess == null)
+                            catch (Exception ex)
                             {
-                                string errorMsg = "微信启动超时，未找到运行中的微信进程。可能原因：1. 微信启动失败 2. 进程名称不匹配 3. 等待时间不足";
-                                Logger.LogError(errorMsg);
-                                throw new InvalidOperationException(errorMsg);
+                                string errorMsg = $"启动微信失败: {ex.Message}";
+                                Logger.LogError(errorMsg, ex);
+                                throw new InvalidOperationException(errorMsg, ex);
                             }
                         }
-                        catch (Exception ex)
+                        else
                         {
-                            string errorMsg = $"启动微信失败: {ex.Message}";
-                            Logger.LogError(errorMsg, ex);
-                            throw new InvalidOperationException(errorMsg, ex);
+                            // 微信未运行，且不允许自动启动
+                            string errorMsg = "微信进程未运行，请先手动启动微信，或点击"登录微信"按钮";
+                            Logger.LogWarning(errorMsg);
+                            OnProgressUpdate?.Invoke(this, (4, 15, "微信未运行，请手动启动"));
+                            throw new InvalidOperationException(errorMsg);
                         }
                     }
                     else

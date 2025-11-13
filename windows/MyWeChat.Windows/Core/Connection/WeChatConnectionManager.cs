@@ -152,8 +152,9 @@ namespace MyWeChat.Windows.Core.Connection
         /// 连接微信
         /// </summary>
         /// <param name="weChatExePath">微信可执行文件路径</param>
+        /// <param name="autoStartWeChat">是否自动启动微信（如果微信未运行）。false表示不自动启动，仅检测已运行的微信</param>
         /// <returns>返回是否成功</returns>
-        public bool Connect(string? weChatExePath = null)
+        public bool Connect(string? weChatExePath = null, bool autoStartWeChat = false)
         {
             try
             {
@@ -168,7 +169,7 @@ namespace MyWeChat.Windows.Core.Connection
 
                 // 注意：Hook管理器状态、微信版本等信息在初始化时已输出，这里不再重复输出
                 
-                bool result = _hookManager.OpenAndHook(weChatExePath);
+                bool result = _hookManager.OpenAndHook(weChatExePath, autoStartWeChat);
                 
                 if (result)
                 {

@@ -2255,7 +2255,8 @@ namespace MyWeChat.Windows
                 AddLog($"步骤3: 微信管理器初始化成功，微信版本: {weChatManager?.ConnectionManager?.WeChatVersion ?? "未检测到"}", "SUCCESS");
                 AddLog("步骤4: 正在打开微信...", "INFO");
                 
-                bool result = weChatManager?.Connect() ?? false;
+                // 用户手动点击"登录微信"按钮，允许自动启动微信
+                bool result = weChatManager?.Connect(autoStartWeChat: true) ?? false;
                 
                 if (result)
                 {

@@ -157,7 +157,7 @@ namespace MyWeChat.Windows
                     await Task.Delay(300);
                     await InitializeWebSocketAsync();
                     
-                    // 步骤3：初始化微信管理器（这会触发后续的微信启动和DLL注入）
+                    // 步骤3：初始化微信管理器（不自动启动微信，需要用户手动点击"登录微信"按钮）
                     Dispatcher.Invoke(() => CloseOverlay.UpdateStartupProgress(3, _totalSteps, "正在初始化微信管理器..."));
                     
                     // 订阅微信启动进度事件

@@ -170,7 +170,8 @@ namespace MyWeChat.Windows.Services
         /// <summary>
         /// 手动连接微信
         /// </summary>
-        public bool Connect()
+        /// <param name="autoStartWeChat">是否自动启动微信（如果微信未运行）。false表示不自动启动，仅检测已运行的微信</param>
+        public bool Connect(bool autoStartWeChat = false)
         {
             lock (_lock)
             {
@@ -182,7 +183,7 @@ namespace MyWeChat.Windows.Services
 
                 try
                 {
-                    bool result = _connectionManager.Connect();
+                    bool result = _connectionManager.Connect(null, autoStartWeChat);
                     if (result)
                     {
                         _isWeChatConnected = true;
@@ -276,28 +277,7 @@ namespace MyWeChat.Windows.Services
                         _connectionManager.Disconnect();
                     }
                 }
-                else if (!weChatRunning)
-                {
-                    // 微信进程未运行，自动启动微信
-                    Logger.LogInfo("微信进程未运行，正在自动启动微信...");
-
-                    if (_connectionManager != null && !_isWeChatConnected)
-                    {
-                        try
-                        {
-                            bool result = _connectionManager.Connect();
-                            if (result)
-                            {
-                                _isWeChatConnected = true;
-                                // 注意：连接成功的日志已在WeChatConnectionManager中输出，这里不再重复输出
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            Logger.LogError($"微信自动启动异常: {ex.Message}", ex);
-                        }
-                    }
-                }
+                // 注意：移除了自动启动微信的逻辑，改为手动触发（通过"登录微信"按钮）
             }
             catch (Exception ex)
             {
