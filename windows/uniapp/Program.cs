@@ -165,6 +165,27 @@ namespace uniapp
                 
                 if (process != null)
                 {
+                    // 等待一小段时间确保进程真正启动
+                    System.Threading.Thread.Sleep(500);
+                    
+                    // 检查进程是否还在运行
+                    try
+                    {
+                        process.Refresh();
+                        if (process.HasExited)
+                        {
+                            Console.WriteLine("[错误] 程序启动后立即退出了");
+                            Console.WriteLine($"退出代码: {process.ExitCode}");
+                            Console.WriteLine("按任意键退出...");
+                            Console.ReadKey();
+                            return;
+                        }
+                    }
+                    catch
+                    {
+                        // 进程可能已经退出，忽略异常
+                    }
+                    
                     Console.WriteLine("========================================");
                     Console.WriteLine("[成功] 程序已启动");
                     Console.WriteLine("========================================");

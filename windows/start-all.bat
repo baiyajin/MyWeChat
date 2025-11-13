@@ -36,19 +36,19 @@ goto all
 REM ========================================
 REM 颜色输出辅助函数
 REM ========================================
-REM 输出绿色文本（成功/OK）
+REM Output green text (success/OK)
 :echo_green
-powershell -Command "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; Write-Host \"%~1\" -ForegroundColor Green"
+powershell -NoProfile -Command "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; Write-Host \"%~1\" -ForegroundColor Green; exit 0"
 goto :eof
 
-REM 输出红色文本（错误/失败）
+REM Output red text (error/failure)
 :echo_red
-powershell -Command "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; Write-Host \"%~1\" -ForegroundColor Red"
+powershell -NoProfile -Command "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; Write-Host \"%~1\" -ForegroundColor Red; exit 0"
 goto :eof
 
-REM 输出橙色文本（警告）
+REM Output orange text (warning)
 :echo_yellow
-powershell -Command "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; Write-Host \"%~1\" -ForegroundColor DarkYellow"
+powershell -NoProfile -Command "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; Write-Host \"%~1\" -ForegroundColor DarkYellow; exit 0"
 goto :eof
 
 REM 查找可执行文件的函数
