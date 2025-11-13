@@ -146,6 +146,8 @@ namespace MyWeChat.Windows
         {
             try
             {
+                Logger.LogInfo("主窗口：MainWindow_Loaded 事件已触发");
+                
                 // 确保窗口标题为"w"（在Loaded事件中再次设置，确保覆盖任何默认值）
                 this.Title = "w";
                 
@@ -156,6 +158,7 @@ namespace MyWeChat.Windows
                     return;
                 }
                 
+                Logger.LogInfo("主窗口：开始初始化服务");
                 // 窗口加载完成后再初始化服务
                 InitializeServices();
             }
@@ -172,6 +175,8 @@ namespace MyWeChat.Windows
         /// </summary>
         private void InitializeServices()
         {
+            Logger.LogInfo("主窗口：InitializeServices 方法已调用");
+            
             // 使用锁防止多线程重复初始化
             lock (_initLock)
             {
@@ -182,14 +187,7 @@ namespace MyWeChat.Windows
                     return;
                 }
                 
-                // 检查全局服务是否已初始化
-                if (WeChatInitializationService.Instance.IsInitialized)
-                {
-                    Logger.LogWarning("微信管理器已初始化，跳过重复初始化");
-                    _isInitialized = true;
-                    return;
-                }
-                
+                Logger.LogInfo("主窗口：开始初始化服务（设置_isInitializing=true）");
                 _isInitializing = true;
             }
             
@@ -251,8 +249,10 @@ namespace MyWeChat.Windows
                         _webSocketService.OnConnectionStateChanged += OnWebSocketConnectionStateChanged;
 
                         // 初始化API服务（用于查询数据库中的账号信息）
+                        // 注意：即使微信管理器已初始化，也要初始化API服务并查询账号信息
                         string serverUrl = ConfigHelper.GetServerUrl();
                         _apiService = new ApiService(serverUrl);
+                        Logger.LogInfo("主窗口初始化：API服务已初始化");
 
                         // 【核心修复】主页初始化时，优先通过手机号查询微信账号数据
                         // 有数据就显示在页面，没有再通过wxid查询（作为备用），最后等待1112回调
@@ -261,8 +261,11 @@ namespace MyWeChat.Windows
                         {
                             try
                             {
+                                Logger.LogInfo("主窗口初始化：开始查询账号信息");
+                                
                                 if (_apiService == null)
                                 {
+                                    Logger.LogWarning("主窗口初始化：API服务未初始化，无法查询账号信息");
                                     return;
                                 }
 
@@ -331,7 +334,10 @@ namespace MyWeChat.Windows
                                 };
 
                                 // 第一步：优先通过待匹配的手机号查询账号信息
+                                Logger.LogInfo("主窗口初始化：获取待匹配手机号列表");
                                 List<string> pendingPhones = WeChatInitializationService.Instance.GetPendingPhones();
+                                Logger.LogInfo($"主窗口初始化：待匹配手机号列表数量: {pendingPhones.Count}");
+                                
                                 if (pendingPhones.Count > 0)
                                 {
                                     Logger.LogInfo($"主窗口初始化：优先通过手机号查询账号信息，共{pendingPhones.Count}个手机号");
@@ -873,15 +879,17 @@ namespace MyWeChat.Windows
             try
             {
                 var weChatManager = GetWeChatManager();
-                if (weChatManager == null || !weChatManager.IsConnected)
+                int clientId = weChatManager?.ConnectionManager?.ClientId ?? 0;
+                
+                if (_accountList == null)
                 {
-                    Logger.LogWarning("连接管理器未初始化或未连接，无法更新账号信息显示");
-                    // 显示等待状态
+                    Logger.LogWarning("账号列表未初始化");
+                    // 如果账号列表未初始化，显示等待状态
                     Dispatcher.Invoke(() =>
                     {
                         if (AccountNickNameText != null)
                         {
-                            AccountNickNameText.Text = "等待连接...";
+                            AccountNickNameText.Text = "等待获取账号信息...";
                         }
                         if (AccountWeChatIdText != null)
                         {
@@ -890,18 +898,8 @@ namespace MyWeChat.Windows
                     });
                     return;
                 }
-
-                // 从账号列表中查找当前登录的账号
-                // 优先查找有昵称和头像的账号（从WebSocket同步过来的）
-                int clientId = weChatManager?.ConnectionManager?.ClientId ?? 0;
                 
-                if (_accountList == null)
-                {
-                    Logger.LogWarning("账号列表未初始化");
-                    return;
-                }
-                
-                Logger.LogInfo($"更新账号信息显示: clientId={clientId}, 账号列表数量={_accountList.Count}");
+                Logger.LogInfo($"更新账号信息显示: clientId={clientId}, 账号列表数量={_accountList.Count}, 连接状态={weChatManager?.IsConnected ?? false}");
                 
                 AccountInfo? currentAccount = null;
                 
@@ -932,6 +930,20 @@ namespace MyWeChat.Windows
                         {
                             currentAccount = account;
                             Logger.LogInfo($"找到有昵称的账号: WeChatId={account.WeChatId}, NickName={account.NickName}");
+                            break;
+                        }
+                    }
+                }
+                
+                // 如果没找到，尝试查找任何有wxid的账号（即使没有昵称）
+                if (currentAccount == null)
+                {
+                    foreach (var account in _accountList)
+                    {
+                        if (!string.IsNullOrEmpty(account.WeChatId) && IsRealWeChatId(account.WeChatId))
+                        {
+                            currentAccount = account;
+                            Logger.LogInfo($"找到有wxid的账号: WeChatId={account.WeChatId}, NickName={account.NickName ?? "无昵称"}");
                             break;
                         }
                     }
@@ -1421,7 +1433,141 @@ namespace MyWeChat.Windows
                             }
                         }
                         
-                        // 策略3: 修复被截断的字符串字段（如msg字段）
+                        // 策略3: 修复raw_msg字段中的XML内容（特殊处理，因为XML包含未转义的引号）
+                        if (!isFixed && ex.Message.Contains("Unterminated string") && cleanMessage.Contains("\"raw_msg\""))
+                        {
+                            try
+                            {
+                                Logger.LogWarning("检测到raw_msg字段未闭合，尝试修复（公众号消息）");
+                                
+                                // 找到raw_msg字段的开始位置
+                                int rawMsgStart = cleanMessage.IndexOf("\"raw_msg\"");
+                                if (rawMsgStart >= 0)
+                                {
+                                    // 找到raw_msg值的开始位置（冒号后的引号）
+                                    int colonIndex = cleanMessage.IndexOf(':', rawMsgStart);
+                                    int quoteStart = cleanMessage.IndexOf('"', colonIndex);
+                                    
+                                    if (quoteStart > 0)
+                                    {
+                                        // 找到raw_msg值的结束位置
+                                        // 从引号开始的位置查找</appmsg>标签
+                                        string afterQuote = cleanMessage.Substring(quoteStart + 1);
+                                        
+                                        // 查找</appmsg>标签的结束位置
+                                        int appmsgEnd = afterQuote.IndexOf("</appmsg>");
+                                        if (appmsgEnd > 0)
+                                        {
+                                            // </appmsg>后的内容可能是<fromuser或其他，需要找到字段结束位置
+                                            int endPos = appmsgEnd + 9; // </appmsg>长度
+                                            
+                                            // 从</appmsg>后查找下一个引号（字段结束）或消息结束
+                                            // 如果消息被截断，在</appmsg>后直接闭合
+                                            string afterAppmsg = afterQuote.Substring(endPos);
+                                            
+                                            // 查找下一个引号（字段结束标记）
+                                            int nextQuote = afterAppmsg.IndexOf('"');
+                                            
+                                            // 检查</appmsg>后是否有<fromuser或其他标签（说明消息被截断）
+                                            bool hasFromUser = afterAppmsg.IndexOf("<fromuser", StringComparison.OrdinalIgnoreCase) >= 0;
+                                            
+                                            // 如果找不到引号，或者有<fromuser标签，说明消息被截断，在</appmsg>后直接闭合
+                                            if (nextQuote < 0 || hasFromUser)
+                                            {
+                                                // 消息被截断，在</appmsg>后添加闭合引号
+                                                // raw_msg的值应该只到</appmsg>结束
+                                                string rawMsgValue = afterQuote.Substring(0, appmsgEnd + 9);
+                                                
+                                                // 转义raw_msg中的特殊字符（但要注意不要重复转义）
+                                                // 先检查是否已经转义过
+                                                string escapedRawMsg = rawMsgValue;
+                                                if (!rawMsgValue.Contains("\\\""))
+                                                {
+                                                    // 如果还没有转义，进行转义
+                                                    escapedRawMsg = rawMsgValue
+                                                        .Replace("\\", "\\\\")
+                                                        .Replace("\"", "\\\"")
+                                                        .Replace("\n", "\\n")
+                                                        .Replace("\r", "\\r")
+                                                        .Replace("\t", "\\t");
+                                                }
+                                                
+                                                // 重建JSON：在</appmsg>后添加闭合引号和闭合括号
+                                                string beforeRawMsg = cleanMessage.Substring(0, quoteStart + 1);
+                                                string fixedJson = beforeRawMsg + escapedRawMsg + "\"}";
+                                                
+                                                try
+                                                {
+                                                    messageObj = Newtonsoft.Json.JsonConvert.DeserializeObject<dynamic>(fixedJson) ?? null;
+                                                    if (messageObj != null)
+                                                    {
+                                                        Logger.LogInfo("通过修复raw_msg字段（截断消息）成功解析（公众号消息）");
+                                                        cleanMessage = fixedJson;
+                                                        isFixed = true;
+                                                    }
+                                                }
+                                                catch (Exception fixEx)
+                                                {
+                                                    Logger.LogWarning($"修复raw_msg字段（截断消息）后仍解析失败: {fixEx.Message}");
+                                                }
+                                            }
+                                            else
+                                            {
+                                                // 找到了下一个引号，提取完整的raw_msg值
+                                                string rawMsgValue = afterQuote.Substring(0, endPos + nextQuote);
+                                                
+                                                // 转义raw_msg中的特殊字符
+                                                string escapedRawMsg = rawMsgValue
+                                                    .Replace("\\", "\\\\")
+                                                    .Replace("\"", "\\\"")
+                                                    .Replace("\n", "\\n")
+                                                    .Replace("\r", "\\r")
+                                                    .Replace("\t", "\\t");
+                                                
+                                                // 重建JSON
+                                                string beforeRawMsg = cleanMessage.Substring(0, quoteStart + 1);
+                                                string afterRawMsg = cleanMessage.Substring(quoteStart + 1 + endPos + nextQuote);
+                                                
+                                                string fixedJson = beforeRawMsg + escapedRawMsg + "\"" + afterRawMsg;
+                                                
+                                                // 补全JSON结构
+                                                if (!fixedJson.EndsWith("}"))
+                                                {
+                                                    int openBraces = fixedJson.Count(c => c == '{');
+                                                    int closeBraces = fixedJson.Count(c => c == '}');
+                                                    while (closeBraces < openBraces)
+                                                    {
+                                                        fixedJson += "}";
+                                                        closeBraces++;
+                                                    }
+                                                }
+                                                
+                                                try
+                                                {
+                                                    messageObj = Newtonsoft.Json.JsonConvert.DeserializeObject<dynamic>(fixedJson) ?? null;
+                                                    if (messageObj != null)
+                                                    {
+                                                        Logger.LogInfo("通过修复raw_msg字段成功解析（公众号消息）");
+                                                        cleanMessage = fixedJson;
+                                                        isFixed = true;
+                                                    }
+                                                }
+                                                catch (Exception fixEx)
+                                                {
+                                                    Logger.LogWarning($"修复raw_msg字段后仍解析失败: {fixEx.Message}");
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            catch (Exception fixEx)
+                            {
+                                Logger.LogWarning($"修复raw_msg字段时出错: {fixEx.Message}");
+                            }
+                        }
+                        
+                        // 策略3.5: 修复被截断的字符串字段（如msg字段）
                         if (!isFixed && ex.Message.Contains("Unterminated string"))
                         {
                             try
@@ -1910,13 +2056,48 @@ namespace MyWeChat.Windows
                             _tagSyncService?.ProcessTagsCallback(dataJson);
                         }
                     }
-                    // 消息类型 5 表示公众号推送消息
-                    else if (messageType == 5)
+                    // 消息类型 5 或 11120 表示公众号推送消息
+                    else if (messageType == 5 || messageType == 11120)
                     {
-                        string dataJson = messageObj.data?.ToString() ?? string.Empty;
+                        Logger.LogInfo($"收到公众号消息（类型: {messageType}），开始处理");
+                        
+                        // 尝试从data字段获取数据
+                        string dataJson = string.Empty;
+                        if (messageObj.data != null)
+                        {
+                            // 如果data是对象，转换为JSON字符串
+                            if (messageObj.data is Newtonsoft.Json.Linq.JObject)
+                            {
+                                dataJson = messageObj.data.ToString();
+                            }
+                            else
+                            {
+                                dataJson = messageObj.data?.ToString() ?? string.Empty;
+                            }
+                        }
+                        
+                        // 如果data字段为空，尝试直接使用整个消息对象
+                        if (string.IsNullOrEmpty(dataJson))
+                        {
+                            // 构建data对象
+                            var dataObj = new
+                            {
+                                from_wxid = messageObj.from_wxid?.ToString() ?? "",
+                                msgid = messageObj.msgid?.ToString() ?? "",
+                                raw_msg = messageObj.raw_msg?.ToString() ?? "",
+                                is_pc = messageObj.is_pc?.ToString() ?? "0"
+                            };
+                            dataJson = Newtonsoft.Json.JsonConvert.SerializeObject(dataObj);
+                        }
+                        
                         if (!string.IsNullOrEmpty(dataJson))
                         {
+                            Logger.LogInfo($"处理公众号消息，数据长度: {dataJson.Length}");
                             _officialAccountSyncService?.ProcessOfficialAccountCallback(dataJson);
+                        }
+                        else
+                        {
+                            Logger.LogWarning("公众号消息data字段为空，无法处理");
                         }
                     }
                     // 也检查是否是直接的账号信息消息（兼容其他格式）

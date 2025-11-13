@@ -236,6 +236,94 @@ namespace MyWeChat.Windows.Core.Hook
         }
 
         /// <summary>
+        /// 尝试快速重连（开发模式：如果DLL已注入，直接设置回调函数）
+        /// </summary>
+        private bool TryFastReconnect()
+        {
+            try
+            {
+                // 读取保存的状态
+                var state = HookStateManager.LoadState();
+                if (state == null)
+                {
+                    Logger.LogInfo("未找到保存的Hook状态，将执行正常注入流程");
+                    return false;
+                }
+
+                // 验证状态是否有效
+                if (!HookStateManager.ValidateState(state))
+                {
+                    Logger.LogInfo("保存的Hook状态无效（微信进程已退出或进程ID不匹配），将执行正常注入流程");
+                    HookStateManager.DeleteState();
+                    return false;
+                }
+
+                // 检查微信版本是否匹配
+                if (!string.IsNullOrEmpty(_weChatVersion) && 
+                    !string.IsNullOrEmpty(state.WeChatVersion) && 
+                    _weChatVersion != state.WeChatVersion)
+                {
+                    Logger.LogWarning($"微信版本不匹配（保存: {state.WeChatVersion}, 当前: {_weChatVersion}），将执行正常注入流程");
+                    HookStateManager.DeleteState();
+                    return false;
+                }
+
+                Logger.LogInfo("========== 尝试快速重连（开发模式） ==========");
+                Logger.LogInfo($"从保存的状态恢复: clientId={state.ClientId}, processId={state.WeChatProcessId}");
+
+                // 检查DLL封装是否初始化
+                if (_dllWrapper == null)
+                {
+                    Logger.LogWarning("DLL封装未初始化，无法快速重连，将执行正常注入流程");
+                    return false;
+                }
+
+                // 设置回调函数（重新设置，指向新程序的回调函数）
+                _acceptCallback = OnAcceptCallback;
+                _receiveCallback = OnReceiveCallback;
+                _closeCallback = OnCloseCallback;
+
+                IntPtr acceptPtr = Marshal.GetFunctionPointerForDelegate(_acceptCallback);
+                IntPtr receivePtr = Marshal.GetFunctionPointerForDelegate(_receiveCallback);
+                IntPtr closePtr = Marshal.GetFunctionPointerForDelegate(_closeCallback);
+
+                // 某些版本需要contact参数
+                string? contact = _weChatVersion == "3.9.12.45" ? "" : null;
+
+                Logger.LogInfo("正在重新设置回调函数...");
+                int setCallbackResult = _dllWrapper.SetCallback(acceptPtr, receivePtr, closePtr, contact);
+                if (setCallbackResult != 0)
+                {
+                    Logger.LogWarning($"重新设置回调函数失败（返回值: {setCallbackResult}），DLL可能未注入，将执行正常注入流程");
+                    HookStateManager.DeleteState();
+                    return false;
+                }
+
+                Logger.LogInfo("回调函数设置成功，使用保存的clientId");
+
+                // 使用保存的状态
+                _clientId = state.ClientId;
+                _weChatProcessId = state.WeChatProcessId;
+                _isHooked = true;
+
+                Logger.LogInfo($"快速重连成功！ClientId: {_clientId}, 微信进程ID: {_weChatProcessId}");
+                Logger.LogInfo("========== 快速重连完成 ==========");
+                Logger.LogInfo("注意：如果后续命令发送失败，系统会自动删除无效状态并回退到正常注入流程");
+
+                // 触发Hook事件
+                OnHooked?.Invoke(this, _clientId);
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Logger.LogWarning($"快速重连失败: {ex.Message}，将执行正常注入流程");
+                HookStateManager.DeleteState();
+                return false;
+            }
+        }
+
+        /// <summary>
         /// 打开微信并Hook
         /// </summary>
         /// <param name="weChatExePath">微信可执行文件路径，如果为空则自动查找</param>
@@ -263,6 +351,18 @@ namespace MyWeChat.Windows.Core.Hook
                     }
 
                     Logger.LogInfo($"开始Hook微信，版本: {_weChatVersion}");
+
+                    // 【开发模式优化】尝试快速重连（如果DLL已注入）
+                    if (ConfigHelper.IsDevelopmentMode())
+                    {
+                        Logger.LogInfo("开发模式已启用，尝试快速重连...");
+                        if (TryFastReconnect())
+                        {
+                            Logger.LogInfo("快速重连成功，跳过DLL注入步骤");
+                            return true;
+                        }
+                        Logger.LogInfo("快速重连失败，将执行正常注入流程");
+                    }
 
                     // 如果未提供路径，自动查找微信安装路径
                     if (string.IsNullOrEmpty(weChatExePath))
@@ -598,6 +698,14 @@ namespace MyWeChat.Windows.Core.Hook
                     _isHooked = true;
 
                     Logger.LogInfo($"Hook成功，ClientId: {_clientId}, 微信版本: {_weChatVersion}");
+                    
+                    // 【开发模式优化】保存Hook状态，以便下次快速重连
+                    if (ConfigHelper.IsDevelopmentMode())
+                    {
+                        HookStateManager.SaveState(_clientId, _weChatProcessId, _weChatVersion, _isHooked);
+                        Logger.LogInfo("Hook状态已保存（开发模式）");
+                    }
+                    
                     OnHooked?.Invoke(this, _clientId);
 
                     return true;
@@ -645,34 +753,58 @@ namespace MyWeChat.Windows.Core.Hook
                     Logger.LogInfo($"当前ClientId: {_clientId}");
                     Logger.LogInfo($"Hook状态: {_isHooked}");
                     
-                    // 1. 调用DLL的关闭方法（撤回DLL注入）
-                    if (_dllWrapper != null)
+                    // 检查是否启用开发模式
+                    bool isDevelopmentMode = ConfigHelper.IsDevelopmentMode();
+                    
+                    if (isDevelopmentMode)
                     {
-                        Logger.LogInfo("正在调用DLL的CloseWeChat方法（撤回DLL注入）...");
-                        bool result = _dllWrapper.CloseWeChat();
-                        Logger.LogInfo($"DLL的CloseWeChat方法返回: {result}");
+                        // 开发模式：保存状态但不撤回DLL注入
+                        Logger.LogInfo("开发模式已启用，保存Hook状态但不撤回DLL注入");
+                        HookStateManager.SaveState(_clientId, _weChatProcessId, _weChatVersion, _isHooked);
+                        Logger.LogInfo("Hook状态已保存，DLL将继续留在微信进程中");
                         
-                        if (!result)
-                        {
-                            Logger.LogWarning("DLL的CloseWeChat方法返回false，可能DLL注入未完全撤回");
-                        }
+                        // 清理本地状态（但不撤回DLL）
+                        _isHooked = false;
+                        _clientId = 0;
+                        // 注意：保留_weChatProcessId，以便后续验证
+                        
+                        Logger.LogInfo("========== Hook连接已关闭（开发模式，DLL未撤回） ==========");
                     }
                     else
                     {
-                        Logger.LogWarning("DLL封装对象为空，无法调用CloseWeChat方法");
+                        // 生产模式：正常撤回DLL注入
+                        // 1. 调用DLL的关闭方法（撤回DLL注入）
+                        if (_dllWrapper != null)
+                        {
+                            Logger.LogInfo("正在调用DLL的CloseWeChat方法（撤回DLL注入）...");
+                            bool result = _dllWrapper.CloseWeChat();
+                            Logger.LogInfo($"DLL的CloseWeChat方法返回: {result}");
+                            
+                            if (!result)
+                            {
+                                Logger.LogWarning("DLL的CloseWeChat方法返回false，可能DLL注入未完全撤回");
+                            }
+                        }
+                        else
+                        {
+                            Logger.LogWarning("DLL封装对象为空，无法调用CloseWeChat方法");
+                        }
+                        
+                        // 2. 等待DLL注入完全清理（给系统时间释放文件句柄）
+                        Logger.LogInfo("等待DLL注入资源释放（1秒）...");
+                        System.Threading.Thread.Sleep(1000);
+                        
+                        // 3. 清理状态
+                        _isHooked = false;
+                        _clientId = 0;
+                        _weChatProcessId = 0;
+                        
+                        // 删除保存的状态文件（如果存在）
+                        HookStateManager.DeleteState();
+                        
+                        Logger.LogInfo("Hook连接状态已清理");
+                        Logger.LogInfo("========== Hook连接已关闭 ==========");
                     }
-                    
-                    // 2. 等待DLL注入完全清理（给系统时间释放文件句柄）
-                    Logger.LogInfo("等待DLL注入资源释放（1秒）...");
-                    System.Threading.Thread.Sleep(1000);
-                    
-                    // 3. 清理状态
-                    _isHooked = false;
-                    _clientId = 0;
-                    _weChatProcessId = 0;
-                    
-                    Logger.LogInfo("Hook连接状态已清理");
-                    Logger.LogInfo("========== Hook连接已关闭 ==========");
                     
                     // 4. 触发事件
                     OnUnhooked?.Invoke(this, EventArgs.Empty);
@@ -717,6 +849,11 @@ namespace MyWeChat.Windows.Core.Hook
                 Logger.LogError($"ClientId无效: {_clientId}，无法发送命令");
                 return false;
             }
+
+            // 【开发模式优化】如果是从快速重连恢复的状态，验证连接是否有效
+            // 如果命令发送失败，可能是快速重连失败，需要重新注入
+            bool isFromFastReconnect = ConfigHelper.IsDevelopmentMode() && 
+                                       HookStateManager.LoadState() != null;
 
             // 检查微信进程是否还在运行
             if (_weChatProcessId > 0)
@@ -786,6 +923,17 @@ namespace MyWeChat.Windows.Core.Hook
                 {
                     Logger.LogError($"发送命令失败，类型: {commandType}, clientId: {_clientId}, Hook状态: {_isHooked}, 微信进程ID: {_weChatProcessId}");
                     Logger.LogError($"可能原因: 1. DLL的SendData方法返回false 2. 微信进程未响应 3. 命令格式不正确 4. 微信进程可能已退出");
+                    
+                    // 【开发模式优化】如果是从快速重连恢复的，且命令发送失败，可能是快速重连失败
+                    // 删除无效的状态，下次启动时重新注入
+                    if (isFromFastReconnect)
+                    {
+                        Logger.LogWarning("快速重连状态可能无效（命令发送失败），删除保存的状态");
+                        HookStateManager.DeleteState();
+                        _isHooked = false;
+                        _clientId = 0;
+                        OnUnhooked?.Invoke(this, EventArgs.Empty);
+                    }
                 }
 
                 return result;

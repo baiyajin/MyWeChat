@@ -36,6 +36,21 @@ namespace MyWeChat.Windows.Utils
             }
             return 6060;
         }
+
+        /// <summary>
+        /// 是否启用开发模式（开发模式下关闭时不撤回DLL注入）
+        /// 自动检测：Debug 模式下自动启用，Release 模式下自动禁用
+        /// </summary>
+        public static bool IsDevelopmentMode()
+        {
+#if DEBUG
+            // Debug 模式下自动启用开发模式
+            return true;
+#else
+            // Release 模式下自动禁用开发模式
+            return false;
+#endif
+        }
     }
 }
 

@@ -143,12 +143,127 @@ namespace MyWeChat.Windows.Services
                     {
                         ["title"] = item.Element("title")?.Value ?? item.Element("title_v2")?.Value ?? "",
                         ["url"] = item.Element("url")?.Value ?? "",
-                        ["cover"] = item.Element("cover")?.Value ?? item.Element("cover_1_1")?.Value ?? "",
-                        ["summary"] = item.Element("summary")?.Value ?? "",
+                        ["cover"] = item.Element("cover")?.Value ?? item.Element("cover_1_1")?.Value ?? item.Element("cover_235_1")?.Value ?? "",
+                        ["summary"] = item.Element("summary")?.Value ?? item.Element("digest")?.Value ?? "",
                         ["pub_time"] = item.Element("pub_time")?.Value ?? "0"
                     };
                     articles.Add(article);
                 }
+
+                // 获取template_header（模板消息头部信息）
+                var templateHeader = new Dictionary<string, object>();
+                XElement? templateHeaderNode = mmreader.Element("template_header");
+                if (templateHeaderNode != null)
+                {
+                    templateHeader["title"] = templateHeaderNode.Element("title")?.Value ?? "";
+                    templateHeader["title_color"] = templateHeaderNode.Element("title_color")?.Value ?? "";
+                    templateHeader["pub_time"] = templateHeaderNode.Element("pub_time")?.Value ?? "0";
+                    templateHeader["first_data"] = templateHeaderNode.Element("first_data")?.Value ?? "";
+                    templateHeader["first_color"] = templateHeaderNode.Element("first_color")?.Value ?? "";
+                }
+
+                // 获取template_detail（模板消息详细内容）
+                var templateDetail = new Dictionary<string, object>();
+                XElement? templateDetailNode = mmreader.Element("template_detail");
+                if (templateDetailNode != null)
+                {
+                    // 获取line_content（行内容，包含key-value对）
+                    var lineContent = new List<Dictionary<string, object>>();
+                    XElement? lineContentNode = templateDetailNode.Element("line_content");
+                    if (lineContentNode != null)
+                    {
+                        var lines = lineContentNode.Element("lines");
+                        if (lines != null)
+                        {
+                            foreach (var line in lines.Elements("line"))
+                            {
+                                var lineData = new Dictionary<string, object>();
+                                
+                                // 获取key
+                                XElement? keyNode = line.Element("key");
+                                if (keyNode != null)
+                                {
+                                    lineData["key"] = keyNode.Element("word")?.Value ?? "";
+                                    lineData["key_color"] = keyNode.Element("color")?.Value ?? "";
+                                }
+                                
+                                // 获取value
+                                XElement? valueNode = line.Element("value");
+                                if (valueNode != null)
+                                {
+                                    lineData["value"] = valueNode.Element("word")?.Value ?? "";
+                                    lineData["value_color"] = valueNode.Element("color")?.Value ?? "";
+                                }
+                                
+                                if (lineData.Count > 0)
+                                {
+                                    lineContent.Add(lineData);
+                                }
+                            }
+                        }
+                    }
+                    
+                    // 获取flat_content（扁平化内容，用于兼容）
+                    var flatContent = new List<Dictionary<string, object>>();
+                    XElement? flatContentNode = templateDetailNode.Element("flat_content");
+                    if (flatContentNode != null)
+                    {
+                        var flatLines = flatContentNode.Element("lines");
+                        if (flatLines != null)
+                        {
+                            foreach (var line in flatLines.Elements("line"))
+                            {
+                                var lineData = new Dictionary<string, object>();
+                                
+                                XElement? keyNode = line.Element("key");
+                                if (keyNode != null)
+                                {
+                                    lineData["key"] = keyNode.Element("word")?.Value ?? "";
+                                    lineData["key_color"] = keyNode.Element("color")?.Value ?? "";
+                                }
+                                
+                                XElement? valueNode = line.Element("value");
+                                if (valueNode != null)
+                                {
+                                    lineData["value"] = valueNode.Element("word")?.Value ?? "";
+                                    lineData["value_color"] = valueNode.Element("color")?.Value ?? "";
+                                }
+                                
+                                if (lineData.Count > 0)
+                                {
+                                    flatContent.Add(lineData);
+                                }
+                            }
+                        }
+                    }
+                    
+                    // 获取opitems（操作项，如"查看详情"按钮）
+                    var opItems = new List<Dictionary<string, object>>();
+                    XElement? opItemsNode = templateDetailNode.Element("opitems");
+                    if (opItemsNode != null)
+                    {
+                        foreach (var opItem in opItemsNode.Elements("opitem"))
+                        {
+                            var opItemData = new Dictionary<string, object>
+                            {
+                                ["word"] = opItem.Element("word")?.Value ?? "",
+                                ["url"] = opItem.Element("url")?.Value ?? "",
+                                ["icon"] = opItem.Element("icon")?.Value ?? "",
+                                ["color"] = opItem.Element("color")?.Value ?? ""
+                            };
+                            opItems.Add(opItemData);
+                        }
+                    }
+                    
+                    templateDetail["line_content"] = lineContent;
+                    templateDetail["flat_content"] = flatContent;
+                    templateDetail["opitems"] = opItems;
+                    templateDetail["template_show_type"] = templateDetailNode.Element("template_show_type")?.Value ?? "";
+                }
+
+                // 获取title和des（标题和描述）
+                string title = appmsg.Element("title")?.Value ?? "";
+                string des = appmsg.Element("des")?.Value ?? "";
 
                 // 构建返回数据
                 var result = new Dictionary<string, object>
@@ -156,11 +271,15 @@ namespace MyWeChat.Windows.Services
                     ["account_name"] = accountName,
                     ["publisher_username"] = publisherUsername,
                     ["publisher_nickname"] = publisherNickname,
+                    ["title"] = title,
+                    ["description"] = des,
                     ["articles"] = articles,
+                    ["template_header"] = templateHeader,
+                    ["template_detail"] = templateDetail,
                     ["receive_time"] = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")
                 };
 
-                Logger.LogInfo($"解析公众号消息成功，公众号: {accountName}, 文章数: {articles.Count}");
+                Logger.LogInfo($"解析公众号消息成功，公众号: {accountName}, 文章数: {articles.Count}, 模板行数: {(templateDetail.ContainsKey("line_content") ? ((List<Dictionary<string, object>>)templateDetail["line_content"]).Count : 0)}");
                 return result;
             }
             catch (Exception ex)
