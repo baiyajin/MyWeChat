@@ -221,7 +221,7 @@ echo.
 REM 检查程序进程
 tasklist /FI "IMAGENAME eq %PROCESS_NAME%" 2>NUL | find /I /N "%PROCESS_NAME%">NUL
 if errorlevel 1 (
-    echo [✓] %PROCESS_NAME% 未运行
+    call :echo_green "[✓] %PROCESS_NAME% 未运行"
 ) else (
     call :echo_red "[X] 检测到进程正在运行"
     echo "   进程名称: %PROCESS_NAME%"
@@ -574,7 +574,7 @@ echo.
 REM 检查程序进程
 tasklist /FI "IMAGENAME eq %PROCESS_NAME%" 2>NUL | find /I /N "%PROCESS_NAME%">NUL
 if errorlevel 1 (
-    echo [✓] %PROCESS_NAME% 未运行
+    call :echo_green "[✓] %PROCESS_NAME% 未运行"
 ) else (
     call :echo_red "[X] 检测到进程正在运行"
     echo "   进程名称: %PROCESS_NAME%"
