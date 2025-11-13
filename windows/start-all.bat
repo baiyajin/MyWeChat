@@ -837,8 +837,10 @@ if exist "!LAUNCHER_PATH!" (
     echo.
     REM Note: -Verb RunAs will start new window, cannot use -NoNewWindow
     REM Launcher will display random process name in new window
-    REM Use call to expand variable properly
-    call powershell -Command "Start-Process -FilePath \"!LAUNCHER_PATH!\" -Verb RunAs"
+    REM Set environment variable for PowerShell to use
+    set "TEMP_LAUNCHER_PATH=!LAUNCHER_PATH!"
+    powershell -Command "$path = $env:TEMP_LAUNCHER_PATH; Start-Process -FilePath $path -Verb RunAs"
+    set "TEMP_LAUNCHER_PATH="
 ) else (
     echo "[*] 未找到启动器，将直接运行 app.exe"
     echo "[4.4] 正在以管理员权限运行程序..."
