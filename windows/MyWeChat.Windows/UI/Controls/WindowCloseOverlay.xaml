@@ -35,6 +35,9 @@
                 Margin="20"
                 HorizontalAlignment="Center"
                 VerticalAlignment="Center">
+            <Border.Clip>
+                <RectangleGeometry Rect="0,0,360,120" RadiusX="8" RadiusY="8"/>
+            </Border.Clip>
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="50"/>
@@ -46,7 +49,8 @@
                         Background="Transparent" 
                         CornerRadius="8,8,0,0"
                         BorderThickness="0,0,0,1"
-                        BorderBrush="#E5E5E5">
+                        BorderBrush="#E5E5E5"
+                        ClipToBounds="True">
                     <TextBlock Text="请确认关闭选择" 
                                FontSize="16" 
                                FontWeight="SemiBold"
@@ -59,7 +63,8 @@
                 <Border Grid.Row="1" 
                         Background="Transparent" 
                         CornerRadius="0,0,8,8"
-                        BorderThickness="0">
+                        BorderThickness="0"
+                        ClipToBounds="True">
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
@@ -85,7 +90,8 @@
                                         <Setter.Value>
                                             <ControlTemplate TargetType="Button">
                                                 <Border Background="{TemplateBinding Background}" 
-                                                        CornerRadius="0,0,0,8">
+                                                        CornerRadius="0,0,0,8"
+                                                        ClipToBounds="True">
                                                     <ContentPresenter HorizontalAlignment="Center" 
                                                                       VerticalAlignment="Center"/>
                                                 </Border>
@@ -154,7 +160,8 @@
                                         <Setter.Value>
                                             <ControlTemplate TargetType="Button">
                                                 <Border Background="{TemplateBinding Background}" 
-                                                        CornerRadius="0,0,8,0">
+                                                        CornerRadius="0,0,8,0"
+                                                        ClipToBounds="True">
                                                     <ContentPresenter HorizontalAlignment="Center" 
                                                                       VerticalAlignment="Center"/>
                                                 </Border>
