@@ -1,11 +1,111 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 
 namespace uniapp
 {
     class Program
     {
+        /// <summary>
+        /// 从文件加载进程名称列表
+        /// </summary>
+        private static List<string> LoadProcessNamesFromFile(string filePath)
+        {
+            List<string> processNames = new List<string>();
+            
+            try
+            {
+                if (!File.Exists(filePath))
+                {
+                    return processNames;
+                }
+                
+                string[] lines = File.ReadAllLines(filePath);
+                foreach (string line in lines)
+                {
+                    string trimmedLine = line.Trim();
+                    if (!string.IsNullOrEmpty(trimmedLine))
+                    {
+                        // 处理进程名称：移除或替换非法字符
+                        string sanitizedName = SanitizeProcessName(trimmedLine);
+                        if (!string.IsNullOrEmpty(sanitizedName))
+                        {
+                            processNames.Add(sanitizedName);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"读取进程名称文件失败: {ex.Message}");
+            }
+            
+            return processNames;
+        }
+        
+        /// <summary>
+        /// 清理进程名称，使其符合Windows文件名规范
+        /// </summary>
+        private static string SanitizeProcessName(string processName)
+        {
+            if (string.IsNullOrEmpty(processName))
+            {
+                return string.Empty;
+            }
+            
+            // 替换空格为下划线
+            string sanitized = processName.Replace(" ", "_");
+            
+            // 移除Windows文件名非法字符: < > : " / \ | ? *
+            char[] invalidChars = { '<', '>', ':', '"', '/', '\\', '|', '?', '*' };
+            foreach (char invalidChar in invalidChars)
+            {
+                sanitized = sanitized.Replace(invalidChar.ToString(), "");
+            }
+            
+            // 移除控制字符
+            sanitized = new string(sanitized.Where(c => !char.IsControl(c)).ToArray());
+            
+            // 确保不为空且长度合理
+            if (string.IsNullOrEmpty(sanitized) || sanitized.Length > 200)
+            {
+                return string.Empty;
+            }
+            
+            return sanitized;
+        }
+        
+        /// <summary>
+        /// 生成随机EXE文件名（从文件读取或生成随机字符串）
+        /// </summary>
+        private static string GetRandomExeName(string launcherDir)
+        {
+            // 尝试从文件读取进程名称
+            string processNamesFile = Path.Combine(launcherDir, "process_names.txt");
+            List<string> processNames = LoadProcessNamesFromFile(processNamesFile);
+            
+            if (processNames.Count > 0)
+            {
+                // 从文件中的进程名称随机选择一个
+                Random random = new Random();
+                int index = random.Next(processNames.Count);
+                string selectedName = processNames[index];
+                return selectedName + ".exe";
+            }
+            
+            // 如果文件读取失败或为空，回退到生成随机字符串
+            const string chars = "abcdefghijklmnopqrstuvwxyz0123456789";
+            Random fallbackRandom = new Random();
+            char[] name = new char[12];
+            for (int i = 0; i < 12; i++)
+            {
+                name[i] = chars[fallbackRandom.Next(chars.Length)];
+            }
+            return new string(name) + ".exe";
+        }
+
         static void Main(string[] args)
         {
             try
@@ -13,21 +113,42 @@ namespace uniapp
                 // 获取启动器所在目录
                 string launcherDir = AppDomain.CurrentDomain.BaseDirectory;
                 
-                // 主程序exe路径（与启动器同目录）
-                string mainExePath = Path.Combine(launcherDir, "MyWeChat.Windows.exe");
+                // 主程序exe路径（编译后的固定名称）
+                string sourceExePath = Path.Combine(launcherDir, "app.exe");
                 
-                if (!File.Exists(mainExePath))
+                if (!File.Exists(sourceExePath))
                 {
-                    Console.WriteLine($"错误: 找不到主程序: {mainExePath}");
+                    Console.WriteLine($"错误: 找不到主程序: {sourceExePath}");
                     Console.WriteLine("按任意键退出...");
                     Console.ReadKey();
                     return;
                 }
                 
-                // 启动主程序
+                // 生成随机文件名并复制主程序（反检测措施）
+                string randomExeName = GetRandomExeName(launcherDir);
+                string randomExePath = Path.Combine(launcherDir, randomExeName);
+                
+                try
+                {
+                    // 如果随机名称的文件已存在，先删除（可能是上次启动留下的）
+                    if (File.Exists(randomExePath))
+                    {
+                        File.Delete(randomExePath);
+                    }
+                    
+                    // 复制主程序为随机名称
+                    File.Copy(sourceExePath, randomExePath, true);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"复制主程序为随机文件名失败: {ex.Message}，将使用原始文件名");
+                    randomExePath = sourceExePath; // 回退到原始路径
+                }
+                
+                // 启动主程序（使用随机名称）
                 ProcessStartInfo startInfo = new ProcessStartInfo
                 {
-                    FileName = mainExePath,
+                    FileName = randomExePath,
                     WorkingDirectory = launcherDir,
                     UseShellExecute = true,
                     Verb = "runas" // 请求管理员权限
@@ -39,7 +160,48 @@ namespace uniapp
                     startInfo.Arguments = string.Join(" ", args);
                 }
                 
-                Process.Start(startInfo);
+                Process? process = Process.Start(startInfo);
+                
+                // 如果启动成功且使用了随机名称，等待进程启动后尝试删除临时文件
+                // 注意：不能立即删除，因为进程可能还在加载中
+                if (process != null && randomExePath != sourceExePath)
+                {
+                    // 在后台线程中等待进程启动后删除临时文件
+                    System.Threading.Tasks.Task.Run(() =>
+                    {
+                        try
+                        {
+                            // 等待进程完全启动（最多等待5秒）
+                            for (int i = 0; i < 50; i++)
+                            {
+                                System.Threading.Thread.Sleep(100);
+                                if (process.HasExited)
+                                {
+                                    break;
+                                }
+                                try
+                                {
+                                    // 尝试访问进程，确认已启动
+                                    _ = process.ProcessName;
+                                }
+                                catch
+                                {
+                                    continue;
+                                }
+                            }
+                            
+                            // 尝试删除临时文件（如果进程仍在运行，删除会失败，这是正常的）
+                            if (File.Exists(randomExePath))
+                            {
+                                File.Delete(randomExePath);
+                            }
+                        }
+                        catch
+                        {
+                            // 忽略删除失败（文件可能被进程锁定）
+                        }
+                    });
+                }
             }
             catch (Exception ex)
             {

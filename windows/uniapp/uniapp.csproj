@@ -9,5 +9,11 @@
     <Platforms>x86</Platforms>
     <ApplicationIcon>uniapp.ico</ApplicationIcon>
   </PropertyGroup>
+  
+  <ItemGroup>
+    <None Update="process_names.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
 </Project>
 
