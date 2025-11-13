@@ -824,9 +824,9 @@ echo.
 echo "[4.3] 检查启动器..."
 set "LAUNCHER_PATH="
 REM 从EXE_PATH提取目录路径并构建完整路径
-REM 先构建完整的EXE路径，然后提取其目录
+REM Build full EXE path and extract directory
 for %%F in ("%CD%\%EXE_PATH%") do (
-    REM %%~dpF 会返回绝对路径的目录部分（带反斜杠）
+    REM %%~dpF returns absolute path directory part (with backslash)
     set "LAUNCHER_PATH=%%~dpFuniapp.exe"
 )
 REM 检查启动器是否存在
