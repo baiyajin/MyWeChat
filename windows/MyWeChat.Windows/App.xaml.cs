@@ -61,7 +61,7 @@ namespace MyWeChat.Windows
             try
             {
                 string logDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Logs");
-                string diagnosticLog = Directory.GetFiles(logDir, "startup_diagnostic_*.txt")
+                string? diagnosticLog = Directory.GetFiles(logDir, "startup_diagnostic_*.txt")
                     .OrderByDescending(f => new FileInfo(f).CreationTime)
                     .FirstOrDefault();
                 if (!string.IsNullOrEmpty(diagnosticLog))
@@ -78,7 +78,7 @@ namespace MyWeChat.Windows
             try
             {
                 string logDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Logs");
-                string diagnosticLog = Directory.GetFiles(logDir, "startup_diagnostic_*.txt")
+                string? diagnosticLog = Directory.GetFiles(logDir, "startup_diagnostic_*.txt")
                     .OrderByDescending(f => new FileInfo(f).CreationTime)
                     .FirstOrDefault();
                 if (!string.IsNullOrEmpty(diagnosticLog))
@@ -94,7 +94,7 @@ namespace MyWeChat.Windows
                 try
                 {
                     string logDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Logs");
-                    string diagnosticLog = Directory.GetFiles(logDir, "startup_diagnostic_*.txt")
+                    string? diagnosticLog = Directory.GetFiles(logDir, "startup_diagnostic_*.txt")
                         .OrderByDescending(f => new FileInfo(f).CreationTime)
                         .FirstOrDefault();
                     if (!string.IsNullOrEmpty(diagnosticLog))
@@ -110,7 +110,7 @@ namespace MyWeChat.Windows
                 try
                 {
                     string logDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Logs");
-                    string diagnosticLog = Directory.GetFiles(logDir, "startup_diagnostic_*.txt")
+                    string? diagnosticLog = Directory.GetFiles(logDir, "startup_diagnostic_*.txt")
                         .OrderByDescending(f => new FileInfo(f).CreationTime)
                         .FirstOrDefault();
                     if (!string.IsNullOrEmpty(diagnosticLog))
@@ -126,7 +126,7 @@ namespace MyWeChat.Windows
                 try
                 {
                     string logDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Logs");
-                    string diagnosticLog = Directory.GetFiles(logDir, "startup_diagnostic_*.txt")
+                    string? diagnosticLog = Directory.GetFiles(logDir, "startup_diagnostic_*.txt")
                         .OrderByDescending(f => new FileInfo(f).CreationTime)
                         .FirstOrDefault();
                     if (!string.IsNullOrEmpty(diagnosticLog))
@@ -142,7 +142,7 @@ namespace MyWeChat.Windows
                 try
                 {
                     string logDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Logs");
-                    string diagnosticLog = Directory.GetFiles(logDir, "startup_diagnostic_*.txt")
+                    string? diagnosticLog = Directory.GetFiles(logDir, "startup_diagnostic_*.txt")
                         .OrderByDescending(f => new FileInfo(f).CreationTime)
                         .FirstOrDefault();
                     if (!string.IsNullOrEmpty(diagnosticLog))
