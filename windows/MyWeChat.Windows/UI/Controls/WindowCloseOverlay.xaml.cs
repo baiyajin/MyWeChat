@@ -191,21 +191,17 @@ namespace MyWeChat.Windows.UI.Controls
         {
             try
             {
+                // 隐藏遮罩层，不显示启动进度圆环，不影响用户操作
+                // 但保留进度更新功能，后台继续执行
                 ConfirmDialogBorder.Visibility = Visibility.Collapsed;
                 ProgressBorder.Visibility = Visibility.Collapsed;
-                StartupProgressBorder.Visibility = Visibility.Visible;
-                OverlayCanvas.Visibility = Visibility.Visible;
-                OverlayCanvas.IsHitTestVisible = false; // 进度显示时不可交互
-                OverlayCanvas.IsEnabled = false;
+                StartupProgressBorder.Visibility = Visibility.Collapsed; // 隐藏启动进度圆环
+                OverlayCanvas.Visibility = Visibility.Collapsed; // 隐藏遮罩层，允许用户操作
+                OverlayCanvas.IsHitTestVisible = true; // 允许交互
+                OverlayCanvas.IsEnabled = true;
                 
-                this.UpdateLayout();
-                OverlayCanvas.UpdateLayout();
-                
-                // 重置进度
+                // 仍然更新进度数据（虽然不显示），保持功能完整性
                 UpdateStartupProgress(0, 15, "准备启动...");
-                
-                this.InvalidateVisual();
-                OverlayCanvas.InvalidateVisual();
             }
             catch (Exception ex)
             {
