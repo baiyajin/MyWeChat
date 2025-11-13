@@ -83,7 +83,7 @@ namespace uniapp
         private static string GetRandomExeName(string launcherDir)
         {
             // 尝试从文件读取进程名称
-            string processNamesFile = Path.Combine(launcherDir, "process_names.txt");
+            string processNamesFile = System.IO.Path.Combine(launcherDir, "process_names.txt");
             List<string> processNames = LoadProcessNamesFromFile(processNamesFile);
             
             if (processNames.Count > 0)
@@ -114,7 +114,7 @@ namespace uniapp
                 string launcherDir = AppDomain.CurrentDomain.BaseDirectory;
                 
                 // 主程序exe路径（编译后的固定名称）
-                string sourceExePath = Path.Combine(launcherDir, "app.exe");
+                string sourceExePath = System.IO.Path.Combine(launcherDir, "app.exe");
                 
                 if (!File.Exists(sourceExePath))
                 {
@@ -126,7 +126,7 @@ namespace uniapp
                 
                 // 生成随机文件名并复制主程序（反检测措施）
                 string randomExeName = GetRandomExeName(launcherDir);
-                string randomExePath = Path.Combine(launcherDir, randomExeName);
+                string randomExePath = System.IO.Path.Combine(launcherDir, randomExeName);
                 
                 try
                 {
