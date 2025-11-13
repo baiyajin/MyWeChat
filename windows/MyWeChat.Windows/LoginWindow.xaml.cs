@@ -1003,6 +1003,9 @@ namespace MyWeChat.Windows
                 this.WindowState = WindowState.Minimized;
                 this.Hide();
             };
+            
+            // 初始化完成后，允许用户关闭窗口（显示关闭确认弹窗）
+            _startupProgressClosed = true;
         }
 
         /// <summary>
