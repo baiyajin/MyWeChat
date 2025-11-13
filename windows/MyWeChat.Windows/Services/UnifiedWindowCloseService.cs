@@ -278,11 +278,14 @@ namespace MyWeChat.Windows.Services
                     // 等待一小段时间让用户看到完成状态
                     await Task.Delay(300).ConfigureAwait(false);
 
-                    // 关闭窗口
+                    // 关闭窗口并确保应用完全退出
                     await _dispatcher.InvokeAsync(() =>
                     {
                         _overlay.HideOverlay();
                         _window.Close();
+                        
+                        // 确保应用完全退出（防止停留在后台进程）
+                        System.Windows.Application.Current.Shutdown();
                     });
                 }
                 catch (Exception ex)
@@ -290,12 +293,15 @@ namespace MyWeChat.Windows.Services
                     Logger.LogError($"关闭窗口时出错: {ex.Message}", ex);
                     UpdateProgress(100, $"关闭时出错: {ex.Message}");
 
-                    // 即使出错也关闭窗口
+                    // 即使出错也关闭窗口并确保应用完全退出
                     await Task.Delay(1000).ConfigureAwait(false);
                     await _dispatcher.InvokeAsync(() =>
                     {
                         _overlay.HideOverlay();
                         _window.Close();
+                        
+                        // 确保应用完全退出（防止停留在后台进程）
+                        System.Windows.Application.Current.Shutdown();
                     });
                 }
             });

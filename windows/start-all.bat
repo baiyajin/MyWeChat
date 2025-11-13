@@ -685,7 +685,7 @@ if !PDB_DELETED! equ 1 (
 )
 
 echo.
-echo "[2.5.3] 开始编译项目..."
+echo "[2.5.3] 开始编译主项目..."
 REM 使用 --no-incremental 选项强制完全重新编译，避免文件锁定问题
 dotnet build -c Debug --no-incremental
 set "BUILD_ERROR=!errorlevel!"
@@ -703,6 +703,61 @@ if !BUILD_ERROR! neq 0 (
     echo.
     pause
     exit /b 1
+)
+
+echo.
+echo "[2.5.4] 编译启动器项目（uniapp）..."
+cd /d "%~dp0uniapp"
+if exist "uniapp.csproj" (
+    dotnet build -c Debug --no-incremental
+    set "UNIAPP_BUILD_ERROR=!errorlevel!"
+    if !UNIAPP_BUILD_ERROR! neq 0 (
+        echo "[X] 警告: 启动器项目编译失败，将使用app.exe直接启动"
+    ) else (
+        echo "[OK] 启动器项目编译成功"
+    )
+) else (
+    echo "[X] 警告: 找不到启动器项目文件，将使用app.exe直接启动"
+)
+cd /d "%~dp0MyWeChat.Windows"
+
+echo.
+echo "[2.5.5] 复制启动器文件到输出目录..."
+set "OUTPUT_DIR=bin\x86\Debug\net9.0-windows"
+if not exist "%OUTPUT_DIR%" (
+    set "OUTPUT_DIR=bin\Debug\net9.0-windows"
+)
+if not exist "%OUTPUT_DIR%" (
+    set "OUTPUT_DIR=bin\Debug"
+)
+
+if exist "%~dp0uniapp\bin\x86\Debug\net9.0-windows\uniapp.exe" (
+    copy /Y "%~dp0uniapp\bin\x86\Debug\net9.0-windows\uniapp.exe" "%OUTPUT_DIR%\" >nul 2>&1
+    if exist "%OUTPUT_DIR%\uniapp.exe" (
+        echo "[OK] uniapp.exe 已复制到输出目录"
+    ) else (
+        echo "[X] 警告: 无法复制 uniapp.exe"
+    )
+) else if exist "%~dp0uniapp\bin\Debug\net9.0-windows\uniapp.exe" (
+    copy /Y "%~dp0uniapp\bin\Debug\net9.0-windows\uniapp.exe" "%OUTPUT_DIR%\" >nul 2>&1
+    if exist "%OUTPUT_DIR%\uniapp.exe" (
+        echo "[OK] uniapp.exe 已复制到输出目录"
+    ) else (
+        echo "[X] 警告: 无法复制 uniapp.exe"
+    )
+) else (
+    echo "[X] 警告: 找不到 uniapp.exe，将使用 app.exe 直接启动"
+)
+
+if exist "%~dp0uniapp\process_names.txt" (
+    copy /Y "%~dp0uniapp\process_names.txt" "%OUTPUT_DIR%\" >nul 2>&1
+    if exist "%OUTPUT_DIR%\process_names.txt" (
+        echo "[OK] process_names.txt 已复制到输出目录"
+    ) else (
+        echo "[X] 警告: 无法复制 process_names.txt"
+    )
+) else (
+    echo "[X] 警告: 找不到 process_names.txt"
 )
 
 echo.
@@ -807,8 +862,20 @@ echo "如果启动失败，请先安装 .NET Desktop Runtime"
 echo "下载地址: https://dotnet.microsoft.com/download/dotnet/9.0"
 echo.
 
-echo "[4.3] 正在以管理员权限运行程序..."
-powershell -Command "Start-Process '%CD%\%EXE_PATH%' -Verb RunAs"
+echo "[4.3] 检查启动器..."
+set "LAUNCHER_PATH="
+set "LAUNCHER_DIR=%CD%\%EXE_PATH%"
+for %%F in ("%LAUNCHER_DIR%") do set "LAUNCHER_DIR=%%~dpF"
+if exist "%LAUNCHER_DIR%uniapp.exe" (
+    set "LAUNCHER_PATH=%LAUNCHER_DIR%uniapp.exe"
+    echo "[✓] 找到启动器: uniapp.exe"
+    echo "[4.4] 正在以管理员权限运行启动器（将随机化进程名称）..."
+    powershell -Command "Start-Process '%LAUNCHER_PATH%' -Verb RunAs"
+) else (
+    echo "[!] 未找到启动器，将直接运行 app.exe"
+    echo "[4.4] 正在以管理员权限运行程序..."
+    powershell -Command "Start-Process '%CD%\%EXE_PATH%' -Verb RunAs"
+)
 set "START_ERROR=!errorlevel!"
 if !START_ERROR! equ 0 (
     echo "[OK] 程序已启动"

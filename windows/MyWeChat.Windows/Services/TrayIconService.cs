@@ -92,6 +92,9 @@ namespace MyWeChat.Windows.Services
             {
                 // 直接关闭窗口，触发正常的关闭流程
                 _window.Close();
+                
+                // 确保应用完全退出（防止停留在后台进程）
+                System.Windows.Application.Current.Shutdown();
             }
         }
 
