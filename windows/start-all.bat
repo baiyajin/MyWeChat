@@ -831,16 +831,15 @@ echo.
 echo "[4.3] 检查启动器..."
 set "LAUNCHER_PATH="
 REM 从EXE_PATH提取目录路径并构建完整路径
-for %%F in ("%EXE_PATH%") do (
-    set "LAUNCHER_DIR=%%~dpF"
-    set "LAUNCHER_DIR=%CD%\!LAUNCHER_DIR!"
-)
+for %%F in ("%EXE_PATH%") do set "LAUNCHER_DIR=%%~dpF"
+REM 构建完整路径（当前目录 + 相对路径）
+set "LAUNCHER_DIR=%CD%\%LAUNCHER_DIR%"
 REM 检查启动器是否存在
-if exist "!LAUNCHER_DIR!uniapp.exe" (
-    set "LAUNCHER_PATH=!LAUNCHER_DIR!uniapp.exe"
+if exist "%LAUNCHER_DIR%uniapp.exe" (
+    set "LAUNCHER_PATH=%LAUNCHER_DIR%uniapp.exe"
     echo "[✓] 找到启动器: uniapp.exe"
     echo "[4.4] 正在以管理员权限运行启动器（将随机化进程名称）..."
-    powershell -Command "Start-Process '!LAUNCHER_PATH!' -Verb RunAs"
+    powershell -Command "Start-Process '%LAUNCHER_PATH%' -Verb RunAs"
 ) else (
     echo "[!] 未找到启动器，将直接运行 app.exe"
     echo "[4.4] 正在以管理员权限运行程序..."
