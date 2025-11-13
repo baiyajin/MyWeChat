@@ -837,11 +837,13 @@ if exist "!LAUNCHER_PATH!" (
     echo.
     REM 注意：-Verb RunAs 会启动新窗口，无法使用 -NoNewWindow
     REM 启动器会在新窗口中显示随机进程名称信息
-    powershell -Command "Start-Process '!LAUNCHER_PATH!' -Verb RunAs"
+    REM 使用临时变量避免延迟扩展问题
+    set "TEMP_LAUNCHER=!LAUNCHER_PATH!"
+    powershell -Command "Start-Process -FilePath \"%TEMP_LAUNCHER%\" -Verb RunAs"
 ) else (
     echo "[*] 未找到启动器，将直接运行 app.exe"
     echo "[4.4] 正在以管理员权限运行程序..."
-    powershell -Command "Start-Process '%CD%\%EXE_PATH%' -Verb RunAs"
+    powershell -Command "Start-Process -FilePath \"%CD%\%EXE_PATH%\" -Verb RunAs"
 )
 set "START_ERROR=!errorlevel!"
 if !START_ERROR! equ 0 (
