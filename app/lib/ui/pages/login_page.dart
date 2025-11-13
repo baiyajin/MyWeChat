@@ -22,11 +22,15 @@ class _LoginPageState extends State<LoginPage> {
   bool _isLoading = false;
   String? _errorMessage;
   List<Map<String, dynamic>> _loginHistory = [];
+  bool _rememberAccount = false;
 
   @override
   void initState() {
     super.initState();
+    // 确保 _rememberAccount 始终有值
+    _rememberAccount = false;
     _loadLoginHistory();
+    _loadRememberedAccount();
   }
 
   @override
@@ -51,6 +55,43 @@ class _LoginPageState extends State<LoginPage> {
       }
     } catch (e) {
       print('加载登录历史失败: $e');
+    }
+  }
+
+  /// 加载记住的账号信息
+  Future<void> _loadRememberedAccount() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final rememberedPhone = prefs.getString('remembered_phone');
+      final rememberedLicenseKey = prefs.getString('remembered_license_key');
+      
+      if (rememberedPhone != null && rememberedLicenseKey != null) {
+        setState(() {
+          _phoneController.text = rememberedPhone;
+          _licenseKeyController.text = rememberedLicenseKey;
+          _rememberAccount = true;
+        });
+      }
+    } catch (e) {
+      print('加载记住的账号信息失败: $e');
+    }
+  }
+
+  /// 保存记住的账号信息
+  Future<void> _saveRememberedAccount(String phone, String licenseKey) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (_rememberAccount) {
+        await prefs.setString('remembered_phone', phone);
+        await prefs.setString('remembered_license_key', licenseKey);
+        print('已保存记住的账号信息');
+      } else {
+        await prefs.remove('remembered_phone');
+        await prefs.remove('remembered_license_key');
+        print('已清除记住的账号信息');
+      }
+    } catch (e) {
+      print('保存记住的账号信息失败: $e');
     }
   }
 
@@ -93,6 +134,34 @@ class _LoginPageState extends State<LoginPage> {
       });
     } catch (e) {
       print('保存登录历史失败: $e');
+    }
+  }
+
+  /// 删除登录历史
+  Future<void> _deleteLoginHistory(String wxid) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final historyJson = prefs.getString('login_history');
+      if (historyJson != null) {
+        final List<dynamic> decoded = jsonDecode(historyJson);
+        List<Map<String, dynamic>> historyList = decoded
+            .map((item) => item as Map<String, dynamic>)
+            .toList();
+        
+        // 移除指定wxid的记录
+        historyList.removeWhere((item) => item['wxid'] == wxid);
+        
+        final updatedJson = jsonEncode(historyList);
+        await prefs.setString('login_history', updatedJson);
+        
+        setState(() {
+          _loginHistory = historyList;
+        });
+        
+        print('已删除登录历史: $wxid');
+      }
+    } catch (e) {
+      print('删除登录历史失败: $e');
     }
   }
 
@@ -147,6 +216,9 @@ class _LoginPageState extends State<LoginPage> {
       final success = await wsService.login(phone, licenseKey);
       
       if (success) {
+        // 保存或清除记住的账号信息
+        await _saveRememberedAccount(phone, licenseKey);
+        
         // 登录成功后，根据手机号从服务器获取账号信息
         try {
           final accountInfo = await apiService.getAccountInfo(phone: phone);
@@ -404,7 +476,31 @@ class _LoginPageState extends State<LoginPage> {
                               ),
                             ),
                     ),
-                    const SizedBox(height: 30),
+                    const SizedBox(height: 16),
+                    
+                    // 记住账号复选框
+                    Row(
+                      children: [
+                        Checkbox(
+                          value: _rememberAccount,
+                          tristate: false,
+                          onChanged: (bool? value) {
+                            setState(() {
+                              _rememberAccount = value ?? false;
+                            });
+                          },
+                          activeColor: const Color(0xFF07C160),
+                        ),
+                        const Text(
+                          '记住账号',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Color(0xFF333333),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
                     
                     // 错误提示
                     if (_errorMessage != null)
@@ -468,43 +564,31 @@ class _LoginPageState extends State<LoginPage> {
     final avatar = account['avatar'] as String? ?? '';
     final nickname = account['nickname'] as String? ?? '未知';
     final phone = account['phone'] as String? ?? '';
+    final wxid = account['wxid'] as String? ?? '';
     
-    return InkWell(
-      onTap: () => _quickLogin(account),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-        margin: const EdgeInsets.only(bottom: 1),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          border: Border(
-            bottom: BorderSide(
-              color: Color(0xFFE5E5E5),
-              width: 0.5,
-            ),
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+      margin: const EdgeInsets.only(bottom: 1),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(
+          bottom: BorderSide(
+            color: Color(0xFFE5E5E5),
+            width: 0.5,
           ),
         ),
-        child: Row(
-          children: [
-            // 头像 - 微信风格（圆形）
-            ClipOval(
-              child: avatar.isNotEmpty
-                  ? CachedNetworkImage(
-                      imageUrl: avatar,
-                      width: 45,
-                      height: 45,
-                      fit: BoxFit.cover,
-                      errorWidget: (context, url, error) => Container(
-                        width: 45,
-                        height: 45,
-                        color: const Color(0xFF07C160),
-                        child: const Icon(
-                          Icons.person,
-                          color: Colors.white,
-                          size: 25,
-                        ),
-                      ),
-                    )
-                  : Container(
+      ),
+      child: Row(
+        children: [
+          // 头像 - 微信风格（圆形）
+          ClipOval(
+            child: avatar.isNotEmpty
+                ? CachedNetworkImage(
+                    imageUrl: avatar,
+                    width: 45,
+                    height: 45,
+                    fit: BoxFit.cover,
+                    errorWidget: (context, url, error) => Container(
                       width: 45,
                       height: 45,
                       color: const Color(0xFF07C160),
@@ -514,10 +598,23 @@ class _LoginPageState extends State<LoginPage> {
                         size: 25,
                       ),
                     ),
-            ),
-            const SizedBox(width: 12),
-            // 昵称和手机号
-            Expanded(
+                  )
+                : Container(
+                    width: 45,
+                    height: 45,
+                    color: const Color(0xFF07C160),
+                    child: const Icon(
+                      Icons.person,
+                      color: Colors.white,
+                      size: 25,
+                    ),
+                  ),
+          ),
+          const SizedBox(width: 12),
+          // 昵称和手机号 - 可点击区域
+          Expanded(
+            child: InkWell(
+              onTap: () => _quickLogin(account),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -541,14 +638,35 @@ class _LoginPageState extends State<LoginPage> {
                 ],
               ),
             ),
-            // 右箭头 - 微信风格
-            const Icon(
+          ),
+          // 删除按钮
+          IconButton(
+            icon: const Icon(
+              Icons.delete_outline,
+              color: Color(0xFF999999),
+              size: 20,
+            ),
+            onPressed: () {
+              if (wxid.isNotEmpty) {
+                _deleteLoginHistory(wxid);
+              }
+            },
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(
+              minWidth: 40,
+              minHeight: 40,
+            ),
+          ),
+          // 右箭头 - 微信风格
+          InkWell(
+            onTap: () => _quickLogin(account),
+            child: const Icon(
               Icons.chevron_right,
               color: Color(0xFFC7C7CC),
               size: 20,
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

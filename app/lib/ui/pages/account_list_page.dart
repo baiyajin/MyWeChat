@@ -1,6 +1,8 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/websocket_service.dart';
 import '../../services/api_service.dart';
 
@@ -118,9 +120,7 @@ class _AccountListPageState extends State<AccountListPage> {
     return Container(
       color: Colors.white,
       margin: const EdgeInsets.only(bottom: 1),
-      child: InkWell(
-        onTap: () => _showQuickLoginDialog(context, account),
-        child: Padding(
+      child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Row(
             children: [
@@ -169,68 +169,162 @@ class _AccountListPageState extends State<AccountListPage> {
                       ),
               ),
               const SizedBox(width: 12),
-              // 账号信息
+              // 账号信息 - 可点击区域
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            nickname,
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w500,
-                              color: Colors.black87,
+                child: InkWell(
+                  onTap: () => _showQuickLoginDialog(context, account),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              nickname,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w500,
+                                color: Colors.black87,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
                           ),
-                        ),
-                        if (isCurrent)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF07C160),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: const Text(
-                              '当前',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.white,
+                          if (isCurrent)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF07C160),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: const Text(
+                                '当前',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.white,
+                                ),
                               ),
                             ),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      phone.isNotEmpty ? phone : wxid,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey[600],
+                        ],
                       ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
+                      const SizedBox(height: 4),
+                      Text(
+                        phone.isNotEmpty ? phone : wxid,
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey[600],
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              // 删除按钮
+              IconButton(
+                icon: const Icon(
+                  Icons.delete_outline,
+                  color: Color(0xFF999999),
+                  size: 20,
+                ),
+                onPressed: () => _showDeleteDialog(context, account),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(
+                  minWidth: 40,
+                  minHeight: 40,
                 ),
               ),
               // 右箭头
-              Icon(
-                Icons.chevron_right,
-                color: Colors.grey[400],
+              InkWell(
+                onTap: () => _showQuickLoginDialog(context, account),
+                child: Icon(
+                  Icons.chevron_right,
+                  color: Colors.grey[400],
+                ),
               ),
             ],
           ),
-        ),
       ),
     );
+  }
+
+  /// 显示删除确认弹窗
+  Future<void> _showDeleteDialog(
+    BuildContext context,
+    Map<String, dynamic> account,
+  ) async {
+    final nickname = account['nickname']?.toString() ?? '未知';
+    final wxid = account['wxid']?.toString() ?? '';
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('删除账号'),
+        content: Text('确定要删除账号 "$nickname" 吗？\n删除后将从最近登录列表中移除。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.red,
+            ),
+            child: const Text('删除'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted && wxid.isNotEmpty) {
+      await _deleteLoginHistory(wxid);
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('已从最近登录列表中删除'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    }
+  }
+
+  /// 删除登录历史
+  Future<void> _deleteLoginHistory(String wxid) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final historyJson = prefs.getString('login_history');
+      if (historyJson != null) {
+        final List<dynamic> decoded = jsonDecode(historyJson);
+        List<Map<String, dynamic>> historyList = decoded
+            .map((item) => item as Map<String, dynamic>)
+            .toList();
+        
+        // 移除指定wxid的记录
+        historyList.removeWhere((item) => item['wxid'] == wxid);
+        
+        final updatedJson = jsonEncode(historyList);
+        await prefs.setString('login_history', updatedJson);
+        
+        print('已删除登录历史: $wxid');
+      }
+    } catch (e) {
+      print('删除登录历史失败: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('删除失败: $e'),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    }
   }
 
   /// 显示快速登录确认弹窗
