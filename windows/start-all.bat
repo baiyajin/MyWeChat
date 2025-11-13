@@ -833,7 +833,9 @@ REM 检查启动器是否存在
 if exist "!LAUNCHER_PATH!" (
     call :echo_green "[✓] 找到启动器: uniapp.exe"
     echo "[4.4] 正在以管理员权限运行启动器（将随机化进程名称）..."
-    powershell -Command "Start-Process '!LAUNCHER_PATH!' -Verb RunAs"
+    echo.
+    REM 使用 -NoNewWindow 参数显示启动器的控制台输出（包括随机进程名称）
+    powershell -Command "Start-Process '!LAUNCHER_PATH!' -Verb RunAs -NoNewWindow -Wait"
 ) else (
     echo "[*] 未找到启动器，将直接运行 app.exe"
     echo "[4.4] 正在以管理员权限运行程序..."

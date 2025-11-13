@@ -151,7 +151,8 @@ namespace uniapp
                     FileName = randomExePath,
                     WorkingDirectory = launcherDir,
                     UseShellExecute = true,
-                    Verb = "runas" // 请求管理员权限
+                    Verb = "runas", // 请求管理员权限
+                    WindowStyle = ProcessWindowStyle.Normal // 确保窗口显示
                 };
                 
                 // 传递命令行参数
@@ -161,6 +162,26 @@ namespace uniapp
                 }
                 
                 Process? process = Process.Start(startInfo);
+                
+                if (process != null)
+                {
+                    Console.WriteLine("========================================");
+                    Console.WriteLine("[成功] 程序已启动");
+                    Console.WriteLine("========================================");
+                    Console.WriteLine($"[信息] 随机进程名称: {randomExeName}");
+                    Console.WriteLine($"[信息] 进程ID: {process.Id}");
+                    Console.WriteLine($"[提示] 在任务管理器中查找进程名称: {randomExeName}");
+                    Console.WriteLine("========================================");
+                    Console.WriteLine();
+                    Console.WriteLine("启动器将在3秒后自动关闭...");
+                    System.Threading.Thread.Sleep(3000);
+                }
+                else
+                {
+                    Console.WriteLine("[错误] 程序启动失败");
+                    Console.WriteLine("按任意键退出...");
+                    Console.ReadKey();
+                }
                 
                 // 如果启动成功且使用了随机名称，不删除临时文件（保持进程名称为随机名称）
                 // 注意：删除临时文件会导致进程名称变回原始名称，影响反检测效果
