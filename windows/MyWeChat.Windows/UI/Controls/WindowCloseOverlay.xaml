@@ -26,23 +26,24 @@
         
         <!-- 关闭确认弹窗 - 使用Grid自动居中 -->
         <Border Name="ConfirmDialogBorder"
-                Background="#FFFFFF"
-                CornerRadius="8"
+                Background="Transparent"
                 BorderThickness="0"
-                BorderBrush="#E5E5E5"
                 Width="360"
                 Height="120"
                 Margin="20"
                 HorizontalAlignment="Center"
                 VerticalAlignment="Center">
-            <Border.Clip>
-                <RectangleGeometry Rect="0,0,360,120" RadiusX="8" RadiusY="8"/>
-            </Border.Clip>
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="50"/>
                     <RowDefinition Height="70"/>
                 </Grid.RowDefinitions>
+                
+                <!-- 圆角背景（底层） -->
+                <Border Background="#FFFFFF"
+                        CornerRadius="8"
+                        Grid.RowSpan="2"
+                        ClipToBounds="True"/>
                 
                 <!-- 标题栏 -->
                 <Border Grid.Row="0" 
