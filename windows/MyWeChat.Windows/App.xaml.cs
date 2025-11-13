@@ -1,7 +1,9 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Windows;
+using System.Security.Principal;
 using WinForms = System.Windows.Forms;
 using Newtonsoft.Json;
 using MyWeChat.Windows.Utils;
