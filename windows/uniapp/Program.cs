@@ -166,7 +166,7 @@ namespace uniapp
                 if (process != null)
                 {
                     // 等待一小段时间确保进程真正启动
-                    System.Threading.Thread.Sleep(500);
+                    System.Threading.Thread.Sleep(1000);
                     
                     // 检查进程是否还在运行
                     try
@@ -174,8 +174,38 @@ namespace uniapp
                         process.Refresh();
                         if (process.HasExited)
                         {
+                            Console.WriteLine("========================================");
                             Console.WriteLine("[错误] 程序启动后立即退出了");
+                            Console.WriteLine("========================================");
                             Console.WriteLine($"退出代码: {process.ExitCode}");
+                            Console.WriteLine($"随机进程名称: {randomExeName}");
+                            Console.WriteLine($"进程路径: {randomExePath}");
+                            Console.WriteLine();
+                            Console.WriteLine("可能的原因：");
+                            Console.WriteLine("1. 程序需要管理员权限但启动失败");
+                            Console.WriteLine("2. 程序启动时遇到异常");
+                            Console.WriteLine("3. 缺少必要的依赖文件");
+                            Console.WriteLine();
+                            Console.WriteLine("请检查日志文件：");
+                            Console.WriteLine($"  {Path.Combine(launcherDir, "Logs", "startup_diagnostic_*.txt")}");
+                            Console.WriteLine("按任意键退出...");
+                            Console.ReadKey();
+                            return;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"[警告] 检查进程状态时出错: {ex.Message}");
+                        // 继续执行，可能进程还在运行
+                    }
+                    
+                    // 再次确认进程是否还在运行
+                    try
+                    {
+                        Process? checkProcess = Process.GetProcessById(process.Id);
+                        if (checkProcess == null || checkProcess.HasExited)
+                        {
+                            Console.WriteLine("[错误] 进程已退出");
                             Console.WriteLine("按任意键退出...");
                             Console.ReadKey();
                             return;
@@ -183,7 +213,7 @@ namespace uniapp
                     }
                     catch
                     {
-                        // 进程可能已经退出，忽略异常
+                        Console.WriteLine("[警告] 无法确认进程状态，但继续执行...");
                     }
                     
                     Console.WriteLine("========================================");
@@ -191,11 +221,17 @@ namespace uniapp
                     Console.WriteLine("========================================");
                     Console.WriteLine($"[信息] 随机进程名称: {randomExeName}");
                     Console.WriteLine($"[信息] 进程ID: {process.Id}");
+                    Console.WriteLine($"[信息] 进程路径: {randomExePath}");
                     Console.WriteLine($"[提示] 在任务管理器中查找进程名称: {randomExeName}");
+                    Console.WriteLine();
+                    Console.WriteLine("如果看不到程序窗口，请检查：");
+                    Console.WriteLine("1. 任务管理器中是否有该进程");
+                    Console.WriteLine("2. 系统托盘是否有程序图标");
+                    Console.WriteLine($"3. 日志文件: {Path.Combine(launcherDir, "Logs")}");
                     Console.WriteLine("========================================");
                     Console.WriteLine();
-                    Console.WriteLine("启动器将在3秒后自动关闭...");
-                    System.Threading.Thread.Sleep(3000);
+                    Console.WriteLine("启动器将在5秒后自动关闭...");
+                    System.Threading.Thread.Sleep(5000);
                 }
                 else
                 {
