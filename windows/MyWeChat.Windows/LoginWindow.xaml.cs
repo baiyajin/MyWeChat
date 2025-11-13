@@ -32,6 +32,7 @@ namespace MyWeChat.Windows
         private List<AccountInfo> _loginHistory = new List<AccountInfo>();
         private readonly object _loginHistoryLock = new object();
         private string _loginHistoryFilePath;
+        private string _rememberedAccountFilePath;
         
         // 微信连接相关（使用全局单例服务）
         private CommandService? _commandService;
@@ -67,6 +68,7 @@ namespace MyWeChat.Windows
             this.Title = "w";
             _serverUrl = ConfigHelper.GetServerUrl();
             _loginHistoryFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "login_history.json");
+            _rememberedAccountFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "remembered_account.json");
             
             PhoneTextBox.IsEnabled = true;
             LicenseKeyTextBox.IsEnabled = true;
@@ -147,9 +149,10 @@ namespace MyWeChat.Windows
             {
                 try
                 {
-                    // 步骤1：加载登录历史
+                    // 步骤1：加载登录历史和记住的账号
                     Dispatcher.Invoke(() => CloseOverlay.UpdateStartupProgress(1, _totalSteps, "正在加载登录历史..."));
                     await LoadLoginHistoryAsync();
+                    await LoadRememberedAccountAsync();
                     
                     // 步骤2：初始化WebSocket连接
                     Dispatcher.Invoke(() => CloseOverlay.UpdateStartupProgress(2, _totalSteps, "正在初始化WebSocket连接..."));
@@ -413,6 +416,17 @@ namespace MyWeChat.Windows
             {
                 ShowError("请输入授权码");
                 return;
+            }
+
+            // 如果勾选了记住账号，保存账号和密码
+            if (RememberAccountCheckBox.IsChecked == true)
+            {
+                await SaveRememberedAccountAsync(phone, licenseKey);
+            }
+            else
+            {
+                // 如果取消勾选，删除保存的账号
+                await DeleteRememberedAccountAsync();
             }
 
             LoginButton.IsEnabled = false;
@@ -1284,6 +1298,112 @@ namespace MyWeChat.Windows
             {
                 Logger.LogError($"同步账号信息到服务器失败: {ex.Message}", ex);
             }
+        }
+
+        /// <summary>
+        /// 加载记住的账号信息
+        /// </summary>
+        private async Task LoadRememberedAccountAsync()
+        {
+            try
+            {
+                if (File.Exists(_rememberedAccountFilePath))
+                {
+                    string json = await Task.Run(() => File.ReadAllText(_rememberedAccountFilePath, Encoding.UTF8));
+                    var rememberedAccount = JsonConvert.DeserializeObject<RememberedAccount>(json);
+                    
+                    if (rememberedAccount != null && !string.IsNullOrEmpty(rememberedAccount.Phone) && !string.IsNullOrEmpty(rememberedAccount.LicenseKey))
+                    {
+                        await Dispatcher.InvokeAsync(() =>
+                        {
+                            PhoneTextBox.Text = rememberedAccount.Phone;
+                            LicenseKeyTextBox.Text = rememberedAccount.LicenseKey;
+                            RememberAccountCheckBox.IsChecked = true;
+                        });
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError($"加载记住的账号失败: {ex.Message}", ex);
+            }
+        }
+
+        /// <summary>
+        /// 保存记住的账号信息
+        /// </summary>
+        private async Task SaveRememberedAccountAsync(string phone, string licenseKey)
+        {
+            try
+            {
+                var rememberedAccount = new RememberedAccount
+                {
+                    Phone = phone,
+                    LicenseKey = licenseKey,
+                    SaveTime = DateTime.Now
+                };
+                
+                string json = JsonConvert.SerializeObject(rememberedAccount, Formatting.Indented);
+                await File.WriteAllTextAsync(_rememberedAccountFilePath, json, Encoding.UTF8);
+                Logger.LogInfo($"记住的账号已保存: {phone}");
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError($"保存记住的账号失败: {ex.Message}", ex);
+            }
+        }
+
+        /// <summary>
+        /// 删除记住的账号信息
+        /// </summary>
+        private async Task DeleteRememberedAccountAsync()
+        {
+            try
+            {
+                if (File.Exists(_rememberedAccountFilePath))
+                {
+                    await Task.Run(() => File.Delete(_rememberedAccountFilePath));
+                    Logger.LogInfo("记住的账号已删除");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError($"删除记住的账号失败: {ex.Message}", ex);
+            }
+        }
+
+        /// <summary>
+        /// 记住的账号数据模型
+        /// </summary>
+        private class RememberedAccount
+        {
+            public string Phone { get; set; } = "";
+            public string LicenseKey { get; set; } = "";
+            public DateTime SaveTime { get; set; }
+        }
+
+        /// <summary>
+        /// 记住账号复选框选中事件
+        /// </summary>
+        private void RememberAccountCheckBox_Checked(object sender, RoutedEventArgs e)
+        {
+            // 如果当前有输入账号密码，立即保存
+            string phone = PhoneTextBox.Text.Trim();
+            string licenseKey = LicenseKeyTextBox.Text.Trim();
+            
+            if (!string.IsNullOrEmpty(phone) && !string.IsNullOrEmpty(licenseKey))
+            {
+                _ = SaveRememberedAccountAsync(phone, licenseKey);
+            }
+        }
+
+        /// <summary>
+        /// 记住账号复选框取消选中事件
+        /// </summary>
+        private void RememberAccountCheckBox_Unchecked(object sender, RoutedEventArgs e)
+        {
+            // 删除保存的账号
+            _ = DeleteRememberedAccountAsync();
         }
 
         /// <summary>
