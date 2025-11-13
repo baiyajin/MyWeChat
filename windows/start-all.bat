@@ -197,15 +197,6 @@ if errorlevel 1 (
 )
 
 echo "[3/4] 诊断文件锁定问题..."
-echo.
-echo "复制失败的原因分析："
-echo "  1. 目标文件被其他进程占用（最常见）"
-echo "  2. 微信进程可能正在使用注入的DLL"
-echo "     导致PDB文件被锁定"
-echo "  3. 程序本身可能还在运行"
-echo "     占用编译输出文件"
-echo "  4. 文件权限问题（需要管理员权限）"
-echo.
 echo "正在检查可能占用文件的进程..."
 echo.
 
@@ -404,19 +395,6 @@ goto main_menu
 
 :all
 cls
-echo ========================================
-echo "    功能5: 全部执行 (1-2-3-4)"
-echo ========================================
-echo.
-echo "将按顺序执行以下步骤："
-echo.
-echo "   步骤1: 清理编译文件"
-echo "   步骤2: 编译项目"
-echo "   步骤3: 关闭程序"
-echo "   步骤4: 运行程序"
-echo.
-echo ========================================
-echo.
 
 REM 错误捕获：确保能看到错误信息
 set "ERROR_OCCURRED=0"
@@ -592,15 +570,6 @@ if errorlevel 1 (
 
 echo.
 echo "[2.3] 诊断文件锁定问题..."
-echo.
-echo "复制失败的原因分析："
-echo "  1. 目标文件被其他进程占用（最常见）"
-echo "  2. 微信进程可能正在使用注入的DLL"
-echo "     导致PDB文件被锁定"
-echo "  3. 程序本身可能还在运行"
-echo "     占用编译输出文件"
-echo "  4. 文件权限问题（需要管理员权限）"
-echo.
 echo "正在检查可能占用文件的进程..."
 echo.
 
@@ -857,20 +826,21 @@ echo "[✓] 找到: %EXE_PATH%"
 
 echo.
 echo "[4.2] 检查 .NET Desktop Runtime..."
-echo "注意: 程序需要 .NET Desktop Runtime 9.0.10 (x86)"
-echo "如果启动失败，请先安装 .NET Desktop Runtime"
-echo "下载地址: https://dotnet.microsoft.com/download/dotnet/9.0"
 echo.
 
 echo "[4.3] 检查启动器..."
 set "LAUNCHER_PATH="
-set "LAUNCHER_DIR=%CD%\%EXE_PATH%"
-for %%F in ("%LAUNCHER_DIR%") do set "LAUNCHER_DIR=%%~dpF"
-if exist "%LAUNCHER_DIR%uniapp.exe" (
-    set "LAUNCHER_PATH=%LAUNCHER_DIR%uniapp.exe"
+REM 从EXE_PATH提取目录路径并构建完整路径
+for %%F in ("%EXE_PATH%") do (
+    set "LAUNCHER_DIR=%%~dpF"
+    set "LAUNCHER_DIR=%CD%\!LAUNCHER_DIR!"
+)
+REM 检查启动器是否存在
+if exist "!LAUNCHER_DIR!uniapp.exe" (
+    set "LAUNCHER_PATH=!LAUNCHER_DIR!uniapp.exe"
     echo "[✓] 找到启动器: uniapp.exe"
     echo "[4.4] 正在以管理员权限运行启动器（将随机化进程名称）..."
-    powershell -Command "Start-Process '%LAUNCHER_PATH%' -Verb RunAs"
+    powershell -Command "Start-Process '!LAUNCHER_PATH!' -Verb RunAs"
 ) else (
     echo "[!] 未找到启动器，将直接运行 app.exe"
     echo "[4.4] 正在以管理员权限运行程序..."
