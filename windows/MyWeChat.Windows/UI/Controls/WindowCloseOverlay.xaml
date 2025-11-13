@@ -26,27 +26,27 @@
         
         <!-- 关闭确认弹窗 - 使用Grid自动居中 -->
         <Border Name="ConfirmDialogBorder"
-                Background="#F0FFFFFF"
-                CornerRadius="10"
-                BorderThickness="1"
+                Background="#FFFFFF"
+                CornerRadius="8"
+                BorderThickness="0"
                 BorderBrush="#E5E5E5"
                 Width="360"
-                Height="200"
+                Height="120"
                 Margin="20"
                 HorizontalAlignment="Center"
                 VerticalAlignment="Center">
             <Grid>
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="*"/>
-                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="50"/>
+                    <RowDefinition Height="70"/>
                 </Grid.RowDefinitions>
                 
                 <!-- 标题栏 -->
                 <Border Grid.Row="0" 
-                        Background="#F7F7F7" 
-                        CornerRadius="10,10,0,0"
-                        Height="50">
+                        Background="Transparent" 
+                        CornerRadius="8,8,0,0"
+                        BorderThickness="0,0,0,1"
+                        BorderBrush="#E5E5E5">
                     <TextBlock Text="请确认关闭选择" 
                                FontSize="16" 
                                FontWeight="SemiBold"
@@ -55,19 +55,11 @@
                                HorizontalAlignment="Center"/>
                 </Border>
                 
-                <!-- 内容区域 - 提示文字已移除，按钮已说明功能 -->
-                <StackPanel Grid.Row="1" 
-                            Margin="20,20,20,10"
-                            VerticalAlignment="Center">
-                    <!-- 提示文字已移除 -->
-                </StackPanel>
-                
                 <!-- 按钮区域 -->
-                <Border Grid.Row="2" 
-                        Background="#F7F7F7" 
-                        CornerRadius="0,0,10,10"
-                        BorderThickness="0,1,0,0"
-                        BorderBrush="#E5E5E5">
+                <Border Grid.Row="1" 
+                        Background="Transparent" 
+                        CornerRadius="0,0,8,8"
+                        BorderThickness="0">
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
@@ -93,7 +85,7 @@
                                         <Setter.Value>
                                             <ControlTemplate TargetType="Button">
                                                 <Border Background="{TemplateBinding Background}" 
-                                                        CornerRadius="0,0,0,10">
+                                                        CornerRadius="0,0,0,8">
                                                     <ContentPresenter HorizontalAlignment="Center" 
                                                                       VerticalAlignment="Center"/>
                                                 </Border>
@@ -162,7 +154,7 @@
                                         <Setter.Value>
                                             <ControlTemplate TargetType="Button">
                                                 <Border Background="{TemplateBinding Background}" 
-                                                        CornerRadius="0,0,10,0">
+                                                        CornerRadius="0,0,8,0">
                                                     <ContentPresenter HorizontalAlignment="Center" 
                                                                       VerticalAlignment="Center"/>
                                                 </Border>
