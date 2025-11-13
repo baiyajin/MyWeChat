@@ -290,7 +290,6 @@
                         
                         <!-- 登录按钮 - App端风格（绿色圆角按钮） -->
                         <Button Name="LoginButton" 
-                                Content="登录" 
                                 FontSize="16" 
                                 Padding="0,12"
                                 Height="44"
@@ -300,27 +299,67 @@
                                 Cursor="Hand"
                                 Click="LoginButton_Click"
                                 IsEnabled="True">
+                            <Button.Content>
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <!-- 等待图标（默认隐藏） -->
+                                    <Ellipse x:Name="LoadingSpinner" 
+                                             Width="16" 
+                                             Height="16" 
+                                             Margin="0,0,8,0"
+                                             Stroke="White"
+                                             StrokeThickness="2"
+                                             StrokeDashArray="3,3"
+                                             Visibility="Collapsed">
+                                        <Ellipse.RenderTransform>
+                                            <RotateTransform x:Name="LoadingSpinnerTransform"/>
+                                        </Ellipse.RenderTransform>
+                                        <Ellipse.Triggers>
+                                            <EventTrigger RoutedEvent="FrameworkElement.Loaded">
+                                                <BeginStoryboard>
+                                                    <Storyboard RepeatBehavior="Forever">
+                                                        <DoubleAnimation Storyboard.TargetName="LoadingSpinnerTransform"
+                                                                         Storyboard.TargetProperty="Angle"
+                                                                         From="0" To="360" Duration="0:0:1"/>
+                                                    </Storyboard>
+                                                </BeginStoryboard>
+                                            </EventTrigger>
+                                        </Ellipse.Triggers>
+                                    </Ellipse>
+                                    <!-- 登录文字 -->
+                                    <TextBlock Text="登录" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button.Content>
                             <Button.Style>
                                 <Style TargetType="Button">
                                     <Setter Property="Template">
                                         <Setter.Value>
                                             <ControlTemplate TargetType="Button">
-                                                <Border Background="{TemplateBinding Background}" 
+                                                <Border Name="ButtonBorder"
+                                                        Background="{TemplateBinding Background}" 
                                                         CornerRadius="4"
                                                         Padding="{TemplateBinding Padding}">
                                                     <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                                 </Border>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter TargetName="ButtonBorder" Property="Background" Value="#06AD56"/>
+                                                    </Trigger>
+                                                    <Trigger Property="IsPressed" Value="True">
+                                                        <Setter TargetName="ButtonBorder" Property="Background" Value="#059C4D"/>
+                                                        <Setter TargetName="ButtonBorder" Property="RenderTransform">
+                                                            <Setter.Value>
+                                                                <ScaleTransform ScaleX="0.98" ScaleY="0.98"/>
+                                                            </Setter.Value>
+                                                        </Setter>
+                                                        <Setter TargetName="ButtonBorder" Property="RenderTransformOrigin" Value="0.5,0.5"/>
+                                                    </Trigger>
+                                                    <Trigger Property="IsEnabled" Value="False">
+                                                        <Setter TargetName="ButtonBorder" Property="Background" Value="#B2E5B8"/>
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
                                             </ControlTemplate>
                                         </Setter.Value>
                                     </Setter>
-                                    <Style.Triggers>
-                                        <Trigger Property="IsMouseOver" Value="True">
-                                            <Setter Property="Background" Value="#06AD56"/>
-                                        </Trigger>
-                                        <Trigger Property="IsEnabled" Value="False">
-                                            <Setter Property="Background" Value="#B2E5B8"/>
-                                        </Trigger>
-                                    </Style.Triggers>
                                 </Style>
                             </Button.Style>
                         </Button>

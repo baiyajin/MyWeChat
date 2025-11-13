@@ -11,6 +11,8 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
+using System.Windows.Shapes;
 using System.Windows.Threading;
 using MyWeChat.Windows.Core.Connection;
 using MyWeChat.Windows.Models;
@@ -431,6 +433,9 @@ namespace MyWeChat.Windows
 
             LoginButton.IsEnabled = false;
             ErrorTextBlock.Visibility = Visibility.Collapsed;
+            
+            // 显示等待图标
+            ShowLoadingSpinner(true);
 
             try
             {
@@ -484,6 +489,8 @@ namespace MyWeChat.Windows
             }
             finally
             {
+                // 隐藏等待图标
+                ShowLoadingSpinner(false);
                 LoginButton.IsEnabled = true;
             }
         }
@@ -524,6 +531,53 @@ namespace MyWeChat.Windows
                     ShowError($"快速登录失败: {ex.Message}");
                 }
             }
+        }
+
+        /// <summary>
+        /// 显示/隐藏登录按钮的等待图标
+        /// </summary>
+        private void ShowLoadingSpinner(bool show)
+        {
+            Dispatcher.Invoke(() =>
+            {
+                if (LoginButton.Content is StackPanel stackPanel)
+                {
+                    foreach (var child in stackPanel.Children)
+                    {
+                        if (child is Ellipse ellipse)
+                        {
+                            if (show)
+                            {
+                                ellipse.Visibility = Visibility.Visible;
+                                // 启动旋转动画
+                                var transform = ellipse.RenderTransform as RotateTransform;
+                                if (transform != null)
+                                {
+                                    var animation = new DoubleAnimation
+                                    {
+                                        From = 0,
+                                        To = 360,
+                                        Duration = TimeSpan.FromSeconds(1),
+                                        RepeatBehavior = RepeatBehavior.Forever
+                                    };
+                                    transform.BeginAnimation(RotateTransform.AngleProperty, animation);
+                                }
+                            }
+                            else
+                            {
+                                ellipse.Visibility = Visibility.Collapsed;
+                                // 停止动画
+                                var transform = ellipse.RenderTransform as RotateTransform;
+                                if (transform != null)
+                                {
+                                    transform.BeginAnimation(RotateTransform.AngleProperty, null);
+                                }
+                            }
+                            break;
+                        }
+                    }
+                }
+            });
         }
 
         /// <summary>
