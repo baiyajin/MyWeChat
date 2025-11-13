@@ -47,7 +47,7 @@
                         Background="#F7F7F7" 
                         CornerRadius="10,10,0,0"
                         Height="50">
-                    <TextBlock Text="关闭确认" 
+                    <TextBlock Text="请确认关闭选择" 
                                FontSize="16" 
                                FontWeight="SemiBold"
                                Foreground="#333333"
