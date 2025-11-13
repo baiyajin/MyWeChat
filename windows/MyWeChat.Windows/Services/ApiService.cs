@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using MyWeChat.Windows.Models;
 using MyWeChat.Windows.Utils;
 using Newtonsoft.Json;
+using System.Net.Http.Headers;
 
 namespace MyWeChat.Windows.Services
 {
@@ -23,6 +24,8 @@ namespace MyWeChat.Windows.Services
             {
                 Timeout = TimeSpan.FromSeconds(30)
             };
+            // 设置请求头，标识支持加密
+            _httpClient.DefaultRequestHeaders.Add("X-Encryption", "AES-256-GCM");
         }
 
         /// <summary>
@@ -38,6 +41,23 @@ namespace MyWeChat.Windows.Services
                 if (response.IsSuccessStatusCode)
                 {
                     string json = await response.Content.ReadAsStringAsync();
+                    
+                    // 尝试解密响应（如果服务器返回加密数据）
+                    try
+                    {
+                        var responseObj = JsonConvert.DeserializeObject<dynamic>(json);
+                        if (responseObj != null && responseObj.encrypted == true && responseObj.data != null)
+                        {
+                            // 加密响应，需要解密
+                            string encryptedData = responseObj.data.ToString();
+                            json = EncryptionService.DecryptString(encryptedData);
+                        }
+                    }
+                    catch
+                    {
+                        // 解密失败或非加密响应，使用原始JSON
+                    }
+                    
                     var accountData = JsonConvert.DeserializeObject<dynamic>(json);
                     
                     if (accountData != null)
@@ -83,6 +103,23 @@ namespace MyWeChat.Windows.Services
                 if (response.IsSuccessStatusCode)
                 {
                     string json = await response.Content.ReadAsStringAsync();
+                    
+                    // 尝试解密响应（如果服务器返回加密数据）
+                    try
+                    {
+                        var responseObj = JsonConvert.DeserializeObject<dynamic>(json);
+                        if (responseObj != null && responseObj.encrypted == true && responseObj.data != null)
+                        {
+                            // 加密响应，需要解密
+                            string encryptedData = responseObj.data.ToString();
+                            json = EncryptionService.DecryptString(encryptedData);
+                        }
+                    }
+                    catch
+                    {
+                        // 解密失败或非加密响应，使用原始JSON
+                    }
+                    
                     var accountData = JsonConvert.DeserializeObject<dynamic>(json);
                     
                     if (accountData != null)

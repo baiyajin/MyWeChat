@@ -139,7 +139,40 @@ namespace MyWeChat.Windows.Utils
                 
                 string logEntry = $"[{entry.Timestamp:yyyy-MM-dd HH:mm:ss}] [{entry.Level}] {entry.Message}\n";
 
-                await File.AppendAllTextAsync(filePath, logEntry);
+                // 加密日志内容
+                try
+                {
+                    string encryptedLogEntry = EncryptionService.EncryptString(logEntry);
+                    await File.AppendAllTextAsync(filePath, encryptedLogEntry + "\n");
+                }
+                catch (Exception encryptEx)
+                {
+                    // 如果加密失败，回退到明文（避免递归调用 Logger.LogError）
+                    // 直接写入错误信息到文件
+                    try
+                    {
+                        string errorLog = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] [ERROR] 日志加密失败，使用明文: {encryptEx.Message}\n";
+                        await File.AppendAllTextAsync(filePath, errorLog);
+                        await File.AppendAllTextAsync(filePath, logEntry);
+                    }
+                    catch
+                    {
+                        // 如果写入也失败，忽略
+                    }
+                }
+
+                // 设置日志文件为隐藏属性
+                try
+                {
+                    if (File.Exists(filePath))
+                    {
+                        File.SetAttributes(filePath, File.GetAttributes(filePath) | FileAttributes.Hidden);
+                    }
+                }
+                catch
+                {
+                    // 忽略设置隐藏属性失败
+                }
             }
             catch
             {

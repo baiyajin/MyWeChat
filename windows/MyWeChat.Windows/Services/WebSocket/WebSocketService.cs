@@ -4,6 +4,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using MyWeChat.Windows.Utils;
+using Newtonsoft.Json;
 
 namespace MyWeChat.Windows.Services.WebSocket
 {
@@ -245,9 +246,30 @@ namespace MyWeChat.Windows.Services.WebSocket
                     Logger.LogWarning("WebSocket未初始化");
                     return false;
                 }
-                byte[] buffer = Encoding.UTF8.GetBytes(message);
+
+                // 加密消息内容
+                string encryptedMessage;
+                try
+                {
+                    encryptedMessage = EncryptionService.EncryptString(message);
+                }
+                catch (Exception encryptEx)
+                {
+                    Logger.LogError($"WebSocket消息加密失败: {encryptEx.Message}", encryptEx);
+                    return false;
+                }
+
+                // 包装为JSON格式，包含加密标识
+                var messageWrapper = new
+                {
+                    encrypted = true,
+                    data = encryptedMessage
+                };
+                string jsonMessage = Newtonsoft.Json.JsonConvert.SerializeObject(messageWrapper);
+
+                byte[] buffer = Encoding.UTF8.GetBytes(jsonMessage);
                 await _webSocket.SendAsync(new ArraySegment<byte>(buffer), WebSocketMessageType.Text, true, CancellationToken.None);
-                Logger.LogInfo($"WebSocket消息已发送: {message}");
+                Logger.LogInfo("WebSocket消息已发送（已加密）");
                 return true;
             }
             catch (Exception ex)
@@ -315,9 +337,34 @@ namespace MyWeChat.Windows.Services.WebSocket
                     }
                     else
                     {
-                        string message = Encoding.UTF8.GetString(buffer, 0, result.Count);
-                        Logger.LogInfo($"WebSocket收到消息: {message}");
-                        OnMessageReceived?.Invoke(this, message);
+                        string rawMessage = Encoding.UTF8.GetString(buffer, 0, result.Count);
+                        
+                        // 尝试解密消息
+                        string decryptedMessage;
+                        try
+                        {
+                            // 尝试解析为JSON格式（可能包含加密标识）
+                            var messageObj = Newtonsoft.Json.JsonConvert.DeserializeObject<dynamic>(rawMessage);
+                            if (messageObj != null && messageObj.encrypted == true && messageObj.data != null)
+                            {
+                                // 加密消息，需要解密
+                                string encryptedData = messageObj.data.ToString();
+                                decryptedMessage = EncryptionService.DecryptString(encryptedData);
+                            }
+                            else
+                            {
+                                // 非加密消息或格式不正确，直接使用原始消息
+                                decryptedMessage = rawMessage;
+                            }
+                        }
+                        catch
+                        {
+                            // 解析失败，可能是非JSON格式的明文消息，直接使用
+                            decryptedMessage = rawMessage;
+                        }
+
+                        Logger.LogInfo("WebSocket收到消息（已解密）");
+                        OnMessageReceived?.Invoke(this, decryptedMessage);
                     }
                 }
                 catch (OperationCanceledException)
