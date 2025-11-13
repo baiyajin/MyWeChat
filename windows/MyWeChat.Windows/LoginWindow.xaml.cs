@@ -1256,7 +1256,7 @@ namespace MyWeChat.Windows
                     return;
                 }
 
-                Logger.LogInfo($"开始同步我的信息到服务器: wxid={accountInfo.WeChatId}, nickname={accountInfo.NickName}");
+                Logger.LogInfo($"同步账号信息到服务器: wxid={accountInfo.WeChatId}, nickname={accountInfo.NickName}");
 
                 // 通过WebSocket发送到服务器（发送所有字段）
                 var syncData = new

@@ -146,8 +146,6 @@ namespace MyWeChat.Windows
         {
             try
             {
-                Logger.LogInfo("主窗口：MainWindow_Loaded 事件已触发");
-                
                 // 确保窗口标题为"w"（在Loaded事件中再次设置，确保覆盖任何默认值）
                 this.Title = "w";
                 
@@ -158,7 +156,6 @@ namespace MyWeChat.Windows
                     return;
                 }
                 
-                Logger.LogInfo("主窗口：开始初始化服务");
                 // 窗口加载完成后再初始化服务
                 InitializeServices();
             }
@@ -175,8 +172,6 @@ namespace MyWeChat.Windows
         /// </summary>
         private void InitializeServices()
         {
-            Logger.LogInfo("主窗口：InitializeServices 方法已调用");
-            
             // 使用锁防止多线程重复初始化
             lock (_initLock)
             {
@@ -187,7 +182,6 @@ namespace MyWeChat.Windows
                     return;
                 }
                 
-                Logger.LogInfo("主窗口：开始初始化服务（设置_isInitializing=true）");
                 _isInitializing = true;
             }
             
@@ -261,8 +255,6 @@ namespace MyWeChat.Windows
                         {
                             try
                             {
-                                Logger.LogInfo("主窗口初始化：开始查询账号信息");
-                                
                                 if (_apiService == null)
                                 {
                                     Logger.LogWarning("主窗口初始化：API服务未初始化，无法查询账号信息");
@@ -306,7 +298,7 @@ namespace MyWeChat.Windows
                                             // 更新显示
                                             UpdateAccountInfoDisplay();
                                             
-                                            Logger.LogInfo($"主窗口初始化：成功获取并显示账号信息: wxid={accountInfo.WeChatId}, nickname={accountInfo.NickName}");
+                                            Logger.LogInfo($"主窗口初始化：获取账号信息成功: wxid={accountInfo.WeChatId}, nickname={accountInfo.NickName}");
                                         }
                                     }));
                                     
@@ -323,7 +315,6 @@ namespace MyWeChat.Windows
                                         
                                         if (_webSocketService != null && _webSocketService.IsConnected)
                                         {
-                                            Logger.LogInfo($"主窗口初始化：推送账号信息到服务器: wxid={accountInfo.WeChatId}, nickname={accountInfo.NickName}");
                                             SyncMyInfoToServer(accountInfo);
                                         }
                                         else
@@ -334,35 +325,24 @@ namespace MyWeChat.Windows
                                 };
 
                                 // 第一步：优先通过待匹配的手机号查询账号信息
-                                Logger.LogInfo("主窗口初始化：获取待匹配手机号列表");
                                 List<string> pendingPhones = WeChatInitializationService.Instance.GetPendingPhones();
-                                Logger.LogInfo($"主窗口初始化：待匹配手机号列表数量: {pendingPhones.Count}");
                                 
                                 if (pendingPhones.Count > 0)
                                 {
-                                    Logger.LogInfo($"主窗口初始化：优先通过手机号查询账号信息，共{pendingPhones.Count}个手机号");
+                                    Logger.LogInfo($"主窗口初始化：通过手机号查询账号信息（共{pendingPhones.Count}个）");
                                     
                                     bool foundByPhone = false;
                                     foreach (string phone in pendingPhones)
                                     {
                                         try
                                         {
-                                            Logger.LogInfo($"主窗口初始化：通过手机号查询账号信息: phone={phone}");
                                             var accountInfo = await _apiService.GetAccountInfoByPhoneAsync(phone);
                                             if (accountInfo != null && !string.IsNullOrEmpty(accountInfo.WeChatId))
                                             {
-                                                Logger.LogInfo($"主窗口初始化：通过手机号找到账号信息: wxid={accountInfo.WeChatId}, nickname={accountInfo.NickName}");
-                                                
                                                 _loggedInWxid = accountInfo.WeChatId;
                                                 updateAccountInfo(accountInfo);
                                                 foundByPhone = true;
-                                                
-                                                // 找到账号信息后，跳出循环
                                                 break;
-                                            }
-                                            else
-                                            {
-                                                Logger.LogInfo($"主窗口初始化：通过手机号未找到账号信息: phone={phone}");
                                             }
                                         }
                                         catch (Exception ex)
@@ -371,23 +351,17 @@ namespace MyWeChat.Windows
                                         }
                                     }
                                     
-                                    // 如果通过手机号找到了账号信息，直接返回，不再执行后续查询
                                     if (foundByPhone)
                                     {
-                                        Logger.LogInfo("主窗口初始化：通过手机号成功获取账号信息，不再执行后续查询");
                                         return;
                                     }
-                                }
-                                else
-                                {
-                                    Logger.LogInfo("主窗口初始化：没有待匹配的手机号");
                                 }
                                 
                                 // 第二步：如果通过手机号没有找到，尝试通过wxid查询（作为备用方案）
                                 string? currentWxid = weChatManager.CurrentWxid;
                                 if (!string.IsNullOrEmpty(currentWxid) && !IsProcessId(currentWxid))
                                 {
-                                    Logger.LogInfo($"主窗口初始化：通过手机号未找到账号信息，尝试通过wxid查询: wxid={currentWxid}");
+                                    Logger.LogInfo($"主窗口初始化：通过wxid查询账号信息: wxid={currentWxid}");
                                     _loggedInWxid = currentWxid;
                                     
                                     try
@@ -395,13 +369,8 @@ namespace MyWeChat.Windows
                                         var accountInfo = await _apiService.GetAccountInfoAsync(currentWxid);
                                         if (accountInfo != null)
                                         {
-                                            Logger.LogInfo($"主窗口初始化：通过wxid找到账号信息: wxid={accountInfo.WeChatId}, nickname={accountInfo.NickName}");
                                             updateAccountInfo(accountInfo);
                                             return;
-                                        }
-                                        else
-                                        {
-                                            Logger.LogWarning($"主窗口初始化：通过wxid未找到账号信息: wxid={currentWxid}");
                                         }
                                     }
                                     catch (Exception ex)
@@ -409,14 +378,9 @@ namespace MyWeChat.Windows
                                         Logger.LogError($"主窗口初始化：通过wxid查询账号信息失败: {ex.Message}", ex);
                                     }
                                 }
-                                else
-                                {
-                                    Logger.LogInfo("主窗口初始化：没有有效的wxid，跳过wxid查询");
-                                }
                                 
                                 // 第三步：如果都没有找到，等待1112回调获取账号信息
-                                Logger.LogInfo("主窗口初始化：通过手机号和wxid都未找到账号信息，等待1112回调获取账号信息");
-                                Logger.LogInfo("主窗口初始化：1112回调监听会一直运行，确保后续字段更新能及时同步到服务器");
+                                Logger.LogInfo("主窗口初始化：未找到账号信息，等待1112回调");
                             }
                             catch (Exception ex)
                             {
@@ -899,15 +863,11 @@ namespace MyWeChat.Windows
                     return;
                 }
                 
-                Logger.LogInfo($"更新账号信息显示: clientId={clientId}, 账号列表数量={_accountList.Count}, 连接状态={weChatManager?.IsConnected ?? false}");
-                
                 AccountInfo? currentAccount = null;
                 
                 // 优先查找有真正wxid的账号（不是进程ID）
                 foreach (var account in _accountList)
                 {
-                    Logger.LogInfo($"检查账号: WeChatId={account.WeChatId}, NickName={account.NickName}, Avatar={(!string.IsNullOrEmpty(account.Avatar) ? "有头像" : "无头像")}");
-                    
                     // 优先匹配有真正wxid的账号（不是纯数字的进程ID）
                     if (IsRealWeChatId(account.WeChatId))
                     {
@@ -916,7 +876,6 @@ namespace MyWeChat.Windows
                             (!string.IsNullOrEmpty(account.NickName) && !string.IsNullOrEmpty(account.Avatar)))
                         {
                             currentAccount = account;
-                            Logger.LogInfo($"找到匹配账号: WeChatId={account.WeChatId}, NickName={account.NickName}");
                         }
                     }
                 }
@@ -929,7 +888,6 @@ namespace MyWeChat.Windows
                         if (!string.IsNullOrEmpty(account.NickName))
                         {
                             currentAccount = account;
-                            Logger.LogInfo($"找到有昵称的账号: WeChatId={account.WeChatId}, NickName={account.NickName}");
                             break;
                         }
                     }
@@ -943,7 +901,6 @@ namespace MyWeChat.Windows
                         if (!string.IsNullOrEmpty(account.WeChatId) && IsRealWeChatId(account.WeChatId))
                         {
                             currentAccount = account;
-                            Logger.LogInfo($"找到有wxid的账号: WeChatId={account.WeChatId}, NickName={account.NickName ?? "无昵称"}");
                             break;
                         }
                     }
@@ -951,7 +908,6 @@ namespace MyWeChat.Windows
 
                 if (currentAccount != null)
                 {
-                    Logger.LogInfo($"更新账号信息显示: NickName={currentAccount.NickName}, Avatar={(!string.IsNullOrEmpty(currentAccount.Avatar) ? "有头像" : "无头像")}");
                     
                     // 更新UI显示
                     Dispatcher.Invoke(() =>
@@ -2251,11 +2207,7 @@ namespace MyWeChat.Windows
                     return;
                 }
 
-                Logger.LogInfo($"========== 开始同步我的信息到服务器 ==========");
-                Logger.LogInfo($"wxid: {accountInfo.WeChatId}");
-                Logger.LogInfo($"nickname: {accountInfo.NickName}");
-                Logger.LogInfo($"phone: {accountInfo.Phone}");
-                Logger.LogInfo($"avatar: {(!string.IsNullOrEmpty(accountInfo.Avatar) ? "有头像" : "无头像")}");
+                Logger.LogInfo($"同步账号信息到服务器: wxid={accountInfo.WeChatId}, nickname={accountInfo.NickName}");
 
                 // 通过WebSocket发送到服务器（发送所有字段）
                 var syncData = new
@@ -2278,8 +2230,6 @@ namespace MyWeChat.Windows
                 };
 
                 _ = _webSocketService?.SendMessageAsync(syncData);
-
-                Logger.LogInfo($"========== 我的信息同步完成（已发送所有字段到服务器） ==========");
             }
             catch (Exception ex)
             {

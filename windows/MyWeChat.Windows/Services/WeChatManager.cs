@@ -681,12 +681,7 @@ namespace MyWeChat.Windows.Services
                             int pid = 0;
                             int.TryParse(loginInfo.pid?.ToString() ?? "0", out pid);
                             
-                            Logger.LogInfo($"[全局服务] ========== 收到微信账号数据（1112回调） ==========");
-                            Logger.LogInfo($"[全局服务] wxid: {wxid}");
-                            Logger.LogInfo($"[全局服务] nickname: {nickname}");
-                            Logger.LogInfo($"[全局服务] avatar: {avatar}");
-                            Logger.LogInfo($"[全局服务] account: {account}");
-                            Logger.LogInfo($"[全局服务] phone: {phone}");
+                            Logger.LogInfo($"[全局服务] 收到微信账号数据（1112回调）: wxid={wxid}, nickname={nickname}, account={account}");
 
                             // 创建AccountInfo对象
                             var accountInfo = new AccountInfo
