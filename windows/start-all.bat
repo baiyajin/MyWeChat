@@ -38,17 +38,17 @@ REM 颜色输出辅助函数
 REM ========================================
 REM 输出绿色文本（成功/OK）
 :echo_green
-powershell -Command "Write-Host '%~1' -ForegroundColor Green"
+powershell -Command "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; Write-Host \"%~1\" -ForegroundColor Green"
 goto :eof
 
 REM 输出红色文本（错误/失败）
 :echo_red
-powershell -Command "Write-Host '%~1' -ForegroundColor Red"
+powershell -Command "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; Write-Host \"%~1\" -ForegroundColor Red"
 goto :eof
 
 REM 输出橙色文本（警告）
 :echo_yellow
-powershell -Command "Write-Host '%~1' -ForegroundColor DarkYellow"
+powershell -Command "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; Write-Host \"%~1\" -ForegroundColor DarkYellow"
 goto :eof
 
 REM 查找可执行文件的函数
