@@ -26,7 +26,7 @@ MyWeChat 是一个基于微信客户端的Hook工具集，通过三端协同工�
     <p><strong>App端（移动应用）</strong><br/>登录界面 - 支持手机号登录和最近登录账号快速选择</p>
   </div>
   <div style="text-align: center;">
-<img width="383" height="290" alt="image" src="https://github.com/user-attachments/assets/6a682ae8-9cf2-400e-9acd-9279e05ee34b" />
+<img width="383" height="290" alt="image" src="https://github.com/user-attachments/assets/893a2b9c-bfc0-463b-a30c-bb476e5f7e76" />
     <p><strong>Windows端（Hook客户端）</strong><br/>主界面 - 显示账号信息、连接状态和日志</p>
   </div>
 </div>
