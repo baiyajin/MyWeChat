@@ -162,46 +162,9 @@ namespace uniapp
                 
                 Process? process = Process.Start(startInfo);
                 
-                // 如果启动成功且使用了随机名称，等待进程启动后尝试删除临时文件
-                // 注意：不能立即删除，因为进程可能还在加载中
-                if (process != null && randomExePath != sourceExePath)
-                {
-                    // 在后台线程中等待进程启动后删除临时文件
-                    System.Threading.Tasks.Task.Run(() =>
-                    {
-                        try
-                        {
-                            // 等待进程完全启动（最多等待5秒）
-                            for (int i = 0; i < 50; i++)
-                            {
-                                System.Threading.Thread.Sleep(100);
-                                if (process.HasExited)
-                                {
-                                    break;
-                                }
-                                try
-                                {
-                                    // 尝试访问进程，确认已启动
-                                    _ = process.ProcessName;
-                                }
-                                catch
-                                {
-                                    continue;
-                                }
-                            }
-                            
-                            // 尝试删除临时文件（如果进程仍在运行，删除会失败，这是正常的）
-                            if (File.Exists(randomExePath))
-                            {
-                                File.Delete(randomExePath);
-                            }
-                        }
-                        catch
-                        {
-                            // 忽略删除失败（文件可能被进程锁定）
-                        }
-                    });
-                }
+                // 如果启动成功且使用了随机名称，不删除临时文件（保持进程名称为随机名称）
+                // 注意：删除临时文件会导致进程名称变回原始名称，影响反检测效果
+                // 临时文件将在进程退出后由系统自动清理，或由用户手动清理
             }
             catch (Exception ex)
             {

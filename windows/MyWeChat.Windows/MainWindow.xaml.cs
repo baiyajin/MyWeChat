@@ -96,8 +96,7 @@ namespace MyWeChat.Windows
             _accountList = new ObservableCollection<AccountInfo>();
             _loggedInWxid = wxid;
             
-            // 设置窗口图标（使用uniapp.ico）
-            SetWindowIcon();
+            // 不设置窗口图标（反检测措施）
             
             // 延迟初始化服务，避免在构造函数中初始化导致崩溃
             UpdateUI();
