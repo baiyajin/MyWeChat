@@ -835,11 +835,10 @@ if exist "!LAUNCHER_PATH!" (
     echo "[4.4] 正在以管理员权限运行启动器（将随机化进程名称）..."
     echo "[提示] 启动器窗口将显示随机进程名称，请查看弹出的窗口"
     echo.
-    REM 注意：-Verb RunAs 会启动新窗口，无法使用 -NoNewWindow
-    REM 启动器会在新窗口中显示随机进程名称信息
-    REM 使用临时变量避免延迟扩展问题
-    set "TEMP_LAUNCHER=!LAUNCHER_PATH!"
-    powershell -Command "Start-Process -FilePath \"%TEMP_LAUNCHER%\" -Verb RunAs"
+    REM Note: -Verb RunAs will start new window, cannot use -NoNewWindow
+    REM Launcher will display random process name in new window
+    REM Use call to expand variable properly
+    call powershell -Command "Start-Process -FilePath \"!LAUNCHER_PATH!\" -Verb RunAs"
 ) else (
     echo "[*] 未找到启动器，将直接运行 app.exe"
     echo "[4.4] 正在以管理员权限运行程序..."
