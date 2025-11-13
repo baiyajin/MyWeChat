@@ -350,7 +350,7 @@ namespace MyWeChat.Windows.Core.Hook
                         else
                         {
                             // 微信未运行，且不允许自动启动
-                            string errorMsg = "微信进程未运行，请先手动启动微信，或点击"登录微信"按钮";
+                            string errorMsg = "微信进程未运行，请先手动启动微信，或点击\"登录微信\"按钮";
                             Logger.LogWarning(errorMsg);
                             OnProgressUpdate?.Invoke(this, (4, 15, "微信未运行，请手动启动"));
                             throw new InvalidOperationException(errorMsg);
