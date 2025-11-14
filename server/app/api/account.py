@@ -42,7 +42,7 @@ async def get_account_info(request: Request, wxid: Optional[str] = None, phone: 
             if session_id:
                 # 使用HTTP会话密钥加密
                 try:
-                    account_dict = account_data.model_dump()
+                    account_dict = account_data.model_dump(mode='json')
                     account_json = json.dumps(account_dict, ensure_ascii=False)
                     encrypted_data = encryption_service.encrypt_string_for_http(session_id, account_json)
                     return {
@@ -57,7 +57,7 @@ async def get_account_info(request: Request, wxid: Optional[str] = None, phone: 
             encryption_header = request.headers.get("X-Encryption")
             if encryption_header:
                 # 客户端要求加密响应（使用固定密钥）
-                account_dict = account_data.model_dump()
+                account_dict = account_data.model_dump(mode='json')
                 account_json = json.dumps(account_dict, ensure_ascii=False)
                 encrypted_data = encryption_service.encrypt_string_for_log(account_json)
                 return {
@@ -87,7 +87,7 @@ async def get_all_accounts(request: Request, limit: int = 100, offset: int = 0):
             if session_id:
                 # 使用HTTP会话密钥加密
                 try:
-                    accounts_list = [account.model_dump() for account in accounts_data]
+                    accounts_list = [account.model_dump(mode='json') for account in accounts_data]
                     accounts_json = json.dumps(accounts_list, ensure_ascii=False)
                     encrypted_data = encryption_service.encrypt_string_for_http(session_id, accounts_json)
                     return {
@@ -102,7 +102,7 @@ async def get_all_accounts(request: Request, limit: int = 100, offset: int = 0):
             encryption_header = request.headers.get("X-Encryption")
             if encryption_header:
                 # 客户端要求加密响应（使用固定密钥）
-                accounts_list = [account.model_dump() for account in accounts_data]
+                accounts_list = [account.model_dump(mode='json') for account in accounts_data]
                 accounts_json = json.dumps(accounts_list, ensure_ascii=False)
                 encrypted_data = encryption_service.encrypt_string_for_log(accounts_json)
                 return {

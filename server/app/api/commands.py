@@ -19,6 +19,13 @@ import base64
 router = APIRouter()
 
 
+def json_serial(obj):
+    """JSON序列化辅助函数，处理datetime对象"""
+    if isinstance(obj, datetime):
+        return obj.isoformat()
+    raise TypeError(f"Type {type(obj)} not serializable")
+
+
 @router.post("/commands", response_model=CommandResponse)
 async def create_command(request: Request):
     """创建命令（App端发送命令）"""
@@ -40,7 +47,7 @@ async def create_command(request: Request):
                 command = Command(
                     command_id=command_id,
                     command_type=command_request.command_type,
-                    command_data=json.dumps(command_request.command_data),
+                    command_data=json.dumps(command_request.command_data, default=json_serial),
                     target_we_chat_id=command_request.target_we_chat_id,
                     status="pending"
                 )
@@ -152,7 +159,7 @@ async def update_command_result(command_id: str, request: Request):
                             
                             # 更新结果，包含解密后的日志内容
                             result_json["decrypted_log_content"] = "\n".join(decrypted_log_lines)
-                            result_data = json.dumps(result_json, ensure_ascii=False)
+                            result_data = json.dumps(result_json, ensure_ascii=False, default=json_serial)
                     except Exception as e:
                         print(f"处理get_logs命令结果失败: {e}")
                         # 如果解密失败，使用原始结果
