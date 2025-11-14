@@ -1,4 +1,9 @@
 using System;
+using System.IO;
+using System.Linq;
+using System.Net.Http;
+using System.Text;
+using System.Threading.Tasks;
 using Newtonsoft.Json;
 using MyWeChat.Windows.Core.Connection;
 using MyWeChat.Windows.Models;
@@ -16,6 +21,7 @@ namespace MyWeChat.Windows.Services
         private ContactSyncService? _contactSyncService;
         private MomentsSyncService? _momentsSyncService;
         private TagSyncService? _tagSyncService;
+        private string? _serverUrl; // 服务器地址，用于返回命令结果
 
         // 命令ID定义
         private const int CMD_SEND_TEXT = 11132;
@@ -30,6 +36,14 @@ namespace MyWeChat.Windows.Services
         public CommandService(WeChatConnectionManager connectionManager)
         {
             _connectionManager = connectionManager;
+        }
+
+        /// <summary>
+        /// 设置服务器地址（用于返回命令结果）
+        /// </summary>
+        public void SetServerUrl(string serverUrl)
+        {
+            _serverUrl = serverUrl?.TrimEnd('/');
         }
 
         /// <summary>
@@ -101,6 +115,11 @@ namespace MyWeChat.Windows.Services
                         break;
                     case "sync_tags":
                         result = HandleSyncTags(command);
+                        break;
+                    case "get_logs":
+                        // get_logs命令需要异步处理，立即返回true，结果通过API返回
+                        _ = Task.Run(async () => await HandleGetLogsAsync(command));
+                        result = true;
                         break;
                     default:
                         Logger.LogWarning($"未知的命令类型: {command.CommandType}");
@@ -391,6 +410,105 @@ namespace MyWeChat.Windows.Services
             {
                 Logger.LogError($"处理同步标签列表命令失败: {ex.Message}", ex);
                 return false;
+            }
+        }
+
+        /// <summary>
+        /// 处理获取日志命令
+        /// </summary>
+        private async Task HandleGetLogsAsync(CommandInfo command)
+        {
+            try
+            {
+                Logger.LogInfo("收到获取日志命令");
+
+                // 获取日志目录
+                string logDirectory = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Logs");
+                if (!Directory.Exists(logDirectory))
+                {
+                    await ReturnCommandResultAsync(command.CommandId, "error", "日志目录不存在");
+                    return;
+                }
+
+                // 获取最新的日志文件（按日期排序）
+                var logFiles = Directory.GetFiles(logDirectory, "log_*.txt")
+                    .Select(f => new FileInfo(f))
+                    .OrderByDescending(f => f.CreationTime)
+                    .ToList();
+
+                if (logFiles.Count == 0)
+                {
+                    await ReturnCommandResultAsync(command.CommandId, "error", "没有找到日志文件");
+                    return;
+                }
+
+                // 读取最新的日志文件（保持加密状态）
+                var latestLogFile = logFiles[0];
+                string encryptedLogContent = await File.ReadAllTextAsync(latestLogFile.FullName);
+
+                // 获取机器特征（用于服务端生成密钥）
+                string machineId = KeyDerivationService.GetMachineId();
+
+                // 构建返回结果
+                var result = new
+                {
+                    log_file_name = latestLogFile.Name,
+                    encrypted_log_content = encryptedLogContent,
+                    machine_id = machineId
+                };
+
+                string resultJson = JsonConvert.SerializeObject(result);
+                await ReturnCommandResultAsync(command.CommandId, "completed", resultJson);
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError($"处理获取日志命令失败: {ex.Message}", ex);
+                await ReturnCommandResultAsync(command.CommandId, "error", $"获取日志失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 返回命令执行结果到服务器
+        /// </summary>
+        private async Task ReturnCommandResultAsync(string commandId, string status, string result)
+        {
+            if (string.IsNullOrEmpty(_serverUrl) || string.IsNullOrEmpty(commandId))
+            {
+                Logger.LogWarning("服务器地址或命令ID为空，无法返回命令结果");
+                return;
+            }
+
+            try
+            {
+                using (var httpClient = new HttpClient())
+                {
+                    httpClient.Timeout = TimeSpan.FromSeconds(30);
+
+                    string url = $"{_serverUrl}/api/commands/{commandId}/result";
+                    var requestBody = new
+                    {
+                        status = status,
+                        result = result
+                    };
+
+                    string json = JsonConvert.SerializeObject(requestBody);
+                    var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+                    HttpResponseMessage response = await httpClient.PostAsync(url, content);
+                    
+                    if (response.IsSuccessStatusCode)
+                    {
+                        Logger.LogInfo($"命令结果已返回: {commandId}, 状态: {status}");
+                    }
+                    else
+                    {
+                        Logger.LogError($"返回命令结果失败: {response.StatusCode}, 命令ID: {commandId}");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError($"返回命令结果异常: {ex.Message}", ex);
             }
         }
     }

@@ -61,7 +61,7 @@ namespace MyWeChat.Windows.Utils
         /// <summary>
         /// 获取机器唯一标识（MAC地址 + CPU ID）
         /// </summary>
-        private static string GetMachineId()
+        public static string GetMachineId()
         {
             try
             {

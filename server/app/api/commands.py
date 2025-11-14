@@ -12,7 +12,9 @@ from app.models.database import AsyncSessionLocal, Command
 from app.models.schemas import CommandRequest, CommandResponse
 from app.websocket.websocket_manager import websocket_manager
 from app.utils.http_request_decrypt import decrypt_request_body
+from app.utils.encryption_service import encryption_service
 import json
+import base64
 
 router = APIRouter()
 
@@ -117,7 +119,46 @@ async def update_command_result(command_id: str, request: Request):
                     raise HTTPException(status_code=404, detail="命令不存在")
 
                 command.status = decrypted_body.get("status", "completed")
-                command.result = str(decrypted_body.get("result", ""))
+                result_data = decrypted_body.get("result", "")
+                
+                # 如果是get_logs命令，需要解密日志内容
+                if command.command_type == "get_logs" and command.status == "completed":
+                    try:
+                        result_json = json.loads(result_data) if isinstance(result_data, str) else result_data
+                        encrypted_log_content = result_json.get("encrypted_log_content", "")
+                        machine_id = result_json.get("machine_id", "")
+                        
+                        if encrypted_log_content and machine_id:
+                            # 根据机器ID生成密钥
+                            encryption_key = encryption_service.get_encryption_key_from_machine_id(machine_id)
+                            
+                            # 解密日志内容（逐行解密）
+                            decrypted_log_lines = []
+                            log_lines = encrypted_log_content.strip().split('\n')
+                            for line in log_lines:
+                                line = line.strip()
+                                if not line:
+                                    continue
+                                try:
+                                    # 使用生成的密钥解密每一行
+                                    decrypted_line = encryption_service._decrypt_bytes_with_key(
+                                        base64.b64decode(line), encryption_key
+                                    ).decode('utf-8')
+                                    decrypted_log_lines.append(decrypted_line)
+                                except Exception as e:
+                                    # 如果某行解密失败，跳过或记录错误
+                                    print(f"解密日志行失败: {e}")
+                                    continue
+                            
+                            # 更新结果，包含解密后的日志内容
+                            result_json["decrypted_log_content"] = "\n".join(decrypted_log_lines)
+                            result_data = json.dumps(result_json, ensure_ascii=False)
+                    except Exception as e:
+                        print(f"处理get_logs命令结果失败: {e}")
+                        # 如果解密失败，使用原始结果
+                        pass
+                
+                command.result = str(result_data)
                 await session.commit()
 
                 # 通知App端命令执行结果

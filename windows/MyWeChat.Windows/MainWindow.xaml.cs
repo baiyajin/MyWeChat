@@ -406,6 +406,13 @@ namespace MyWeChat.Windows
                         // 初始化命令服务
                         _commandService = new CommandService(connectionManager);
                         
+                        // 设置服务器地址到命令服务（用于返回命令结果）
+                        string commandServerUrl = ConfigHelper.GetServerUrl();
+                        if (!string.IsNullOrEmpty(commandServerUrl))
+                        {
+                            _commandService.SetServerUrl(commandServerUrl);
+                        }
+                        
                         // 设置同步服务到命令服务（用于处理同步命令）
                         _commandService.SetSyncServices(_contactSyncService, _momentsSyncService, _tagSyncService);
 

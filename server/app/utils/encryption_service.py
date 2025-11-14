@@ -56,6 +56,35 @@ class EncryptionService:
         key = kdf.derive(default_password)
         return key
     
+    def get_encryption_key_from_machine_id(self, machine_id: str) -> bytes:
+        """根据机器ID生成加密密钥（与Windows端保持一致）
+        
+        Args:
+            machine_id: 机器唯一标识（MAC地址 + CPU ID）
+        
+        Returns:
+            32字节的加密密钥
+        """
+        try:
+            # 使用与Windows端相同的参数生成密钥
+            # Windows端使用：Rfc2898DeriveBytes(machineId, salt, 100000, HashAlgorithmName.SHA256)
+            salt = b"MyWeChat_Encryption_Salt_2024"  # 与Windows端保持一致
+            
+            kdf = PBKDF2HMAC(
+                algorithm=hashes.SHA256(),
+                length=32,
+                salt=salt,
+                iterations=100000,
+                backend=default_backend()
+            )
+            # 使用机器ID作为密码（与Windows端保持一致）
+            key = kdf.derive(machine_id.encode('utf-8'))
+            return key
+        except Exception as e:
+            print(f"根据机器ID生成密钥失败: {e}")
+            # 回退到默认密钥
+            return self._get_local_encryption_key()
+    
     def set_session_key(self, connection_id: str, session_key: bytes):
         """设置会话密钥（用于通讯加密）"""
         if len(session_key) != 32:

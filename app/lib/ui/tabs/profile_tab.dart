@@ -8,6 +8,7 @@ import '../../services/websocket_service.dart';
 import '../../services/api_service.dart';
 import '../pages/license_manage_page.dart';
 import '../pages/account_list_page.dart';
+import '../pages/log_view_page.dart';
 
 /// 我的Tab - 模仿微信App的"我"页面UI
 class ProfileTab extends StatefulWidget {
@@ -184,6 +185,25 @@ class _ProfileTabState extends State<ProfileTab> with SingleTickerProviderStateM
                   title: '关于',
                   onTap: () {
                     Navigator.pushNamed(context, '/about');
+                  },
+                ),
+              ),
+              
+              const SizedBox(height: 10),
+              
+              // 查看日志入口（在关于下方）
+              Container(
+                color: Colors.white,
+                child: _buildMenuItem(
+                  icon: Icons.description,
+                  title: '查看日志',
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const LogViewPage(),
+                      ),
+                    );
                   },
                 ),
               ),

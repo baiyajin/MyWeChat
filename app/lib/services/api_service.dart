@@ -341,6 +341,52 @@ class ApiService extends ChangeNotifier {
     }
   }
 
+  /// 发送命令
+  Future<Map<String, dynamic>?> sendCommand({
+    required String commandType,
+    Map<String, dynamic>? commandData,
+    String? targetWeChatId,
+  }) async {
+    try {
+      String url = '$_serverUrl/api/commands';
+      
+      final requestBody = {
+        'command_type': commandType,
+        'command_data': commandData ?? {},
+        if (targetWeChatId != null) 'target_we_chat_id': targetWeChatId,
+      };
+
+      final response = await _executeRequest('POST', url, body: jsonEncode(requestBody));
+      if (response.statusCode == 200) {
+        final decryptedBody = _decryptResponse(response.body);
+        return jsonDecode(decryptedBody) as Map<String, dynamic>;
+      } else {
+        throw Exception('发送命令失败: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('发送命令失败: $e');
+      return null;
+    }
+  }
+
+  /// 获取命令状态
+  Future<Map<String, dynamic>?> getCommand(String commandId) async {
+    try {
+      String url = '$_serverUrl/api/commands/$commandId';
+
+      final response = await _executeRequest('GET', url);
+      if (response.statusCode == 200) {
+        final decryptedBody = _decryptResponse(response.body);
+        return jsonDecode(decryptedBody) as Map<String, dynamic>;
+      } else {
+        throw Exception('获取命令状态失败: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('获取命令状态失败: $e');
+      return null;
+    }
+  }
+
   /// 获取账号信息
   Future<Map<String, dynamic>?> getAccountInfo({String? wxid, String? phone}) async {
     try {
