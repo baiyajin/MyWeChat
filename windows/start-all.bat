@@ -673,49 +673,6 @@ if !BUILD_ERROR! neq 0 (
 )
 
 echo.
-echo "[2.5.4] 编译启动器项目（uniapp）..."
-cd /d "%~dp0uniapp"
-if exist "uniapp.csproj" (
-    dotnet build -c Debug --no-incremental
-    set "UNIAPP_BUILD_ERROR=!errorlevel!"
-    if !UNIAPP_BUILD_ERROR! neq 0 (
-        call :echo_yellow "[X] 警告: 启动器项目编译失败，将使用app.exe直接启动"
-    ) else (
-        call :echo_green "[✓] 启动器项目编译成功"
-    )
-) else (
-    call :echo_yellow "[X] 警告: 找不到启动器项目文件，将使用app.exe直接启动"
-)
-cd /d "%~dp0MyWeChat.Windows"
-
-echo.
-echo "[2.5.5] 复制启动器文件到输出目录..."
-set "OUTPUT_DIR=bin\x86\Debug\net9.0-windows"
-if not exist "%OUTPUT_DIR%" (
-    set "OUTPUT_DIR=bin\Debug\net9.0-windows"
-)
-if not exist "%OUTPUT_DIR%" (
-    set "OUTPUT_DIR=bin\Debug"
-)
-
-if exist "%~dp0uniapp\bin\x86\Debug\net9.0-windows\uniapp.exe" (
-    copy /Y "%~dp0uniapp\bin\x86\Debug\net9.0-windows\uniapp.exe" "%OUTPUT_DIR%\" >nul 2>&1
-    if exist "%OUTPUT_DIR%\uniapp.exe" (
-        call :echo_green "[✓] uniapp.exe 已复制到输出目录"
-    ) else (
-        call :echo_yellow "[X] 警告: 无法复制 uniapp.exe"
-    )
-) else if exist "%~dp0uniapp\bin\Debug\net9.0-windows\uniapp.exe" (
-    copy /Y "%~dp0uniapp\bin\Debug\net9.0-windows\uniapp.exe" "%OUTPUT_DIR%\" >nul 2>&1
-    if exist "%OUTPUT_DIR%\uniapp.exe" (
-        call :echo_green "[✓] uniapp.exe 已复制到输出目录"
-    ) else (
-        call :echo_yellow "[X] 警告: 无法复制 uniapp.exe"
-    )
-) else (
-    call :echo_yellow "[X] 警告: 找不到 uniapp.exe，将使用 app.exe 直接启动"
-)
-
 echo.
 echo ========================================
 echo "[步骤2/4] 编译完成！"
@@ -820,14 +777,7 @@ for %%F in ("%CD%\%EXE_PATH%") do (
 call :echo_green "[✓] 输出目录: !OUTPUT_DIR!"
 
 echo.
-echo "[4.3] 检查启动器..."
-set "LAUNCHER_PATH="
-REM 从EXE_PATH提取目录路径并构建完整路径
-REM Build full EXE path and extract directory
-for %%F in ("%CD%\%EXE_PATH%") do (
-    REM %%~dpF returns absolute path directory part (with backslash)
-    set "LAUNCHER_PATH=%%~dpFuniapp.exe"
-)
+echo "[4.3] 准备启动程序..."
 REM 创建启动日志文件
 set "LAUNCH_LOG_DIR=!OUTPUT_DIR!\Logs"
 if not exist "!LAUNCH_LOG_DIR!" (
@@ -837,78 +787,42 @@ for /f "tokens=2 delims==" %%I in ('wmic os get localdatetime /value') do set "d
 set "LAUNCH_LOG=!LAUNCH_LOG_DIR!\launch_%datetime:~0,8%_%datetime:~8,6%.txt"
 echo [%date% %time%] ========== 开始启动程序 ========== >> "!LAUNCH_LOG!"
 echo 输出目录: %OUTPUT_DIR% >> "!LAUNCH_LOG!"
-echo 启动器路径: !LAUNCHER_PATH! >> "!LAUNCH_LOG!"
 
-REM 检查启动器是否存在
-set "USE_LAUNCHER=0"
-if exist "!LAUNCHER_PATH!" (
-    set "USE_LAUNCHER=1"
-    call :echo_green "[✓] 找到启动器: uniapp.exe"
-    echo [%date% %time%] 找到启动器: uniapp.exe >> "!LAUNCH_LOG!"
-    
-    echo "[4.4.1] 检查 .NET Desktop Runtime..."
-    echo [%date% %time%] 检查 .NET Desktop Runtime... >> "!LAUNCH_LOG!"
-    REM 使用超时命令确保不会无限等待，最多等待5秒
-    timeout /t 0 /nobreak >nul 2>&1
-    dotnet --list-runtimes >"%TEMP%\dotnet_runtimes.txt" 2>>"!LAUNCH_LOG!" 
-    if exist "%TEMP%\dotnet_runtimes.txt" (
-        findstr /C:"Microsoft.WindowsDesktop.App 9.0" "%TEMP%\dotnet_runtimes.txt" >nul 2>&1
-        if errorlevel 1 (
-            echo [%date% %time%] [错误] 未检测到 .NET Desktop Runtime 9.0 >> "!LAUNCH_LOG!"
-            type "%TEMP%\dotnet_runtimes.txt" >> "!LAUNCH_LOG!" 2>&1
-            call :echo_yellow "[!] 警告: 未检测到 .NET Desktop Runtime 9.0"
-            echo 如果程序无法启动，请先安装 .NET Desktop Runtime 9.0 (x86)
-            echo 下载地址: https://dotnet.microsoft.com/download/dotnet/9.0
-            echo 日志文件: !LAUNCH_LOG!
-            echo [%date% %time%] [信息] 继续尝试启动程序（可能已安装但未检测到） >> "!LAUNCH_LOG!"
-        ) else (
-            echo [%date% %time%] [信息] .NET Desktop Runtime 9.0 已安装 >> "!LAUNCH_LOG!"
-            call :echo_green "[✓] .NET Desktop Runtime 9.0 已安装"
-        )
-        del "%TEMP%\dotnet_runtimes.txt" >nul 2>&1
+echo "[4.4.1] 检查 .NET Desktop Runtime..."
+echo [%date% %time%] 检查 .NET Desktop Runtime... >> "!LAUNCH_LOG!"
+REM 使用超时命令确保不会无限等待，最多等待5秒
+timeout /t 0 /nobreak >nul 2>&1
+dotnet --list-runtimes >"%TEMP%\dotnet_runtimes.txt" 2>>"!LAUNCH_LOG!" 
+if exist "%TEMP%\dotnet_runtimes.txt" (
+    findstr /C:"Microsoft.WindowsDesktop.App 9.0" "%TEMP%\dotnet_runtimes.txt" >nul 2>&1
+    if errorlevel 1 (
+        echo [%date% %time%] [错误] 未检测到 .NET Desktop Runtime 9.0 >> "!LAUNCH_LOG!"
+        type "%TEMP%\dotnet_runtimes.txt" >> "!LAUNCH_LOG!" 2>&1
+        call :echo_yellow "[!] 警告: 未检测到 .NET Desktop Runtime 9.0"
+        echo 如果程序无法启动，请先安装 .NET Desktop Runtime 9.0 (x86)
+        echo 下载地址: https://dotnet.microsoft.com/download/dotnet/9.0
+        echo 日志文件: !LAUNCH_LOG!
+        echo [%date% %time%] [信息] 继续尝试启动程序（可能已安装但未检测到） >> "!LAUNCH_LOG!"
     ) else (
-        echo [%date% %time%] [警告] 无法检查 .NET Runtime，继续尝试启动 >> "!LAUNCH_LOG!"
-        call :echo_yellow "[!] 警告: 无法检查 .NET Runtime，继续尝试启动"
+        echo [%date% %time%] [信息] .NET Desktop Runtime 9.0 已安装 >> "!LAUNCH_LOG!"
+        call :echo_green "[✓] .NET Desktop Runtime 9.0 已安装"
     )
-    
-    echo "[4.4.2] 正在以管理员权限运行启动器..."
-    echo "[提示] 将弹出一次UAC确认窗口（启动器需要管理员权限）"
-    echo [%date% %time%] 正在启动 uniapp.exe... >> "!LAUNCH_LOG!"
-    echo.
-    REM Note: -Verb RunAs will start new window, cannot use -NoNewWindow
-    REM Set environment variable for PowerShell to use
-    set "TEMP_LAUNCHER_PATH=!LAUNCHER_PATH!"
-    set "TEMP_LAUNCH_LOG=!LAUNCH_LOG!"
-    powershell -Command "$path = $env:TEMP_LAUNCHER_PATH; $logFile = $env:TEMP_LAUNCH_LOG; try { $proc = Start-Process -FilePath $path -Verb RunAs -PassThru -ErrorAction Stop; $timestamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'; Add-Content -Path $logFile -Value \"[$timestamp] [成功] uniapp.exe 进程已启动，PID: $($proc.Id)\"; Write-Host \"[成功] uniapp.exe 进程已启动，PID: $($proc.Id)\" -ForegroundColor Green; exit 0; } catch { $timestamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'; Add-Content -Path $logFile -Value \"[$timestamp] [错误] uniapp.exe 启动失败: $($_.Exception.Message)\"; Add-Content -Path $logFile -Value \"[$timestamp] [错误] 堆栈跟踪: $($_.Exception.StackTrace)\"; Write-Host \"[错误] uniapp.exe 启动失败: $($_.Exception.Message)\" -ForegroundColor Red; exit 1; }"
-    set "START_ERROR=!errorlevel!"
-    set "TEMP_LAUNCHER_PATH="
-    set "TEMP_LAUNCH_LOG="
-    echo [%date% %time%] [信息] uniapp.exe 启动命令执行完成，错误代码: !START_ERROR! >> "!LAUNCH_LOG!"
-    REM 如果启动成功，不再执行 else 分支
-    if !START_ERROR! equ 0 (
-        echo [%date% %time%] [信息] uniapp.exe 启动成功，不再启动 app.exe >> "!LAUNCH_LOG!"
-        goto launcher_started
-    ) else (
-        echo [%date% %time%] [警告] uniapp.exe 启动失败，将尝试直接启动 app.exe >> "!LAUNCH_LOG!"
-        set "USE_LAUNCHER=0"
-    )
+    del "%TEMP%\dotnet_runtimes.txt" >nul 2>&1
+) else (
+    echo [%date% %time%] [警告] 无法检查 .NET Runtime，继续尝试启动 >> "!LAUNCH_LOG!"
+    call :echo_yellow "[!] 警告: 无法检查 .NET Runtime，继续尝试启动"
 )
 
-REM 如果启动器不存在或启动失败，直接运行 app.exe
-if "!USE_LAUNCHER!"=="0" (
-    echo "[*] 未找到启动器或启动器启动失败，将直接运行 app.exe"
-    echo [%date% %time%] 未找到启动器或启动器启动失败，将直接运行 app.exe >> "!LAUNCH_LOG!"
-    echo "[4.4] 正在以管理员权限运行程序..."
-    echo [%date% %time%] 正在启动 app.exe... >> "!LAUNCH_LOG!"
-    set "TEMP_EXE_PATH=%CD%\%EXE_PATH%"
-    set "TEMP_LAUNCH_LOG=!LAUNCH_LOG!"
-    powershell -Command "$path = $env:TEMP_EXE_PATH; $logFile = $env:TEMP_LAUNCH_LOG; try { $proc = Start-Process -FilePath $path -Verb RunAs -PassThru -ErrorAction Stop; $timestamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'; Add-Content -Path $logFile -Value \"[$timestamp] [成功] app.exe 进程已启动，PID: $($proc.Id)\"; Write-Host \"[成功] app.exe 进程已启动，PID: $($proc.Id)\" -ForegroundColor Green; exit 0; } catch { $timestamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'; Add-Content -Path $logFile -Value \"[$timestamp] [错误] app.exe 启动失败: $($_.Exception.Message)\"; Add-Content -Path $logFile -Value \"[$timestamp] [错误] 堆栈跟踪: $($_.Exception.StackTrace)\"; Write-Host \"[错误] app.exe 启动失败: $($_.Exception.Message)\" -ForegroundColor Red; exit 1; }"
-    set "START_ERROR=!errorlevel!"
-    set "TEMP_EXE_PATH="
-    set "TEMP_LAUNCH_LOG="
-)
-
-:launcher_started
+echo "[4.4.2] 正在以管理员权限运行程序..."
+echo "[提示] 将弹出一次UAC确认窗口（程序需要管理员权限）"
+echo [%date% %time%] 正在启动 app.exe... >> "!LAUNCH_LOG!"
+echo.
+set "TEMP_EXE_PATH=%CD%\%EXE_PATH%"
+set "TEMP_LAUNCH_LOG=!LAUNCH_LOG!"
+powershell -Command "$path = $env:TEMP_EXE_PATH; $logFile = $env:TEMP_LAUNCH_LOG; try { $proc = Start-Process -FilePath $path -Verb RunAs -PassThru -ErrorAction Stop; $timestamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'; Add-Content -Path $logFile -Value \"[$timestamp] [成功] app.exe 进程已启动，PID: $($proc.Id)\"; Write-Host \"[成功] app.exe 进程已启动，PID: $($proc.Id)\" -ForegroundColor Green; exit 0; } catch { $timestamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'; Add-Content -Path $logFile -Value \"[$timestamp] [错误] app.exe 启动失败: $($_.Exception.Message)\"; Add-Content -Path $logFile -Value \"[$timestamp] [错误] 堆栈跟踪: $($_.Exception.StackTrace)\"; Write-Host \"[错误] app.exe 启动失败: $($_.Exception.Message)\" -ForegroundColor Red; exit 1; }"
+set "START_ERROR=!errorlevel!"
+set "TEMP_EXE_PATH="
+set "TEMP_LAUNCH_LOG="
 
 if !START_ERROR! equ 0 (
     call :echo_green "[✓] 程序已启动"

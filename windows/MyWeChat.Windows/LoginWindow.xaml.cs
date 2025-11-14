@@ -95,29 +95,40 @@ namespace MyWeChat.Windows
         }
 
         /// <summary>
-        /// 设置窗口图标（使用uniapp.ico）
+        /// 设置窗口图标（使用logo.ico）
         /// </summary>
         private void SetWindowIcon()
         {
             try
             {
-                // 优先从Resources文件夹加载
-                string uniappIconPath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources", "uniapp.ico");
-                if (File.Exists(uniappIconPath))
+                // 优先从Resources文件夹加载 logo.ico
+                string logoIconPath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources", "logo.ico");
+                if (File.Exists(logoIconPath))
                 {
-                    this.Icon = new System.Windows.Media.Imaging.BitmapImage(new Uri(uniappIconPath));
+                    this.Icon = new System.Windows.Media.Imaging.BitmapImage(new Uri(logoIconPath));
                     return;
                 }
                 
-                // 从程序集资源加载
+                // 从程序集资源加载 logo.ico
                 try
                 {
-                    var resourceUri = new Uri("pack://application:,,,/Resources/uniapp.ico");
+                    var resourceUri = new Uri("pack://application:,,,/Resources/logo.ico");
                     this.Icon = new System.Windows.Media.Imaging.BitmapImage(resourceUri);
+                    return;
                 }
                 catch
                 {
-                    // 如果失败，尝试加载favicon.ico
+                    // 如果失败，继续尝试其他方式
+                }
+                
+                // 最后尝试加载 favicon.ico
+                try
+                {
+                    var faviconUri = new Uri("pack://application:,,,/Resources/favicon.ico");
+                    this.Icon = new System.Windows.Media.Imaging.BitmapImage(faviconUri);
+                }
+                catch
+                {
                     string faviconIconPath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources", "favicon.ico");
                     if (File.Exists(faviconIconPath))
                     {

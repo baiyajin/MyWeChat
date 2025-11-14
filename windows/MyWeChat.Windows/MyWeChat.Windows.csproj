@@ -13,6 +13,7 @@
     <PlatformTarget>x86</PlatformTarget>
     <Platforms>x86</Platforms>
     <ApplicationHighDpiMode>SystemAware</ApplicationHighDpiMode>
+    <ApplicationIcon>Resources\logo.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
@@ -32,6 +33,7 @@
 
   <ItemGroup>
     <Resource Include="Resources\favicon.ico" />
+    <Resource Include="Resources\logo.ico" />
   </ItemGroup>
 
   <Target Name="CopyDlls" AfterTargets="Build">

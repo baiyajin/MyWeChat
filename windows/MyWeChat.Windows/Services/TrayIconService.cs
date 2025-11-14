@@ -30,17 +30,31 @@ namespace MyWeChat.Windows.Services
 
             _window = window ?? throw new ArgumentNullException(nameof(window));
 
-            Icon appIcon = GetApplicationIcon();
-            _notifyIcon = new NotifyIcon
+            Icon? appIcon = GetApplicationIcon();
+            if (appIcon != null)
             {
-                Icon = appIcon,
-                Text = "微信",
-                Visible = true
-            };
-            
-            // 确保图标立即显示
-            _notifyIcon.Visible = true;
-            Logger.LogInfo($"托盘图标已初始化，图标大小: {appIcon.Size}");
+                _notifyIcon = new NotifyIcon
+                {
+                    Icon = appIcon,
+                    Text = "微信",
+                    Visible = true
+                };
+                
+                // 确保图标立即显示
+                _notifyIcon.Visible = true;
+                Logger.LogInfo($"托盘图标已初始化，图标大小: {appIcon.Size}");
+            }
+            else
+            {
+                Logger.LogWarning("无法加载托盘图标，使用默认图标");
+                _notifyIcon = new NotifyIcon
+                {
+                    Icon = SystemIcons.Application,
+                    Text = "微信",
+                    Visible = true
+                };
+                _notifyIcon.Visible = true;
+            }
 
             // 创建上下文菜单
             var contextMenu = new ContextMenuStrip();
@@ -99,12 +113,56 @@ namespace MyWeChat.Windows.Services
         }
 
         /// <summary>
-        /// 获取应用程序图标（使用默认系统图标，反检测措施）
+        /// 获取应用程序图标
         /// </summary>
-        private Icon GetApplicationIcon()
+        private Icon? GetApplicationIcon()
         {
-            // 直接使用系统默认图标（反检测措施，不显示自定义图标）
-            return SystemIcons.Application;
+            try
+            {
+                // 优先从 Resources 文件夹加载 logo.ico
+                string logoIconPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources", "logo.ico");
+                if (File.Exists(logoIconPath))
+                {
+                    FileStream fs = new FileStream(logoIconPath, FileMode.Open, FileAccess.Read);
+                    Icon icon = new Icon(fs);
+                    fs.Close();
+                    return icon;
+                }
+                
+                // 尝试从程序集资源加载
+                try
+                {
+                    Assembly assembly = Assembly.GetExecutingAssembly();
+                    Stream? stream = assembly.GetManifestResourceStream("MyWeChat.Windows.Resources.logo.ico");
+                    if (stream != null)
+                    {
+                        Icon icon = new Icon(stream);
+                        stream.Close();
+                        return icon;
+                    }
+                }
+                catch
+                {
+                    // 如果资源加载失败，继续尝试其他方式
+                }
+                
+                // 尝试加载 favicon.ico 作为后备
+                string faviconIconPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources", "favicon.ico");
+                if (File.Exists(faviconIconPath))
+                {
+                    FileStream fs = new FileStream(faviconIconPath, FileMode.Open, FileAccess.Read);
+                    Icon icon = new Icon(fs);
+                    fs.Close();
+                    return icon;
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError($"加载托盘图标失败: {ex.Message}", ex);
+            }
+            
+            // 如果所有方式都失败，返回 null（调用者会使用默认图标）
+            return null;
         }
 
         /// <summary>
