@@ -336,7 +336,7 @@ namespace MyWeChat.Windows
         /// <summary>
         /// 处理登录响应
         /// </summary>
-        private void HandleLoginResponse(dynamic? response)
+        private async void HandleLoginResponse(dynamic? response)
         {
             bool success = response?.success == true;
             string message = response?.message?.ToString() ?? "";
@@ -350,9 +350,51 @@ namespace MyWeChat.Windows
                 // 标记为强制关闭，不显示关闭确认对话框
                 _forceClose = true;
                 
-                // 打开主窗口（使用空字符串作为wxid，主窗口会从服务器获取）
-                var mainWindow = new MainWindow("");
+                // 获取登录时使用的手机号
+                string phone = PhoneTextBox.Text.Trim();
+                
+                // 登录成功后，用手机号查询微信账号数据
+                AccountInfo? accountInfo = null;
+                if (!string.IsNullOrEmpty(phone) && _apiService != null)
+                {
+                    try
+                    {
+                        Logger.LogInfo($"[登录成功] 查询账号信息: phone={phone}");
+                        accountInfo = await _apiService.GetAccountInfoByPhoneAsync(phone);
+                        if (accountInfo != null && !string.IsNullOrEmpty(accountInfo.WeChatId))
+                        {
+                            // 确保手机号已设置
+                            if (string.IsNullOrEmpty(accountInfo.Phone))
+                            {
+                                accountInfo.Phone = phone;
+                            }
+                            Logger.LogInfo($"[登录成功] 查询到账号信息: wxid={accountInfo.WeChatId}, nickname={accountInfo.NickName}");
+                        }
+                        else
+                        {
+                            Logger.LogInfo($"[登录成功] 未查询到账号信息: phone={phone}，主窗口将等待1112回调");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.LogError($"[登录成功] 查询账号信息失败: {ex.Message}", ex);
+                    }
+                }
+                
+                // 打开主窗口（如果查询到账号信息，传递wxid；否则传递空字符串，主窗口会等待1112回调）
+                string wxid = accountInfo?.WeChatId ?? "";
+                var mainWindow = new MainWindow(wxid);
                 mainWindow.Show();
+                
+                // 如果查询到账号信息，立即同步到服务器（确保手机号映射正确）
+                if (accountInfo != null)
+                {
+                    // 延迟一点时间，确保WebSocket连接稳定
+                    Task.Delay(500).ContinueWith(_ =>
+                    {
+                        SyncMyInfoToServer(accountInfo);
+                    });
+                }
                 
                 // 强制关闭登录页
                 this.Close();
