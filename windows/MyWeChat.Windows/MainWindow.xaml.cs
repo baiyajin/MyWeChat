@@ -103,7 +103,7 @@ namespace MyWeChat.Windows
         }
 
         /// <summary>
-        /// 设置窗口图标（使用uniapp.ico）
+        /// 设置窗口图标（使用logo.ico）
         /// </summary>
         private void SetWindowIcon()
         {
