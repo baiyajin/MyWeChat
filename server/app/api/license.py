@@ -2,7 +2,7 @@
 授权管理API接口
 提供授权用户的增删改查功能
 """
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from sqlalchemy import select
 from typing import List, Optional
 from datetime import datetime, timedelta
@@ -16,6 +16,7 @@ from app.models.schemas import (
 )
 from app.utils.license_generator import generate_license_key
 from app.services.license_service import LicenseService
+from app.utils.http_request_decrypt import decrypt_request_body
 
 router = APIRouter()
 
@@ -77,9 +78,18 @@ async def get_license(license_id: int):
 
 
 @router.post("/licenses", response_model=UserLicenseResponse)
-async def create_license(license_data: UserLicenseCreate):
+async def create_license(request: Request):
     """创建授权用户"""
     try:
+        # 解密请求体（如果已加密）
+        decrypted_body = await decrypt_request_body(request)
+        
+        # 解析为Pydantic模型
+        try:
+            license_data = UserLicenseCreate.model_validate(decrypted_body)
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"请求体格式错误: {str(e)}")
+        
         async with AsyncSessionLocal() as session:
             # 检查手机号是否已存在
             stmt = select(UserLicense).where(UserLicense.phone == license_data.phone)
@@ -132,9 +142,18 @@ async def create_license(license_data: UserLicenseCreate):
 
 
 @router.put("/licenses/{license_id}", response_model=UserLicenseResponse)
-async def update_license(license_id: int, license_data: UserLicenseUpdate):
+async def update_license(license_id: int, request: Request):
     """更新授权用户信息"""
     try:
+        # 解密请求体（如果已加密）
+        decrypted_body = await decrypt_request_body(request)
+        
+        # 解析为Pydantic模型
+        try:
+            license_data = UserLicenseUpdate.model_validate(decrypted_body)
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"请求体格式错误: {str(e)}")
+        
         async with AsyncSessionLocal() as session:
             stmt = select(UserLicense).where(UserLicense.id == license_id)
             result = await session.execute(stmt)
@@ -205,9 +224,18 @@ async def delete_license(license_id: int):
 
 
 @router.post("/licenses/{license_id}/extend")
-async def extend_license(license_id: int, extend_data: ExtendLicenseRequest):
+async def extend_license(license_id: int, request: Request):
     """延期授权"""
     try:
+        # 解密请求体（如果已加密）
+        decrypted_body = await decrypt_request_body(request)
+        
+        # 解析为Pydantic模型
+        try:
+            extend_data = ExtendLicenseRequest.model_validate(decrypted_body)
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"请求体格式错误: {str(e)}")
+        
         async with AsyncSessionLocal() as session:
             stmt = select(UserLicense).where(UserLicense.id == license_id)
             result = await session.execute(stmt)

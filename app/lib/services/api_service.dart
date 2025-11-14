@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../models/contact_model.dart';
@@ -125,6 +124,27 @@ class ApiService extends ChangeNotifier {
       requestHeaders['X-Session-ID'] = sessionId;
     }
 
+    // 加密请求体（POST/PUT请求）
+    String? encryptedBody;
+    if (body != null && (method == 'POST' || method == 'PUT')) {
+      // 如果body是字符串，直接加密；否则先转换为JSON字符串
+      String bodyString = body is String ? body : jsonEncode(body);
+      
+      // 使用HTTP会话密钥加密请求体
+      final encrypted = _encryptionService.encryptStringForHttp(bodyString);
+      if (encrypted != null) {
+        // 包装为JSON格式，包含加密标识
+        encryptedBody = jsonEncode({
+          'encrypted': true,
+          'data': encrypted,
+        });
+        requestHeaders['Content-Type'] = 'application/json';
+      } else {
+        print('加密请求体失败，使用明文');
+        encryptedBody = bodyString;
+      }
+    }
+
     // 发送请求
     http.Response response;
     if (method == 'GET') {
@@ -133,13 +153,13 @@ class ApiService extends ChangeNotifier {
       response = await http.post(
         Uri.parse(url),
         headers: requestHeaders,
-        body: body,
+        body: encryptedBody ?? body,
       );
     } else if (method == 'PUT') {
       response = await http.put(
         Uri.parse(url),
         headers: requestHeaders,
-        body: body,
+        body: encryptedBody ?? body,
       );
     } else if (method == 'DELETE') {
       response = await http.delete(Uri.parse(url), headers: requestHeaders);
@@ -159,6 +179,21 @@ class ApiService extends ChangeNotifier {
           requestHeaders['X-Session-ID'] = newSessionId;
         }
 
+        // 重新加密请求体（如果之前加密过）
+        String? retryEncryptedBody;
+        if (body != null && (method == 'POST' || method == 'PUT')) {
+          String bodyString = body is String ? body : jsonEncode(body);
+          final encrypted = _encryptionService.encryptStringForHttp(bodyString);
+          if (encrypted != null) {
+            retryEncryptedBody = jsonEncode({
+              'encrypted': true,
+              'data': encrypted,
+            });
+          } else {
+            retryEncryptedBody = bodyString;
+          }
+        }
+
         // 重试请求
         if (method == 'GET') {
           response = await http.get(Uri.parse(url), headers: requestHeaders);
@@ -166,13 +201,13 @@ class ApiService extends ChangeNotifier {
           response = await http.post(
             Uri.parse(url),
             headers: requestHeaders,
-            body: body,
+            body: retryEncryptedBody ?? body,
           );
         } else if (method == 'PUT') {
           response = await http.put(
             Uri.parse(url),
             headers: requestHeaders,
-            body: body,
+            body: retryEncryptedBody ?? body,
           );
         } else if (method == 'DELETE') {
           response = await http.delete(Uri.parse(url), headers: requestHeaders);
