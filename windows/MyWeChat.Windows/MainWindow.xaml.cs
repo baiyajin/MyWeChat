@@ -350,8 +350,19 @@ namespace MyWeChat.Windows
                                             var accountInfo = await _apiService.GetAccountInfoByPhoneAsync(phone);
                                             if (accountInfo != null && !string.IsNullOrEmpty(accountInfo.WeChatId))
                                             {
+                                                // 确保手机号已设置（如果数据库中没有，使用查询时使用的手机号）
+                                                if (string.IsNullOrEmpty(accountInfo.Phone))
+                                                {
+                                                    accountInfo.Phone = phone;
+                                                    Logger.LogInfo($"主窗口初始化：账号信息中手机号为空，使用查询时使用的手机号: {phone}");
+                                                }
+                                                
                                                 _loggedInWxid = accountInfo.WeChatId;
                                                 updateAccountInfo(accountInfo);
+                                                
+                                                // 同步账号信息到服务器（确保手机号映射正确）
+                                                SyncMyInfoToServer(accountInfo);
+                                                
                                                 foundByPhone = true;
                                                 break;
                                             }

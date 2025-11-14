@@ -109,6 +109,34 @@ namespace MyWeChat.Windows.Utils
         }
 
         /// <summary>
+        /// 解密字符串（用于HTTP API，直接使用指定的HTTP会话密钥）
+        /// </summary>
+        public static string DecryptStringForHttp(byte[] httpSessionKey, string cipherText)
+        {
+            if (string.IsNullOrEmpty(cipherText))
+            {
+                return string.Empty;
+            }
+
+            if (httpSessionKey == null || httpSessionKey.Length != 32)
+            {
+                throw new ArgumentException("HTTP会话密钥必须是32字节", nameof(httpSessionKey));
+            }
+
+            try
+            {
+                byte[] cipherBytes = Convert.FromBase64String(cipherText);
+                byte[] decrypted = DecryptBytesWithKey(cipherBytes, httpSessionKey);
+                return Encoding.UTF8.GetString(decrypted);
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError($"解密HTTP字符串失败: {ex.Message}", ex);
+                throw;
+            }
+        }
+
+        /// <summary>
         /// 加密字符串（用于日志，使用本地密钥）
         /// </summary>
         public static string EncryptStringForLog(string plainText)

@@ -464,10 +464,17 @@ namespace MyWeChat.Windows
                     {
                         Logger.LogInfo($"[登录] 数据库中找到账号信息: wxid={accountInfo.WeChatId}, nickname={accountInfo.NickName}");
                         
+                        // 确保手机号已设置（如果数据库中没有，使用登录时输入的手机号）
+                        if (string.IsNullOrEmpty(accountInfo.Phone))
+                        {
+                            accountInfo.Phone = phone;
+                            Logger.LogInfo($"[登录] 账号信息中手机号为空，使用登录时输入的手机号: {phone}");
+                        }
+                        
                         // 【关键】立即同步到app端，不需要等待1112回调
                         // 这样用户就能快速获取wxid，进行后续操作
                         // 其他字段（nickname、avatar等）可以等待1112回调慢慢更新
-                        Logger.LogInfo($"[登录] 立即同步wxid到app端: wxid={accountInfo.WeChatId}");
+                        Logger.LogInfo($"[登录] 立即同步wxid到app端: wxid={accountInfo.WeChatId}, phone={accountInfo.Phone}");
                         SyncMyInfoToServer(accountInfo);
                         
                         // 注意：仍然保持监听1112消息，因为账号信息可能会更新

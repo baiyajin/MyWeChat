@@ -199,12 +199,9 @@ namespace MyWeChat.Windows.Services
                                     {
                                         if (_httpSessionKey != null)
                                         {
-                                            // 使用HTTP会话密钥解密（临时设置到EncryptionService）
-                                            EncryptionService.SetSessionKey(_httpSessionKey);
-                                            json = EncryptionService.DecryptStringForCommunication(encryptedData);
+                                            // 使用HTTP会话密钥解密（直接使用，不修改全局会话密钥）
+                                            json = EncryptionService.DecryptStringForHttp(_httpSessionKey, encryptedData);
                                             Logger.LogInfo($"解密响应成功，解密后JSON长度: {json?.Length ?? 0}");
-                                            // 注意：这里不清除会话密钥，因为WebSocket可能也在使用
-                                            // 如果WebSocket和HTTP使用不同的会话密钥，需要更复杂的处理
                                         }
                                         else
                                         {
@@ -336,11 +333,8 @@ namespace MyWeChat.Windows.Services
                                     {
                                         if (_httpSessionKey != null)
                                         {
-                                            // 使用HTTP会话密钥解密（临时设置到EncryptionService）
-                                            EncryptionService.SetSessionKey(_httpSessionKey);
-                                            json = EncryptionService.DecryptStringForCommunication(encryptedData);
-                                            // 注意：这里不清除会话密钥，因为WebSocket可能也在使用
-                                            // 如果WebSocket和HTTP使用不同的会话密钥，需要更复杂的处理
+                                            // 使用HTTP会话密钥解密（直接使用，不修改全局会话密钥）
+                                            json = EncryptionService.DecryptStringForHttp(_httpSessionKey, encryptedData);
                                         }
                                         else
                                         {
