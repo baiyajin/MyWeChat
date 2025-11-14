@@ -62,11 +62,30 @@ async def root():
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     """WebSocket端点"""
+    from app.utils.encryption_service import encryption_service
+    
     await websocket_manager.connect(websocket)
     try:
         while True:
             data = await websocket.receive_text()
-            message = json.loads(data)
+            
+            # 尝试解密消息（如果客户端发送的是加密消息）
+            try:
+                message_obj = json.loads(data)
+                if isinstance(message_obj, dict) and message_obj.get("encrypted") == True and message_obj.get("data"):
+                    # 加密消息，需要解密
+                    encrypted_data = message_obj["data"]
+                    decrypted_data = encryption_service.decrypt_string(encrypted_data)
+                    message = json.loads(decrypted_data)
+                else:
+                    # 非加密消息，直接使用
+                    message = message_obj
+            except:
+                # 解析失败，可能是非JSON格式，直接使用原始数据
+                try:
+                    message = json.loads(data)
+                except:
+                    message = {"type": "unknown", "data": data}
             
             # 处理消息
             await websocket_manager.handle_message(websocket, message)
