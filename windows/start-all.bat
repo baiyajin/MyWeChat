@@ -778,60 +778,37 @@ call :echo_green "[✓] 输出目录: !OUTPUT_DIR!"
 
 echo.
 echo "[4.3] 准备启动程序..."
-REM 创建启动日志文件
-set "LAUNCH_LOG_DIR=!OUTPUT_DIR!\Logs"
-if not exist "!LAUNCH_LOG_DIR!" (
-    mkdir "!LAUNCH_LOG_DIR!" >nul 2>&1
-)
-for /f "tokens=2 delims==" %%I in ('wmic os get localdatetime /value') do set "datetime=%%I"
-set "LAUNCH_LOG=!LAUNCH_LOG_DIR!\launch_%datetime:~0,8%_%datetime:~8,6%.txt"
-echo [%date% %time%] ========== 开始启动程序 ========== >> "!LAUNCH_LOG!"
-echo 输出目录: %OUTPUT_DIR% >> "!LAUNCH_LOG!"
 
 echo "[4.4.1] 检查 .NET Desktop Runtime..."
-echo [%date% %time%] 检查 .NET Desktop Runtime... >> "!LAUNCH_LOG!"
 REM 使用超时命令确保不会无限等待，最多等待5秒
 timeout /t 0 /nobreak >nul 2>&1
-dotnet --list-runtimes >"%TEMP%\dotnet_runtimes.txt" 2>>"!LAUNCH_LOG!" 
+dotnet --list-runtimes >"%TEMP%\dotnet_runtimes.txt" 2>nul
 if exist "%TEMP%\dotnet_runtimes.txt" (
     findstr /C:"Microsoft.WindowsDesktop.App 9.0" "%TEMP%\dotnet_runtimes.txt" >nul 2>&1
     if errorlevel 1 (
-        echo [%date% %time%] [错误] 未检测到 .NET Desktop Runtime 9.0 >> "!LAUNCH_LOG!"
-        type "%TEMP%\dotnet_runtimes.txt" >> "!LAUNCH_LOG!" 2>&1
         call :echo_yellow "[!] 警告: 未检测到 .NET Desktop Runtime 9.0"
         echo 如果程序无法启动，请先安装 .NET Desktop Runtime 9.0 (x86)
         echo 下载地址: https://dotnet.microsoft.com/download/dotnet/9.0
-        echo 日志文件: !LAUNCH_LOG!
-        echo [%date% %time%] [信息] 继续尝试启动程序（可能已安装但未检测到） >> "!LAUNCH_LOG!"
     ) else (
-        echo [%date% %time%] [信息] .NET Desktop Runtime 9.0 已安装 >> "!LAUNCH_LOG!"
         call :echo_green "[✓] .NET Desktop Runtime 9.0 已安装"
     )
     del "%TEMP%\dotnet_runtimes.txt" >nul 2>&1
 ) else (
-    echo [%date% %time%] [警告] 无法检查 .NET Runtime，继续尝试启动 >> "!LAUNCH_LOG!"
     call :echo_yellow "[!] 警告: 无法检查 .NET Runtime，继续尝试启动"
 )
 
 echo "[4.4.2] 正在以管理员权限运行程序..."
 echo "[提示] 将弹出一次UAC确认窗口（程序需要管理员权限）"
-echo [%date% %time%] 正在启动 app.exe... >> "!LAUNCH_LOG!"
 echo.
 set "TEMP_EXE_PATH=%CD%\%EXE_PATH%"
-set "TEMP_LAUNCH_LOG=!LAUNCH_LOG!"
-powershell -Command "$path = $env:TEMP_EXE_PATH; $logFile = $env:TEMP_LAUNCH_LOG; try { $proc = Start-Process -FilePath $path -Verb RunAs -PassThru -ErrorAction Stop; $timestamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'; Add-Content -Path $logFile -Value \"[$timestamp] [成功] app.exe 进程已启动，PID: $($proc.Id)\"; Write-Host \"[成功] app.exe 进程已启动，PID: $($proc.Id)\" -ForegroundColor Green; exit 0; } catch { $timestamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'; Add-Content -Path $logFile -Value \"[$timestamp] [错误] app.exe 启动失败: $($_.Exception.Message)\"; Add-Content -Path $logFile -Value \"[$timestamp] [错误] 堆栈跟踪: $($_.Exception.StackTrace)\"; Write-Host \"[错误] app.exe 启动失败: $($_.Exception.Message)\" -ForegroundColor Red; exit 1; }"
+powershell -Command "$path = $env:TEMP_EXE_PATH; try { $proc = Start-Process -FilePath $path -Verb RunAs -PassThru -ErrorAction Stop; Write-Host \"[成功] app.exe 进程已启动，PID: $($proc.Id)\" -ForegroundColor Green; exit 0; } catch { Write-Host \"[错误] app.exe 启动失败: $($_.Exception.Message)\" -ForegroundColor Red; exit 1; }"
 set "START_ERROR=!errorlevel!"
 set "TEMP_EXE_PATH="
-set "TEMP_LAUNCH_LOG="
 
 if !START_ERROR! equ 0 (
     call :echo_green "[✓] 程序已启动"
-    echo [%date% %time%] [信息] 启动命令执行成功 >> "!LAUNCH_LOG!"
-    echo 日志文件: !LAUNCH_LOG!
 ) else (
     call :echo_red "[X] 程序启动失败，可能需要管理员权限"
-    echo [%date% %time%] [错误] 启动命令执行失败，错误代码: !START_ERROR! >> "!LAUNCH_LOG!"
-    echo 日志文件: !LAUNCH_LOG!
     call :echo_red "[X] 步骤4执行失败，退出"
     pause
     exit /b 1

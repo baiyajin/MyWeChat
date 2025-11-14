@@ -202,6 +202,7 @@ namespace MyWeChat.Windows.Services
                                             // 使用HTTP会话密钥解密（临时设置到EncryptionService）
                                             EncryptionService.SetSessionKey(_httpSessionKey);
                                             json = EncryptionService.DecryptStringForCommunication(encryptedData);
+                                            Logger.LogInfo($"解密响应成功，解密后JSON长度: {json?.Length ?? 0}");
                                             // 注意：这里不清除会话密钥，因为WebSocket可能也在使用
                                             // 如果WebSocket和HTTP使用不同的会话密钥，需要更复杂的处理
                                         }
@@ -217,6 +218,7 @@ namespace MyWeChat.Windows.Services
                     catch (Exception decryptEx)
                     {
                         Logger.LogWarning($"解密响应失败: {decryptEx.Message}");
+                        Logger.LogError($"解密响应异常详情: {decryptEx}");
                         // 解密失败，尝试使用原始JSON
                     }
                     
@@ -224,11 +226,13 @@ namespace MyWeChat.Windows.Services
                     
                     if (accountData != null)
                     {
+                        string avatar = accountData.avatar?.ToString() ?? "";
+                        Logger.LogInfo($"解析账号信息: wxid={accountData.wxid?.ToString() ?? ""}, nickname={accountData.nickname?.ToString() ?? ""}, avatar={(string.IsNullOrEmpty(avatar) ? "空" : "有值")}");
                         return new AccountInfo
                         {
                             WeChatId = accountData.wxid?.ToString() ?? "",
                             NickName = accountData.nickname?.ToString() ?? "",
-                            Avatar = accountData.avatar?.ToString() ?? "",
+                            Avatar = avatar,
                             BoundAccount = accountData.account?.ToString() ?? "",
                             Phone = accountData.phone?.ToString() ?? "",
                             DeviceId = accountData.device_id?.ToString() ?? "",

@@ -309,7 +309,8 @@
                                              Stroke="White"
                                              StrokeThickness="2"
                                              StrokeDashArray="3,3"
-                                             Visibility="Collapsed">
+                                             Visibility="Collapsed"
+                                             RenderTransformOrigin="0.5,0.5">
                                         <Ellipse.RenderTransform>
                                             <RotateTransform x:Name="LoadingSpinnerTransform"/>
                                         </Ellipse.RenderTransform>

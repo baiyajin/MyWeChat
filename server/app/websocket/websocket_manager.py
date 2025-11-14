@@ -364,6 +364,8 @@ class WebSocketManager:
                         await websocket.send_text(self._encrypt_message(websocket, response))
                 else:
                     print(f"未找到匹配的Windows端（手机号: {app_phone}），拒绝get_logs命令")
+                    print(f"当前Windows端手机号映射: {list(self.windows_client_phone_map.values())}")
+                    print(f"当前App端手机号映射: {list(self.websocket_phone_map.values())}")
                     response = json.dumps({
                         "type": "command_result",
                         "command_id": message.get("command_id", ""),
