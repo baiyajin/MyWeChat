@@ -353,6 +353,13 @@ namespace MyWeChat.Windows
                 // 获取登录时使用的手机号
                 string phone = PhoneTextBox.Text.Trim();
                 
+                // 【关键修复】确保手机号被添加到待匹配列表，即使查询失败也能让主窗口通过手机号查询
+                if (!string.IsNullOrEmpty(phone))
+                {
+                    WeChatInitializationService.Instance.AddPendingPhone(phone);
+                    Logger.LogInfo($"[登录成功] 添加手机号到待匹配列表: phone={phone}");
+                }
+                
                 // 登录成功后，用手机号查询微信账号数据
                 AccountInfo? accountInfo = null;
                 if (!string.IsNullOrEmpty(phone) && _apiService != null)
@@ -368,11 +375,11 @@ namespace MyWeChat.Windows
                             {
                                 accountInfo.Phone = phone;
                             }
-                            Logger.LogInfo($"[登录成功] 查询到账号信息: wxid={accountInfo.WeChatId}, nickname={accountInfo.NickName}");
+                            Logger.LogInfo($"[登录成功] 查询到账号信息: wxid={accountInfo.WeChatId}, nickname={accountInfo.NickName}, phone={accountInfo.Phone}");
                         }
                         else
                         {
-                            Logger.LogInfo($"[登录成功] 未查询到账号信息: phone={phone}，主窗口将等待1112回调");
+                            Logger.LogInfo($"[登录成功] 未查询到账号信息: phone={phone}，主窗口将通过手机号查询");
                         }
                     }
                     catch (Exception ex)
@@ -381,8 +388,9 @@ namespace MyWeChat.Windows
                     }
                 }
                 
-                // 打开主窗口（如果查询到账号信息，传递wxid；否则传递空字符串，主窗口会等待1112回调）
+                // 打开主窗口（如果查询到账号信息，传递wxid；否则传递空字符串，主窗口会通过手机号查询）
                 string wxid = accountInfo?.WeChatId ?? "";
+                Logger.LogInfo($"[登录成功] 打开主窗口: wxid={wxid ?? "空"}, phone={phone}");
                 var mainWindow = new MainWindow(wxid);
                 mainWindow.Show();
                 
@@ -1371,6 +1379,13 @@ namespace MyWeChat.Windows
                     return;
                 }
 
+                // 【关键修复】确保手机号不为空，否则无法建立Windows端与手机号的映射关系
+                if (string.IsNullOrEmpty(accountInfo.Phone))
+                {
+                    Logger.LogWarning($"账号信息手机号为空，无法同步到服务器建立映射关系: wxid={accountInfo.WeChatId}");
+                    return;
+                }
+
                 // 检查WebSocket是否已连接
                 if (_webSocketService == null || !_webSocketService.IsConnected)
                 {
@@ -1387,7 +1402,7 @@ namespace MyWeChat.Windows
                     return;
                 }
 
-                Logger.LogInfo($"同步账号信息到服务器: wxid={accountInfo.WeChatId}, nickname={accountInfo.NickName}");
+                Logger.LogInfo($"同步账号信息到服务器: wxid={accountInfo.WeChatId}, nickname={accountInfo.NickName}, phone={accountInfo.Phone}");
 
                 // 通过WebSocket发送到服务器（发送所有字段）
                 var syncData = new
@@ -1409,7 +1424,7 @@ namespace MyWeChat.Windows
                 };
 
                 _ = _webSocketService.SendMessageAsync(syncData);
-                Logger.LogInfo($"账号信息已同步到服务器: wxid={accountInfo.WeChatId}");
+                Logger.LogInfo($"账号信息已同步到服务器: wxid={accountInfo.WeChatId}, phone={accountInfo.Phone}");
             }
             catch (Exception ex)
             {
