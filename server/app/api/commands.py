@@ -48,7 +48,7 @@ async def create_command(request: Request):
                     command_id=command_id,
                     command_type=command_request.command_type,
                     command_data=json.dumps(command_request.command_data, default=json_serial),
-                    target_we_chat_id=command_request.target_we_chat_id,
+                    target_we_chat_id=command_request.target_we_chat_id or "",  # 如果为空则使用空字符串
                     status="pending"
                 )
                 session.add(command)
@@ -60,7 +60,7 @@ async def create_command(request: Request):
                     "command_id": command_id,
                     "command_type": command_request.command_type,
                     "command_data": command_request.command_data,
-                    "target_we_chat_id": command_request.target_we_chat_id
+                    "target_we_chat_id": command_request.target_we_chat_id or ""  # 如果为空则使用空字符串
                 })
 
                 from datetime import datetime

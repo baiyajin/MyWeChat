@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../services/api_service.dart';
 import '../../services/websocket_service.dart';
 
 /// 日志查看页面
@@ -16,7 +15,6 @@ class _LogViewPageState extends State<LogViewPage> {
   String _logContent = '';
   bool _isLoading = false;
   String? _errorMessage;
-  String? _currentCommandId;
 
   @override
   void initState() {
@@ -40,11 +38,7 @@ class _LogViewPageState extends State<LogViewPage> {
 
   /// WebSocket更新回调
   void _onWebSocketUpdate() {
-    // 检查是否有命令结果（通过轮询方式检查）
-    if (_currentCommandId != null && !_isLoading) {
-      // 如果已经有命令ID，继续检查结果
-      _checkCommandResult(_currentCommandId!);
-    }
+    // WebSocket更新时，命令结果会通过sendCommandAsync的Future返回，这里不需要处理
   }
 
   /// 加载日志
@@ -56,59 +50,30 @@ class _LogViewPageState extends State<LogViewPage> {
     });
 
     try {
-      final apiService = Provider.of<ApiService>(context, listen: false);
+      final wsService = Provider.of<WebSocketService>(context, listen: false);
       
-      // 发送get_logs命令
-      final response = await apiService.sendCommand(
-        commandType: 'get_logs',
-        commandData: {},
-      );
-
-      if (response != null && response['command_id'] != null) {
-        _currentCommandId = response['command_id'] as String;
-        
-        // 等待命令结果（通过WebSocket接收）
-        _waitForCommandResult(_currentCommandId!);
-      } else {
+      // 检查WebSocket是否已连接
+      if (!wsService.isConnected) {
         setState(() {
           _isLoading = false;
-          _errorMessage = '发送命令失败';
+          _errorMessage = 'WebSocket未连接，请先登录';
         });
+        return;
       }
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-        _errorMessage = '加载日志失败: $e';
-      });
-    }
-  }
-
-  /// 等待命令结果（通过WebSocket或轮询）
-  void _waitForCommandResult(String commandId) {
-    // 先尝试通过WebSocket接收（如果WebSocket已连接）
-    // 同时启动轮询作为备用方案
-    _startPolling(commandId);
-  }
-
-  /// 开始轮询命令结果
-  void _startPolling(String commandId) {
-    Future.delayed(const Duration(milliseconds: 1000), () {
-      if (mounted && _currentCommandId == commandId) {
-        _checkCommandResult(commandId);
-      }
-    });
-  }
-
-  /// 检查命令结果
-  Future<void> _checkCommandResult(String commandId) async {
-    try {
-      final apiService = Provider.of<ApiService>(context, listen: false);
-      final result = await apiService.getCommand(commandId);
+      
+      // 通过WebSocket发送get_logs命令（不指定target_we_chat_id，服务端会根据登录手机号自动匹配）
+      final result = await wsService.sendCommandAsync(
+        'get_logs',
+        {},
+        '', // target_we_chat_id为空，服务端会根据登录手机号匹配Windows端
+      );
 
       if (result != null) {
-        if (result['status'] == 'completed') {
+        final status = result['status'] as String? ?? '';
+        final resultData = result['result'];
+        
+        if (status == 'completed') {
           // 解析结果
-          final resultData = result['result'];
           String resultStr = '';
           
           if (resultData is String) {
@@ -128,23 +93,31 @@ class _LogViewPageState extends State<LogViewPage> {
             _isLoading = false;
             _logContent = resultStr;
           });
-        } else if (result['status'] == 'error') {
+        } else if (status == 'error') {
           setState(() {
             _isLoading = false;
-            _errorMessage = result['result'] ?? '获取日志失败';
+            _errorMessage = resultData?.toString() ?? '获取日志失败';
           });
         } else {
-          // 还在处理中，继续轮询
-          _startPolling(commandId);
+          setState(() {
+            _isLoading = false;
+            _errorMessage = '未知的命令状态: $status';
+          });
         }
+      } else {
+        setState(() {
+          _isLoading = false;
+          _errorMessage = '发送命令失败';
+        });
       }
     } catch (e) {
       setState(() {
         _isLoading = false;
-        _errorMessage = '检查命令结果失败: $e';
+        _errorMessage = '加载日志失败: $e';
       });
     }
   }
+
 
   @override
   Widget build(BuildContext context) {

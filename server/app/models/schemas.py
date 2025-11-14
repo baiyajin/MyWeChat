@@ -11,7 +11,7 @@ class CommandRequest(BaseModel):
     """命令请求"""
     command_type: str
     command_data: Dict[str, Any]
-    target_we_chat_id: str
+    target_we_chat_id: Optional[str] = ""  # 可选字段，某些命令（如get_logs）不需要指定微信ID
 
 
 class CommandResponse(BaseModel):

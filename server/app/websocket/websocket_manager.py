@@ -28,6 +28,8 @@ class WebSocketManager:
         self.app_client_wxid_map: Dict[WebSocket, str] = {}
         # WebSocket连接与登录手机号的映射关系（用于验证手机号匹配）
         self.websocket_phone_map: Dict[WebSocket, str] = {}
+        # Windows端连接与手机号的映射关系（用于权限控制）
+        self.windows_client_phone_map: Dict[WebSocket, str] = {}
 
     async def connect(self, websocket: WebSocket):
         """接受WebSocket连接"""
@@ -60,6 +62,9 @@ class WebSocketManager:
         
         if websocket in self.windows_clients:
             self.windows_clients.remove(websocket)
+            # 清理Windows端与手机号的映射
+            if websocket in self.windows_client_phone_map:
+                del self.windows_client_phone_map[websocket]
             print(f"Windows端连接已断开，当前连接数: {len(self.windows_clients)}")
         
         if websocket in self.app_clients:
@@ -167,6 +172,11 @@ class WebSocketManager:
                 print(f"phone: {phone}")
                 print(f"保存到数据库并转发到App端")
                 
+                # 建立Windows端与手机号的映射关系（用于权限控制）
+                if phone and websocket in self.windows_clients:
+                    self.windows_client_phone_map[websocket] = phone
+                    print(f"已建立Windows端与手机号的映射: {phone}")
+                
                 await self._save_account_info_to_db(message.get("data", {}), websocket)
                 
                 # ========== 按手机号精准转发，而不是广播 ==========
@@ -199,9 +209,8 @@ class WebSocketManager:
                     await self.broadcast_to_app_clients(message)
             
             elif message_type == "command":
-                # App端发送命令，转发到Windows端
-                print("转发命令到Windows端")
-                await self.send_to_windows_client(message)
+                # App端发送命令，转发到Windows端（带权限验证）
+                await self._handle_command(websocket, message)
             
             elif message_type == "command_result":
                 # Windows端返回命令执行结果，转发到App端
@@ -307,6 +316,79 @@ class WebSocketManager:
             print(f"已转发消息到 {forwarded_count} 个App端（微信账号ID: {we_chat_id}）")
         else:
             print(f"没有找到登录了微信账号 {we_chat_id} 的App端")
+    
+    async def _handle_command(self, websocket: WebSocket, message: Dict):
+        """处理App端发送的命令（带权限验证）"""
+        try:
+            # 验证App端是否已登录
+            if websocket not in self.websocket_phone_map:
+                print("警告: App端未登录，拒绝执行命令")
+                response = json.dumps({
+                    "type": "command_result",
+                    "command_id": message.get("command_id", ""),
+                    "status": "error",
+                    "result": "未登录，无法执行命令"
+                }, ensure_ascii=False)
+                await websocket.send_text(self._encrypt_message(websocket, response))
+                return
+            
+            app_phone = self.websocket_phone_map[websocket]
+            command_type = message.get("command_type", "")
+            
+            print(f"收到App端命令: command_type={command_type}, phone={app_phone}")
+            
+            # 对于get_logs命令，只转发给该手机号对应的Windows端
+            if command_type == "get_logs":
+                # 查找该手机号对应的Windows端
+                target_windows_client = None
+                for windows_client, windows_phone in self.windows_client_phone_map.items():
+                    if windows_phone == app_phone:
+                        target_windows_client = windows_client
+                        break
+                
+                if target_windows_client:
+                    print(f"找到匹配的Windows端（手机号: {app_phone}），转发get_logs命令")
+                    message_json = json.dumps(message, ensure_ascii=False)
+                    try:
+                        encrypted_message = self._encrypt_message(target_windows_client, message_json)
+                        await target_windows_client.send_text(encrypted_message)
+                        print(f"get_logs命令已成功转发到Windows端（手机号: {app_phone}）")
+                    except Exception as e:
+                        print(f"转发get_logs命令到Windows端失败: {e}")
+                        response = json.dumps({
+                            "type": "command_result",
+                            "command_id": message.get("command_id", ""),
+                            "status": "error",
+                            "result": f"转发命令失败: {str(e)}"
+                        }, ensure_ascii=False)
+                        await websocket.send_text(self._encrypt_message(websocket, response))
+                else:
+                    print(f"未找到匹配的Windows端（手机号: {app_phone}），拒绝get_logs命令")
+                    response = json.dumps({
+                        "type": "command_result",
+                        "command_id": message.get("command_id", ""),
+                        "status": "error",
+                        "result": "未找到对应的Windows端，无法获取日志"
+                    }, ensure_ascii=False)
+                    await websocket.send_text(self._encrypt_message(websocket, response))
+            else:
+                # 对于其他命令，转发给所有Windows端（保持原有逻辑）
+                print(f"转发命令到Windows端: {command_type}")
+                await self.send_to_windows_client(message)
+        except Exception as e:
+            print(f"处理命令失败: {e}")
+            import traceback
+            traceback.print_exc()
+            try:
+                response = json.dumps({
+                    "type": "command_result",
+                    "command_id": message.get("command_id", ""),
+                    "status": "error",
+                    "result": f"处理命令失败: {str(e)}"
+                }, ensure_ascii=False)
+                await websocket.send_text(self._encrypt_message(websocket, response))
+            except:
+                pass
     
     async def send_to_windows_client(self, message: Dict):
         """发送消息到Windows端（单播）"""

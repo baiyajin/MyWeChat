@@ -422,6 +422,9 @@ class WebSocketService extends ChangeNotifier {
   Completer<bool>? _verifyLoginCodeCompleter;
   Completer<bool>? _quickLoginCompleter;
   
+  // 命令结果相关的Completer（command_id -> Completer）
+  final Map<String, Completer<Map<String, dynamic>>> _commandCompleters = {};
+  
   /// 处理登录响应
   void _handleLoginResponse(Map<String, dynamic> data) {
     final success = data['success'] as bool? ?? false;
@@ -856,6 +859,14 @@ class WebSocketService extends ChangeNotifier {
   /// 处理命令执行结果
   void _handleCommandResult(Map<String, dynamic> data) {
     print('命令执行结果: $data');
+    final commandId = data['command_id'] as String?;
+    if (commandId != null && _commandCompleters.containsKey(commandId)) {
+      final completer = _commandCompleters[commandId];
+      if (completer != null && !completer.isCompleted) {
+        completer.complete(data);
+        _commandCompleters.remove(commandId);
+      }
+    }
     notifyListeners();
   }
 
@@ -895,7 +906,46 @@ class WebSocketService extends ChangeNotifier {
     }
   }
 
-  /// 发送命令
+  /// 发送命令（返回Future，等待命令结果）
+  Future<Map<String, dynamic>?> sendCommandAsync(
+    String commandType,
+    Map<String, dynamic> commandData,
+    String targetWeChatId,
+  ) async {
+    // 生成命令ID
+    final commandId = DateTime.now().millisecondsSinceEpoch.toString() + 
+                     '_${commandType}_${targetWeChatId}';
+    
+    // 创建Completer
+    final completer = Completer<Map<String, dynamic>>();
+    _commandCompleters[commandId] = completer;
+    
+    // 发送命令
+    _sendMessage({
+      'type': 'command',
+      'command_id': commandId,
+      'command_type': commandType,
+      'command_data': commandData,
+      'target_we_chat_id': targetWeChatId,
+    });
+    
+    // 等待命令结果（30秒超时）
+    try {
+      return await completer.future.timeout(
+        const Duration(seconds: 30),
+        onTimeout: () {
+          _commandCompleters.remove(commandId);
+          return {'status': 'error', 'result': '命令执行超时'};
+        },
+      );
+    } catch (e) {
+      _commandCompleters.remove(commandId);
+      print('等待命令结果失败: $e');
+      return {'status': 'error', 'result': '等待命令结果失败: $e'};
+    }
+  }
+
+  /// 发送命令（不等待结果，用于向后兼容）
   void sendCommand(String commandType, Map<String, dynamic> commandData, String targetWeChatId) {
     _sendMessage({
       'type': 'command',
