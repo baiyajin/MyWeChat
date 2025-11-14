@@ -187,7 +187,8 @@ namespace MyWeChat.Windows.Utils
 
             try
             {
-                using (AesGcm aesGcm = new AesGcm(key))
+                // 使用新的构造函数指定 tag 大小（16字节）
+                using (AesGcm aesGcm = new AesGcm(key, 16))
                 {
                     // 生成随机 nonce（12字节）
                     byte[] nonce = new byte[12];
@@ -246,8 +247,8 @@ namespace MyWeChat.Windows.Utils
                 byte[] tag = new byte[16];
                 Buffer.BlockCopy(cipherBytes, 12 + ciphertextLength, tag, 0, 16);
 
-                // 解密
-                using (AesGcm aesGcm = new AesGcm(key))
+                // 解密（使用新的构造函数指定 tag 大小）
+                using (AesGcm aesGcm = new AesGcm(key, 16))
                 {
                     byte[] plaintext = new byte[ciphertextLength];
                     aesGcm.Decrypt(nonce, ciphertext, tag, plaintext);

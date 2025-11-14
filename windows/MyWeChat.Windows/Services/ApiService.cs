@@ -186,23 +186,30 @@ namespace MyWeChat.Windows.Services
                     try
                     {
                         var responseObj = JsonConvert.DeserializeObject<dynamic>(json);
-                        if (responseObj != null && responseObj.encrypted == true && responseObj.data != null)
+                        if (responseObj != null)
                         {
-                            // 加密响应，需要解密（使用HTTP会话密钥）
-                            string encryptedData = responseObj.data.ToString();
-                            lock (_sessionLock)
+                            bool? isEncrypted = responseObj.encrypted as bool?;
+                            if (isEncrypted == true && responseObj.data != null)
                             {
-                                if (_httpSessionKey != null)
+                                // 加密响应，需要解密（使用HTTP会话密钥）
+                                string? encryptedData = responseObj.data?.ToString();
+                                if (!string.IsNullOrEmpty(encryptedData))
                                 {
-                                    // 使用HTTP会话密钥解密（临时设置到EncryptionService）
-                                    EncryptionService.SetSessionKey(_httpSessionKey);
-                                    json = EncryptionService.DecryptStringForCommunication(encryptedData);
-                                    // 注意：这里不清除会话密钥，因为WebSocket可能也在使用
-                                    // 如果WebSocket和HTTP使用不同的会话密钥，需要更复杂的处理
-                                }
-                                else
-                                {
-                                    Logger.LogWarning("HTTP会话密钥未设置，无法解密响应");
+                                    lock (_sessionLock)
+                                    {
+                                        if (_httpSessionKey != null)
+                                        {
+                                            // 使用HTTP会话密钥解密（临时设置到EncryptionService）
+                                            EncryptionService.SetSessionKey(_httpSessionKey);
+                                            json = EncryptionService.DecryptStringForCommunication(encryptedData);
+                                            // 注意：这里不清除会话密钥，因为WebSocket可能也在使用
+                                            // 如果WebSocket和HTTP使用不同的会话密钥，需要更复杂的处理
+                                        }
+                                        else
+                                        {
+                                            Logger.LogWarning("HTTP会话密钥未设置，无法解密响应");
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -306,23 +313,30 @@ namespace MyWeChat.Windows.Services
                     try
                     {
                         var responseObj = JsonConvert.DeserializeObject<dynamic>(json);
-                        if (responseObj != null && responseObj.encrypted == true && responseObj.data != null)
+                        if (responseObj != null)
                         {
-                            // 加密响应，需要解密（使用HTTP会话密钥）
-                            string encryptedData = responseObj.data.ToString();
-                            lock (_sessionLock)
+                            bool? isEncrypted = responseObj.encrypted as bool?;
+                            if (isEncrypted == true && responseObj.data != null)
                             {
-                                if (_httpSessionKey != null)
+                                // 加密响应，需要解密（使用HTTP会话密钥）
+                                string? encryptedData = responseObj.data?.ToString();
+                                if (!string.IsNullOrEmpty(encryptedData))
                                 {
-                                    // 使用HTTP会话密钥解密（临时设置到EncryptionService）
-                                    EncryptionService.SetSessionKey(_httpSessionKey);
-                                    json = EncryptionService.DecryptStringForCommunication(encryptedData);
-                                    // 注意：这里不清除会话密钥，因为WebSocket可能也在使用
-                                    // 如果WebSocket和HTTP使用不同的会话密钥，需要更复杂的处理
-                                }
-                                else
-                                {
-                                    Logger.LogWarning("HTTP会话密钥未设置，无法解密响应");
+                                    lock (_sessionLock)
+                                    {
+                                        if (_httpSessionKey != null)
+                                        {
+                                            // 使用HTTP会话密钥解密（临时设置到EncryptionService）
+                                            EncryptionService.SetSessionKey(_httpSessionKey);
+                                            json = EncryptionService.DecryptStringForCommunication(encryptedData);
+                                            // 注意：这里不清除会话密钥，因为WebSocket可能也在使用
+                                            // 如果WebSocket和HTTP使用不同的会话密钥，需要更复杂的处理
+                                        }
+                                        else
+                                        {
+                                            Logger.LogWarning("HTTP会话密钥未设置，无法解密响应");
+                                        }
+                                    }
                                 }
                             }
                         }

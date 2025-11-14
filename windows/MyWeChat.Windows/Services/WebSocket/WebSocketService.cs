@@ -399,15 +399,31 @@ namespace MyWeChat.Windows.Services.WebSocket
                         {
                             // 尝试解析为JSON格式（可能包含加密标识）
                             var messageObj = Newtonsoft.Json.JsonConvert.DeserializeObject<dynamic>(rawMessage);
-                            if (messageObj != null && messageObj.encrypted == true && messageObj.data != null)
+                            if (messageObj != null)
                             {
-                                // 加密消息，需要解密（使用会话密钥）
-                                string encryptedData = messageObj.data.ToString();
-                                decryptedMessage = EncryptionService.DecryptStringForCommunication(encryptedData);
+                                bool? isEncrypted = messageObj.encrypted as bool?;
+                                if (isEncrypted == true && messageObj.data != null)
+                                {
+                                    // 加密消息，需要解密（使用会话密钥）
+                                    string? encryptedData = messageObj.data?.ToString();
+                                    if (string.IsNullOrEmpty(encryptedData))
+                                    {
+                                        decryptedMessage = rawMessage; // 如果 data 为空，使用原始消息
+                                    }
+                                    else
+                                    {
+                                        decryptedMessage = EncryptionService.DecryptStringForCommunication(encryptedData);
+                                    }
+                                }
+                                else
+                                {
+                                    // 非加密消息或格式不正确，直接使用原始消息
+                                    decryptedMessage = rawMessage;
+                                }
                             }
                             else
                             {
-                                // 非加密消息或格式不正确，直接使用原始消息
+                                // messageObj 为 null，使用原始消息
                                 decryptedMessage = rawMessage;
                             }
                         }

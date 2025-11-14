@@ -8,11 +8,5 @@
     <PlatformTarget>x86</PlatformTarget>
     <Platforms>x86</Platforms>
   </PropertyGroup>
-  
-  <ItemGroup>
-    <None Update="process_names.txt">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-  </ItemGroup>
 </Project>
 
