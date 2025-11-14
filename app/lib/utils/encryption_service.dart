@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'dart:math';
 import 'dart:typed_data';
 import 'package:encrypt/encrypt.dart';
+import 'package:pointycastle/export.dart';
+import 'package:pointycastle/asymmetric/api.dart' as papi;
 
 /// 加密服务
 /// 提供RSA和AES-256-GCM加密/解密功能
@@ -10,7 +12,7 @@ class EncryptionService {
   factory EncryptionService() => _instance;
   EncryptionService._internal();
 
-  dynamic _serverPublicKey; // RSA公钥（使用dynamic避免类型问题）
+  papi.RSAPublicKey? _serverPublicKey; // pointycastle RSA公钥
   Uint8List? _sessionKey; // 32字节会话密钥
   Uint8List? _httpSessionKey; // HTTP会话密钥
   String? _httpSessionId; // HTTP会话ID
@@ -18,13 +20,21 @@ class EncryptionService {
   /// 设置服务器RSA公钥（PEM格式）
   bool setServerPublicKey(String publicKeyPem) {
     try {
-      // 使用encrypt包的RSA功能解析PEM格式公钥
-      final parser = RSAKeyParser();
-      _serverPublicKey = parser.parse(publicKeyPem);
+      // 先使用 encrypt 包解析 PEM（因为它有更好的 PEM 解析支持）
+      final encryptParser = RSAKeyParser();
+      final encryptKey = encryptParser.parse(publicKeyPem);
+      
+      // 转换为 pointycastle 的 RSAPublicKey
+      // encrypt 包的 RSAKey 有 n 和 exponent 属性
+      _serverPublicKey = papi.RSAPublicKey(
+        encryptKey.n!,
+        encryptKey.exponent!,
+      );
       print('服务器RSA公钥已设置');
       return true;
     } catch (e) {
       print('设置服务器RSA公钥失败: $e');
+      _serverPublicKey = null;
       return false;
     }
   }
@@ -34,7 +44,7 @@ class EncryptionService {
     return _serverPublicKey != null;
   }
 
-  /// 使用RSA公钥加密会话密钥
+  /// 使用RSA公钥加密会话密钥（使用OAEP-SHA256，与服务端和Windows端一致）
   String? encryptSessionKey(Uint8List sessionKey) {
     if (_serverPublicKey == null) {
       print('服务器RSA公钥未设置，无法加密会话密钥');
@@ -47,16 +57,17 @@ class EncryptionService {
     }
 
     try {
-      // 使用OAEP填充方式加密
-      final encrypter = Encrypter(RSA(
-        publicKey: _serverPublicKey,
-        encoding: RSAEncoding.OAEP,
-      ));
+      // 使用 pointycastle 实现 RSA-OAEP-SHA256 加密
+      // 使用 withSHA256 方法指定 SHA-256 哈希算法
+      final cipher = OAEPEncoding.withSHA256(RSAEngine())
+        ..init(true, PublicKeyParameter<papi.RSAPublicKey>(_serverPublicKey!));
       
-      final encrypted = encrypter.encryptBytes(sessionKey);
-      return encrypted.base64;
+      // 加密
+      final encrypted = cipher.process(sessionKey);
+      
+      return base64Encode(encrypted);
     } catch (e) {
-      print('加密会话密钥失败: $e');
+      print('使用 pointycastle 加密会话密钥失败: $e');
       return null;
     }
   }
