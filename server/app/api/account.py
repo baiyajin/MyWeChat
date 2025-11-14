@@ -9,6 +9,7 @@ import json
 from app.models.database import AsyncSessionLocal, AccountInfo
 from app.models.schemas import AccountInfoResponse
 from app.utils.encryption_service import encryption_service
+from app.utils.http_session_manager import http_session_manager
 
 router = APIRouter()
 
@@ -36,10 +37,26 @@ async def get_account_info(request: Request, wxid: Optional[str] = None, phone: 
             
             account_data = AccountInfoResponse.model_validate(account_info)
             
-            # 检查请求头是否要求加密
+            # 检查是否有会话ID（HTTP密钥交换）
+            session_id = request.headers.get("X-Session-ID")
+            if session_id:
+                # 使用HTTP会话密钥加密
+                try:
+                    account_dict = account_data.model_dump()
+                    account_json = json.dumps(account_dict, ensure_ascii=False)
+                    encrypted_data = encryption_service.encrypt_string_for_http(session_id, account_json)
+                    return {
+                        "encrypted": True,
+                        "data": encrypted_data
+                    }
+                except Exception as e:
+                    # 会话密钥无效或过期，返回错误
+                    raise HTTPException(status_code=401, detail=f"会话密钥无效或已过期: {str(e)}")
+            
+            # 检查请求头是否要求加密（旧方式，使用固定密钥）
             encryption_header = request.headers.get("X-Encryption")
             if encryption_header:
-                # 客户端要求加密响应
+                # 客户端要求加密响应（使用固定密钥）
                 account_dict = account_data.model_dump()
                 account_json = json.dumps(account_dict, ensure_ascii=False)
                 encrypted_data = encryption_service.encrypt_string_for_log(account_json)
@@ -65,10 +82,26 @@ async def get_all_accounts(request: Request, limit: int = 100, offset: int = 0):
             
             accounts_data = [AccountInfoResponse.model_validate(account) for account in accounts]
             
-            # 检查请求头是否要求加密
+            # 检查是否有会话ID（HTTP密钥交换）
+            session_id = request.headers.get("X-Session-ID")
+            if session_id:
+                # 使用HTTP会话密钥加密
+                try:
+                    accounts_list = [account.model_dump() for account in accounts_data]
+                    accounts_json = json.dumps(accounts_list, ensure_ascii=False)
+                    encrypted_data = encryption_service.encrypt_string_for_http(session_id, accounts_json)
+                    return {
+                        "encrypted": True,
+                        "data": encrypted_data
+                    }
+                except Exception as e:
+                    # 会话密钥无效或过期，返回错误
+                    raise HTTPException(status_code=401, detail=f"会话密钥无效或已过期: {str(e)}")
+            
+            # 检查请求头是否要求加密（旧方式，使用固定密钥）
             encryption_header = request.headers.get("X-Encryption")
             if encryption_header:
-                # 客户端要求加密响应
+                # 客户端要求加密响应（使用固定密钥）
                 accounts_list = [account.model_dump() for account in accounts_data]
                 accounts_json = json.dumps(accounts_list, ensure_ascii=False)
                 encrypted_data = encryption_service.encrypt_string_for_log(accounts_json)

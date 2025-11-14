@@ -77,6 +77,38 @@ class EncryptionService:
         """检查是否有会话密钥"""
         return connection_id in self._session_keys
     
+    def encrypt_string_for_http(self, session_id: str, plain_text: str) -> str:
+        """加密字符串（用于HTTP API，使用HTTP会话密钥）"""
+        from app.utils.http_session_manager import http_session_manager
+        
+        session_key = http_session_manager.get_session_key(session_id)
+        if session_key is None:
+            raise ValueError(f"HTTP会话 {session_id} 的会话密钥未找到或已过期")
+        
+        try:
+            plain_bytes = plain_text.encode('utf-8')
+            encrypted = self._encrypt_bytes_with_key(plain_bytes, session_key)
+            return base64.b64encode(encrypted).decode('utf-8')
+        except Exception as e:
+            print(f"加密HTTP字符串失败: {e}")
+            raise
+    
+    def decrypt_string_for_http(self, session_id: str, cipher_text: str) -> str:
+        """解密字符串（用于HTTP API，使用HTTP会话密钥）"""
+        from app.utils.http_session_manager import http_session_manager
+        
+        session_key = http_session_manager.get_session_key(session_id)
+        if session_key is None:
+            raise ValueError(f"HTTP会话 {session_id} 的会话密钥未找到或已过期")
+        
+        try:
+            cipher_bytes = base64.b64decode(cipher_text)
+            decrypted = self._decrypt_bytes_with_key(cipher_bytes, session_key)
+            return decrypted.decode('utf-8')
+        except Exception as e:
+            print(f"解密HTTP字符串失败: {e}")
+            raise
+    
     def encrypt_string_for_communication(self, connection_id: str, plain_text: str) -> str:
         """加密字符串（用于通讯，使用会话密钥）"""
         if not plain_text:

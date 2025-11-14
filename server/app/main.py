@@ -12,7 +12,7 @@ from typing import List, Dict
 import os
 
 from app.models import database
-from app.api import commands, status, account, license
+from app.api import commands, status, account, license, key_exchange
 from app.websocket.websocket_manager import websocket_manager
 
 app = FastAPI(title="MyWeChat后端服务", version="1.0.0")
@@ -32,6 +32,7 @@ app.add_middleware(
 )
 
 # 注册路由
+app.include_router(key_exchange.router, prefix="/api", tags=["密钥交换"])
 app.include_router(commands.router, prefix="/api", tags=["命令"])
 app.include_router(status.router, prefix="/api", tags=["状态"])
 app.include_router(account.router, prefix="/api", tags=["账号信息"])
