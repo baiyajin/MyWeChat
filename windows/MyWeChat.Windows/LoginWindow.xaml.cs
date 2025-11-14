@@ -390,7 +390,7 @@ namespace MyWeChat.Windows
                 if (accountInfo != null)
                 {
                     // 延迟一点时间，确保WebSocket连接稳定
-                    Task.Delay(500).ContinueWith(_ =>
+                    _ = Task.Delay(500).ContinueWith(_ =>
                     {
                         SyncMyInfoToServer(accountInfo);
                     });
