@@ -276,9 +276,15 @@ async def extend_license(license_id: int, request: Request):
 
 
 @router.post("/licenses/{license_id}/generate-key")
-async def generate_new_key(license_id: int):
+async def generate_new_key(license_id: int, request: Request):
     """为授权用户生成新的授权码"""
     try:
+        # 解密请求体（如果已加密，虽然此端点通常没有请求体，但为了统一性支持解密）
+        decrypted_body = await decrypt_request_body(request)
+        
+        # 此端点不需要请求体，但为了统一性，我们仍然处理解密
+        # 如果将来需要添加请求体参数，可以在这里使用 decrypted_body
+        
         async with AsyncSessionLocal() as session:
             stmt = select(UserLicense).where(UserLicense.id == license_id)
             result = await session.execute(stmt)
