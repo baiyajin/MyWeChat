@@ -1,5 +1,6 @@
 using System;
 using System.Net.WebSockets;
+using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -113,15 +114,18 @@ namespace MyWeChat.Windows.Services.WebSocket
                 OnConnectionStateChanged?.Invoke(this, true);
                 Logger.LogInfo("WebSocket连接成功");
 
-                // 发送客户端类型
-                await SendMessageAsync(new
+                // 启动接收消息任务（必须在密钥交换之前启动，以接收服务器公钥）
+                _ = Task.Run(ReceiveMessagesAsync);
+
+                // 等待一小段时间，确保接收任务已启动
+                await Task.Delay(100);
+
+                // 发送客户端类型（明文，密钥交换前）
+                await SendMessageAsyncPlain(new
                 {
                     type = "client_type",
                     client_type = "windows"
                 });
-
-                // 启动接收消息任务
-                _ = Task.Run(ReceiveMessagesAsync);
 
                 return true;
             }
@@ -229,6 +233,37 @@ namespace MyWeChat.Windows.Services.WebSocket
         }
 
         /// <summary>
+        /// 发送明文消息（用于密钥交换阶段）
+        /// </summary>
+        private async Task<bool> SendMessageAsyncPlain(object message)
+        {
+            if (!IsConnected)
+            {
+                Logger.LogWarning("WebSocket未连接，无法发送消息");
+                return false;
+            }
+
+            try
+            {
+                if (_webSocket == null)
+                {
+                    Logger.LogWarning("WebSocket未初始化");
+                    return false;
+                }
+
+                string json = Newtonsoft.Json.JsonConvert.SerializeObject(message);
+                byte[] buffer = Encoding.UTF8.GetBytes(json);
+                await _webSocket.SendAsync(new ArraySegment<byte>(buffer), WebSocketMessageType.Text, true, CancellationToken.None);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError($"发送WebSocket明文消息失败: {ex.Message}", ex);
+                return false;
+            }
+        }
+
+        /// <summary>
         /// 发送消息（字符串）
         /// </summary>
         public async Task<bool> SendMessageAsync(string message)
@@ -247,29 +282,40 @@ namespace MyWeChat.Windows.Services.WebSocket
                     return false;
                 }
 
-                // 加密消息内容
-                string encryptedMessage;
-                try
+                // 如果会话密钥已设置，使用会话密钥加密；否则发送明文（用于密钥交换）
+                if (EncryptionService.HasSessionKey())
                 {
-                    encryptedMessage = EncryptionService.EncryptString(message);
-                }
-                catch (Exception encryptEx)
-                {
-                    Logger.LogError($"WebSocket消息加密失败: {encryptEx.Message}", encryptEx);
-                    return false;
-                }
+                    // 加密消息内容（使用会话密钥）
+                    string encryptedMessage;
+                    try
+                    {
+                        encryptedMessage = EncryptionService.EncryptStringForCommunication(message);
+                    }
+                    catch (Exception encryptEx)
+                    {
+                        Logger.LogError($"WebSocket消息加密失败: {encryptEx.Message}", encryptEx);
+                        return false;
+                    }
 
-                // 包装为JSON格式，包含加密标识
-                var messageWrapper = new
-                {
-                    encrypted = true,
-                    data = encryptedMessage
-                };
-                string jsonMessage = Newtonsoft.Json.JsonConvert.SerializeObject(messageWrapper);
+                    // 包装为JSON格式，包含加密标识
+                    var messageWrapper = new
+                    {
+                        encrypted = true,
+                        data = encryptedMessage
+                    };
+                    string jsonMessage = Newtonsoft.Json.JsonConvert.SerializeObject(messageWrapper);
 
-                byte[] buffer = Encoding.UTF8.GetBytes(jsonMessage);
-                await _webSocket.SendAsync(new ArraySegment<byte>(buffer), WebSocketMessageType.Text, true, CancellationToken.None);
-                Logger.LogInfo("WebSocket消息已发送（已加密）");
+                    byte[] buffer = Encoding.UTF8.GetBytes(jsonMessage);
+                    await _webSocket.SendAsync(new ArraySegment<byte>(buffer), WebSocketMessageType.Text, true, CancellationToken.None);
+                    Logger.LogInfo("WebSocket消息已发送（已加密）");
+                }
+                else
+                {
+                    // 会话密钥未设置，发送明文（用于密钥交换阶段）
+                    byte[] buffer = Encoding.UTF8.GetBytes(message);
+                    await _webSocket.SendAsync(new ArraySegment<byte>(buffer), WebSocketMessageType.Text, true, CancellationToken.None);
+                    Logger.LogInfo("WebSocket消息已发送（明文，密钥交换阶段）");
+                }
                 return true;
             }
             catch (Exception ex)
@@ -339,6 +385,14 @@ namespace MyWeChat.Windows.Services.WebSocket
                     {
                         string rawMessage = Encoding.UTF8.GetString(buffer, 0, result.Count);
                         
+                        // 处理密钥交换消息
+                        bool handled = await HandleKeyExchangeMessage(rawMessage);
+                        if (handled)
+                        {
+                            // 密钥交换消息已处理，不触发OnMessageReceived
+                            continue;
+                        }
+                        
                         // 尝试解密消息
                         string decryptedMessage;
                         try
@@ -347,9 +401,9 @@ namespace MyWeChat.Windows.Services.WebSocket
                             var messageObj = Newtonsoft.Json.JsonConvert.DeserializeObject<dynamic>(rawMessage);
                             if (messageObj != null && messageObj.encrypted == true && messageObj.data != null)
                             {
-                                // 加密消息，需要解密
+                                // 加密消息，需要解密（使用会话密钥）
                                 string encryptedData = messageObj.data.ToString();
-                                decryptedMessage = EncryptionService.DecryptString(encryptedData);
+                                decryptedMessage = EncryptionService.DecryptStringForCommunication(encryptedData);
                             }
                             else
                             {
@@ -424,6 +478,72 @@ namespace MyWeChat.Windows.Services.WebSocket
             {
                 _isConnected = false;
                 OnConnectionStateChanged?.Invoke(this, false);
+            }
+        }
+
+        /// <summary>
+        /// 处理密钥交换消息
+        /// </summary>
+        private async Task<bool> HandleKeyExchangeMessage(string rawMessage)
+        {
+            try
+            {
+                var messageObj = Newtonsoft.Json.JsonConvert.DeserializeObject<dynamic>(rawMessage);
+                if (messageObj == null)
+                {
+                    return false;
+                }
+
+                string? messageType = messageObj.type?.ToString();
+
+                // 处理RSA公钥消息
+                if (messageType == "rsa_public_key")
+                {
+                    string? publicKeyPem = messageObj.public_key?.ToString();
+                    if (!string.IsNullOrEmpty(publicKeyPem))
+                    {
+                        // 设置服务器公钥
+                        RSAKeyManager.SetServerPublicKey(publicKeyPem);
+                        Logger.LogInfo("已接收服务器RSA公钥");
+
+                        // 生成随机会话密钥（32字节，256位）
+                        byte[] sessionKey = new byte[32];
+                        using (RandomNumberGenerator rng = RandomNumberGenerator.Create())
+                        {
+                            rng.GetBytes(sessionKey);
+                        }
+
+                        // 使用RSA公钥加密会话密钥
+                        string encryptedSessionKey = RSAKeyManager.EncryptSessionKey(sessionKey);
+
+                        // 设置会话密钥
+                        EncryptionService.SetSessionKey(sessionKey);
+
+                        // 发送加密的会话密钥给服务器
+                        await SendMessageAsyncPlain(new
+                        {
+                            type = "session_key",
+                            encrypted_key = encryptedSessionKey
+                        });
+
+                        Logger.LogInfo("已发送加密的会话密钥给服务器");
+                        return true;
+                    }
+                }
+
+                // 处理密钥交换成功消息
+                if (messageType == "key_exchange_success")
+                {
+                    Logger.LogInfo("密钥交换成功，后续通讯将使用会话密钥加密");
+                    return true;
+                }
+
+                return false;
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError($"处理密钥交换消息失败: {ex.Message}", ex);
+                return false;
             }
         }
 

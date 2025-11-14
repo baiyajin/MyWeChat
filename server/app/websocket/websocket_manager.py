@@ -6,10 +6,12 @@ from fastapi import WebSocket
 from typing import List, Dict, Set
 import json
 import asyncio
+import base64
 from sqlalchemy import select
 from app.models.database import AsyncSessionLocal, AccountInfo
 from app.services.license_service import LicenseService
 from app.utils.encryption_service import encryption_service
+from app.utils.rsa_key_manager import rsa_key_manager
 
 
 class WebSocketManager:
@@ -34,9 +36,24 @@ class WebSocketManager:
         # 先添加到临时连接集合，等待client_type消息后再分类
         self.pending_clients.add(websocket)
         print(f"WebSocket连接已建立，等待客户端类型注册（临时连接数: {len(self.pending_clients)}）")
+        
+        # 发送RSA公钥给客户端（用于密钥交换）
+        try:
+            public_key_pem = rsa_key_manager.get_public_key_pem()
+            await websocket.send_text(json.dumps({
+                "type": "rsa_public_key",
+                "public_key": public_key_pem
+            }, ensure_ascii=False))
+            print("已发送RSA公钥给客户端")
+        except Exception as e:
+            print(f"发送RSA公钥失败: {e}")
 
     def disconnect(self, websocket: WebSocket):
         """断开WebSocket连接"""
+        # 清理会话密钥
+        connection_id = self._get_connection_id(websocket)
+        encryption_service.remove_session_key(connection_id)
+        
         if websocket in self.pending_clients:
             self.pending_clients.remove(websocket)
             print(f"临时连接已断开，当前临时连接数: {len(self.pending_clients)}")
@@ -56,26 +73,61 @@ class WebSocketManager:
         if websocket in self.websocket_phone_map:
             del self.websocket_phone_map[websocket]
     
-    def _encrypt_message(self, message_json: str) -> str:
-        """加密消息（辅助方法）"""
+    def _encrypt_message(self, websocket: WebSocket, message_json: str) -> str:
+        """加密消息（辅助方法，使用会话密钥）"""
         try:
-            encrypted_message = encryption_service.encrypt_string(message_json)
-            message_wrapper = {
-                "encrypted": True,
-                "data": encrypted_message
-            }
-            return json.dumps(message_wrapper, ensure_ascii=False)
+            connection_id = self._get_connection_id(websocket)
+            
+            # 如果会话密钥已设置，使用会话密钥加密
+            if encryption_service.has_session_key(connection_id):
+                encrypted_message = encryption_service.encrypt_string_for_communication(connection_id, message_json)
+                message_wrapper = {
+                    "encrypted": True,
+                    "data": encrypted_message
+                }
+                return json.dumps(message_wrapper, ensure_ascii=False)
+            else:
+                # 会话密钥未设置，使用明文（向后兼容）
+                print(f"警告: 连接 {connection_id[:8]}... 的会话密钥未设置，使用明文发送")
+                return message_json
         except Exception as e:
             print(f"加密消息失败，使用明文: {e}")
             # 如果加密失败，使用明文（向后兼容）
             return message_json
 
+    def _get_connection_id(self, websocket: WebSocket) -> str:
+        """获取WebSocket连接的唯一ID"""
+        return str(id(websocket))
+    
     async def handle_message(self, websocket: WebSocket, message: Dict):
         """处理WebSocket消息"""
         try:
             message_type = message.get("type", "")
             
             print(f"收到WebSocket消息，类型: {message_type}, 来源: {websocket}")
+            
+            # 处理会话密钥交换
+            if message_type == "session_key":
+                encrypted_key_b64 = message.get("encrypted_key")
+                if encrypted_key_b64:
+                    try:
+                        # 使用RSA私钥解密会话密钥
+                        session_key = rsa_key_manager.decrypt_session_key(encrypted_key_b64)
+                        
+                        # 保存会话密钥
+                        connection_id = self._get_connection_id(websocket)
+                        encryption_service.set_session_key(connection_id, session_key)
+                        
+                        # 发送密钥交换成功消息
+                        await websocket.send_text(json.dumps({
+                            "type": "key_exchange_success"
+                        }, ensure_ascii=False))
+                        
+                        print(f"会话密钥交换成功（连接ID: {connection_id[:8]}...）")
+                        return
+                    except Exception as e:
+                        print(f"处理会话密钥失败: {e}")
+                        return
             
             if message_type == "sync_contacts":
                 # Windows端同步联系人数据，只转发到App端（不保存到数据库）
@@ -129,7 +181,7 @@ class WebSocketManager:
                         if client_phone == phone:
                             try:
                                 # 加密消息
-                                encrypted_message = self._encrypt_message(message_json)
+                                encrypted_message = self._encrypt_message(websocket, message_json)
                                 await app_client.send_text(encrypted_message)
                                 forwarded_count += 1
                                 print(f"✓ 已转发账号信息到App端（已加密，手机号: {phone}, wxid: {wxid}）")
@@ -245,7 +297,7 @@ class WebSocketManager:
                 try:
                     message_json = json.dumps(message, ensure_ascii=False)
                     # 加密消息
-                    encrypted_message = self._encrypt_message(message_json)
+                    encrypted_message = self._encrypt_message(app_client, message_json)
                     await app_client.send_text(encrypted_message)
                     forwarded_count += 1
                 except Exception as e:
@@ -263,13 +315,13 @@ class WebSocketManager:
             return
         
         message_json = json.dumps(message, ensure_ascii=False)
-        # 加密消息
-        encrypted_message = self._encrypt_message(message_json)
         
         disconnected = set()
         
         for client in self.windows_clients:
             try:
+                # 加密消息（每个连接使用自己的会话密钥）
+                encrypted_message = self._encrypt_message(client, message_json)
                 await client.send_text(encrypted_message)
                 print(f"消息已成功发送到Windows端（已加密，命令类型: {message.get('command_type', 'unknown')}）")
                 break  # 只发送给第一个连接的Windows客户端
@@ -288,8 +340,6 @@ class WebSocketManager:
             return
         
         message_json = json.dumps(message, ensure_ascii=False)
-        # 加密消息
-        encrypted_message = self._encrypt_message(message_json)
         
         disconnected = set()
         
@@ -297,6 +347,8 @@ class WebSocketManager:
         
         for client in self.app_clients:
             try:
+                # 加密消息（每个连接使用自己的会话密钥）
+                encrypted_message = self._encrypt_message(client, message_json)
                 await client.send_text(encrypted_message)
                 print(f"消息已成功转发到App端（已加密），消息类型: {message.get('type', 'unknown')}")
                 break  # 只发送给第一个连接的App客户端
@@ -392,7 +444,7 @@ class WebSocketManager:
                     "success": False,
                     "message": "手机号不能为空"
                 }, ensure_ascii=False)
-                await websocket.send_text(self._encrypt_message(response))
+                await websocket.send_text(self._encrypt_message(websocket, response))
                 return
             
             if not license_key:
@@ -401,7 +453,7 @@ class WebSocketManager:
                     "success": False,
                     "message": "授权码不能为空"
                 }, ensure_ascii=False)
-                await websocket.send_text(self._encrypt_message(response))
+                await websocket.send_text(self._encrypt_message(websocket, response))
                 return
                 
             # 验证授权码
@@ -413,7 +465,7 @@ class WebSocketManager:
                     "success": False,
                     "message": error_msg or "授权验证失败"
                 }, ensure_ascii=False)
-                await websocket.send_text(self._encrypt_message(response))
+                await websocket.send_text(self._encrypt_message(websocket, response))
                 return
             
             # 获取授权信息
@@ -424,7 +476,7 @@ class WebSocketManager:
                     "success": False,
                     "message": "获取授权信息失败"
                 }, ensure_ascii=False)
-                await websocket.send_text(self._encrypt_message(response))
+                await websocket.send_text(self._encrypt_message(websocket, response))
                 return
             
             # 保存WebSocket与登录手机号的映射关系（用于后续验证手机号匹配）
@@ -437,7 +489,7 @@ class WebSocketManager:
                 "message": "登录成功",
                 "has_manage_permission": license_info.has_manage_permission
             }, ensure_ascii=False)
-            await websocket.send_text(self._encrypt_message(response))
+            await websocket.send_text(self._encrypt_message(websocket, response))
                 
             print(f"手机号 {phone} 登录成功")
         except Exception as e:
@@ -450,7 +502,7 @@ class WebSocketManager:
                     "success": False,
                     "message": f"登录失败: {str(e)}"
                 }, ensure_ascii=False)
-                await websocket.send_text(self._encrypt_message(response))
+                await websocket.send_text(self._encrypt_message(websocket, response))
             except:
                 pass
     
@@ -474,7 +526,7 @@ class WebSocketManager:
                     "success": False,
                     "message": "微信账号ID不能为空"
                 }, ensure_ascii=False)
-                await websocket.send_text(self._encrypt_message(response))
+                await websocket.send_text(self._encrypt_message(websocket, response))
                 return
             
             # 验证wxid是否存在
@@ -489,7 +541,7 @@ class WebSocketManager:
                         "success": False,
                         "message": "微信账号不存在"
                     }, ensure_ascii=False)
-                    await websocket.send_text(self._encrypt_message(response))
+                    await websocket.send_text(self._encrypt_message(websocket, response))
                     return
                 
                 # 如果是App端，设置App端的微信账号ID映射
@@ -522,7 +574,7 @@ class WebSocketManager:
                 "wxid": wxid,
                 "account_info": account_data
             }, ensure_ascii=False)
-            await websocket.send_text(self._encrypt_message(response))
+            await websocket.send_text(self._encrypt_message(websocket, response))
             
             # 判断是App端还是Windows端
             client_type = "App端" if websocket in self.app_clients else "Windows端"
@@ -537,7 +589,7 @@ class WebSocketManager:
                     "success": False,
                     "message": f"快速登录失败: {str(e)}"
                 }, ensure_ascii=False)
-                await websocket.send_text(self._encrypt_message(response))
+                await websocket.send_text(self._encrypt_message(websocket, response))
             except:
                 pass
 

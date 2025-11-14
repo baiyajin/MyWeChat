@@ -73,10 +73,15 @@ async def websocket_endpoint(websocket: WebSocket):
             try:
                 message_obj = json.loads(data)
                 if isinstance(message_obj, dict) and message_obj.get("encrypted") == True and message_obj.get("data"):
-                    # 加密消息，需要解密
+                    # 加密消息，需要解密（使用会话密钥）
                     encrypted_data = message_obj["data"]
-                    decrypted_data = encryption_service.decrypt_string(encrypted_data)
-                    message = json.loads(decrypted_data)
+                    connection_id = str(id(websocket))
+                    if encryption_service.has_session_key(connection_id):
+                        decrypted_data = encryption_service.decrypt_string_for_communication(connection_id, encrypted_data)
+                        message = json.loads(decrypted_data)
+                    else:
+                        # 会话密钥未设置，可能是密钥交换阶段，使用明文
+                        message = message_obj
                 else:
                     # 非加密消息，直接使用
                     message = message_obj

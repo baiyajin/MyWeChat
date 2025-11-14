@@ -139,10 +139,10 @@ namespace MyWeChat.Windows.Utils
                 
                 string logEntry = $"[{entry.Timestamp:yyyy-MM-dd HH:mm:ss}] [{entry.Level}] {entry.Message}\n";
 
-                // 加密日志内容
+                // 加密日志内容（使用本地密钥）
                 try
                 {
-                    string encryptedLogEntry = EncryptionService.EncryptString(logEntry);
+                    string encryptedLogEntry = EncryptionService.EncryptStringForLog(logEntry);
                     await File.AppendAllTextAsync(filePath, encryptedLogEntry + "\n");
                 }
                 catch (Exception encryptEx)

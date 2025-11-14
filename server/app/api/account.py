@@ -42,7 +42,7 @@ async def get_account_info(request: Request, wxid: Optional[str] = None, phone: 
                 # 客户端要求加密响应
                 account_dict = account_data.model_dump()
                 account_json = json.dumps(account_dict, ensure_ascii=False)
-                encrypted_data = encryption_service.encrypt_string(account_json)
+                encrypted_data = encryption_service.encrypt_string_for_log(account_json)
                 return {
                     "encrypted": True,
                     "data": encrypted_data
@@ -71,7 +71,7 @@ async def get_all_accounts(request: Request, limit: int = 100, offset: int = 0):
                 # 客户端要求加密响应
                 accounts_list = [account.model_dump() for account in accounts_data]
                 accounts_json = json.dumps(accounts_list, ensure_ascii=False)
-                encrypted_data = encryption_service.encrypt_string(accounts_json)
+                encrypted_data = encryption_service.encrypt_string_for_log(accounts_json)
                 return {
                     "encrypted": True,
                     "data": encrypted_data

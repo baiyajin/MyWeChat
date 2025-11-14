@@ -48,9 +48,9 @@ namespace MyWeChat.Windows.Services
                         var responseObj = JsonConvert.DeserializeObject<dynamic>(json);
                         if (responseObj != null && responseObj.encrypted == true && responseObj.data != null)
                         {
-                            // 加密响应，需要解密
+                            // 加密响应，需要解密（HTTP API使用固定密钥，与服务器一致）
                             string encryptedData = responseObj.data.ToString();
-                            json = EncryptionService.DecryptString(encryptedData);
+                            json = EncryptionService.DecryptStringForLog(encryptedData);
                         }
                     }
                     catch
@@ -110,9 +110,9 @@ namespace MyWeChat.Windows.Services
                         var responseObj = JsonConvert.DeserializeObject<dynamic>(json);
                         if (responseObj != null && responseObj.encrypted == true && responseObj.data != null)
                         {
-                            // 加密响应，需要解密
+                            // 加密响应，需要解密（HTTP API使用固定密钥，与服务器一致）
                             string encryptedData = responseObj.data.ToString();
-                            json = EncryptionService.DecryptString(encryptedData);
+                            json = EncryptionService.DecryptStringForLog(encryptedData);
                         }
                     }
                     catch
