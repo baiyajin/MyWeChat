@@ -222,6 +222,12 @@ namespace MyWeChat.Windows.Services
                         // 解密失败，尝试使用原始JSON
                     }
                     
+                    if (string.IsNullOrEmpty(json))
+                    {
+                        Logger.LogWarning("响应JSON为空，无法解析账号信息");
+                        return null;
+                    }
+                    
                     var accountData = JsonConvert.DeserializeObject<dynamic>(json);
                     
                     if (accountData != null)
