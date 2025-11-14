@@ -7,13 +7,16 @@ import '../models/contact_model.dart';
 import '../models/moments_model.dart';
 import '../models/official_account_model.dart';
 import '../main.dart' as main_app;
+import '../utils/encryption_service.dart';
 
 /// WebSocket服务
 /// 负责与服务器建立WebSocket连接，接收数据并发送命令
+/// 支持WebSocket密钥交换协议
 class WebSocketService extends ChangeNotifier {
   WebSocketChannel? _channel;
   bool _isConnected = false;
   String _serverUrl = 'ws://localhost:8000/ws';
+  final EncryptionService _encryptionService = EncryptionService();
 
   List<ContactModel> _contacts = [];
   List<MomentsModel> _moments = [];
@@ -111,7 +114,10 @@ class WebSocketService extends ChangeNotifier {
           return false;
         }
         
-        // 尝试发送客户端类型消息来验证连接
+        // 等待一小段时间，确保接收任务已启动（用于接收RSA公钥）
+        await Future.delayed(const Duration(milliseconds: 100));
+        
+        // 尝试发送客户端类型消息来验证连接（明文，密钥交换前）
         // 如果连接成功，发送消息不会抛出异常
         // 如果连接失败，onError 会被调用，connectionFailed 会被设置为 true
         try {
@@ -225,14 +231,14 @@ class WebSocketService extends ChangeNotifier {
   }
   
 
-  /// 发送客户端类型
+  /// 发送客户端类型（明文，密钥交换前）
   void _sendClientType() {
     if (_channel != null) {
       try {
-        _channel!.sink.add(jsonEncode({
+        _sendMessagePlain({
           'type': 'client_type',
           'client_type': 'app',
-        }));
+        });
         // 不单独打印，已在连接信息中显示
       } catch (e) {
         print('发送客户端类型失败: $e');
@@ -248,6 +254,65 @@ class WebSocketService extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 处理密钥交换消息
+  bool _handleKeyExchangeMessage(Map<String, dynamic> data) {
+    try {
+      final type = data['type'] as String?;
+
+      // 处理RSA公钥消息
+      if (type == 'rsa_public_key') {
+        final publicKeyPem = data['public_key'] as String?;
+        if (publicKeyPem != null && publicKeyPem.isNotEmpty) {
+          // 设置服务器公钥
+          if (_encryptionService.setServerPublicKey(publicKeyPem)) {
+            print('已接收服务器RSA公钥');
+
+            // 生成随机会话密钥（32字节）
+            final sessionKey = _encryptionService.generateSessionKey();
+
+            // 使用RSA公钥加密会话密钥
+            final encryptedSessionKey = _encryptionService.encryptSessionKey(sessionKey);
+            if (encryptedSessionKey != null) {
+              // 设置会话密钥
+              _encryptionService.setSessionKey(sessionKey);
+
+              // 发送加密的会话密钥给服务器（明文，密钥交换阶段）
+              _sendMessagePlain({
+                'type': 'session_key',
+                'encrypted_key': encryptedSessionKey,
+              });
+
+              print('已发送加密的会话密钥给服务器');
+              return true;
+            }
+          }
+        }
+      }
+
+      // 处理密钥交换成功消息
+      if (type == 'key_exchange_success') {
+        print('密钥交换成功，后续通讯将使用会话密钥加密');
+        return true;
+      }
+
+      return false;
+    } catch (e) {
+      print('处理密钥交换消息失败: $e');
+      return false;
+    }
+  }
+
+  /// 发送明文消息（用于密钥交换阶段）
+  void _sendMessagePlain(Map<String, dynamic> message) {
+    if (_channel != null) {
+      try {
+        _channel!.sink.add(jsonEncode(message));
+      } catch (e) {
+        print('发送WebSocket明文消息失败: $e');
+      }
+    }
+  }
+
   /// 处理接收到的消息
   void _handleMessage(dynamic message) {
     try {
@@ -255,11 +320,42 @@ class WebSocketService extends ChangeNotifier {
       print('原始消息: $message');
       print('消息类型: ${message.runtimeType}');
       
-      Map<String, dynamic> data = jsonDecode(message);
+      // 尝试解密消息（如果已设置会话密钥）
+      String decryptedMessage;
+      try {
+        final messageObj = jsonDecode(message);
+        if (messageObj is Map &&
+            messageObj['encrypted'] == true &&
+            messageObj['data'] != null) {
+          // 加密消息，需要解密（使用会话密钥）
+          final encryptedData = messageObj['data'] as String;
+          final decrypted = _encryptionService.decryptStringForCommunication(encryptedData);
+          if (decrypted != null) {
+            decryptedMessage = decrypted;
+          } else {
+            // 解密失败，使用原始消息
+            decryptedMessage = message;
+          }
+        } else {
+          // 非加密消息或格式不正确，直接使用原始消息
+          decryptedMessage = message;
+        }
+      } catch (e) {
+        // 解析失败，可能是非JSON格式的明文消息，直接使用
+        decryptedMessage = message;
+      }
+      
+      Map<String, dynamic> data = jsonDecode(decryptedMessage);
       print('解析后的数据: $data');
 
       String type = data['type'] ?? '';
       print('消息类型: $type');
+
+      // 处理密钥交换消息
+      if (_handleKeyExchangeMessage(data)) {
+        // 密钥交换消息已处理，不继续处理
+        return;
+      }
 
       switch (type) {
         case 'sync_contacts':
@@ -767,8 +863,28 @@ class WebSocketService extends ChangeNotifier {
   void _sendMessage(Map<String, dynamic> message) {
     if (_channel != null) {
       try {
-        _channel!.sink.add(jsonEncode(message));
-        print('已发送消息: ${message['type']}');
+        // 如果会话密钥已设置，使用会话密钥加密；否则发送明文（用于密钥交换阶段）
+        if (_encryptionService.hasSessionKey()) {
+          // 加密消息内容（使用会话密钥）
+          final messageJson = jsonEncode(message);
+          final encryptedMessage = _encryptionService.encryptStringForCommunication(messageJson);
+          if (encryptedMessage != null) {
+            // 包装为JSON格式，包含加密标识
+            final messageWrapper = {
+              'encrypted': true,
+              'data': encryptedMessage,
+            };
+            _channel!.sink.add(jsonEncode(messageWrapper));
+            print('已发送消息（已加密）: ${message['type']}');
+          } else {
+            print('加密消息失败，使用明文发送: ${message['type']}');
+            _channel!.sink.add(jsonEncode(message));
+          }
+        } else {
+          // 会话密钥未设置，发送明文（用于密钥交换阶段）
+          _channel!.sink.add(jsonEncode(message));
+          print('已发送消息（明文，密钥交换阶段）: ${message['type']}');
+        }
       } catch (e) {
         print('发送消息失败: $e');
         _isConnected = false;

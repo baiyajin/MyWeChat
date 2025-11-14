@@ -1,15 +1,19 @@
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../models/contact_model.dart';
 import '../models/moments_model.dart';
 import '../models/chat_message_model.dart';
 import '../models/license_model.dart';
+import '../utils/encryption_service.dart';
 
 /// API服务
 /// 负责与服务器进行HTTP通信
+/// 支持HTTP密钥交换协议
 class ApiService extends ChangeNotifier {
   String _serverUrl = 'http://localhost:8000';
+  final EncryptionService _encryptionService = EncryptionService();
 
   String get serverUrl => _serverUrl;
 
@@ -17,6 +21,189 @@ class ApiService extends ChangeNotifier {
   void setServerUrl(String url) {
     _serverUrl = url;
     notifyListeners();
+  }
+
+  /// 确保HTTP会话密钥已交换（如果未交换则进行密钥交换）
+  Future<bool> _ensureHttpSessionKey() async {
+    // 如果已有会话密钥，直接返回
+    if (_encryptionService.hasHttpSessionKey()) {
+      return true;
+    }
+
+    try {
+      // 步骤1：获取RSA公钥
+      final publicKeyUrl = '$_serverUrl/api/key-exchange/public-key';
+      final publicKeyResponse = await http.get(Uri.parse(publicKeyUrl));
+
+      if (publicKeyResponse.statusCode != 200) {
+        print('获取RSA公钥失败: ${publicKeyResponse.statusCode}');
+        return false;
+      }
+
+      final publicKeyJson = jsonDecode(publicKeyResponse.body);
+      final publicKeyPem = publicKeyJson['public_key'] as String?;
+
+      if (publicKeyPem == null || publicKeyPem.isEmpty) {
+        print('RSA公钥为空');
+        return false;
+      }
+
+      // 设置服务器公钥
+      if (!_encryptionService.setServerPublicKey(publicKeyPem)) {
+        print('设置服务器RSA公钥失败');
+        return false;
+      }
+
+      print('已获取服务器RSA公钥');
+
+      // 步骤2：生成随机会话密钥
+      final sessionKey = _encryptionService.generateSessionKey();
+
+      // 步骤3：使用RSA公钥加密会话密钥
+      final encryptedSessionKey = _encryptionService.encryptSessionKey(sessionKey);
+      if (encryptedSessionKey == null) {
+        print('加密会话密钥失败');
+        return false;
+      }
+
+      // 步骤4：发送加密的会话密钥给服务器
+      final sessionKeyUrl = '$_serverUrl/api/key-exchange/session-key';
+      final sessionKeyRequest = jsonEncode({
+        'encrypted_key': encryptedSessionKey,
+      });
+
+      final sessionKeyResponse = await http.post(
+        Uri.parse(sessionKeyUrl),
+        headers: {'Content-Type': 'application/json'},
+        body: sessionKeyRequest,
+      );
+
+      if (sessionKeyResponse.statusCode != 200) {
+        print('交换会话密钥失败: ${sessionKeyResponse.statusCode}');
+        return false;
+      }
+
+      final sessionKeyResponseJson = jsonDecode(sessionKeyResponse.body);
+      final sessionId = sessionKeyResponseJson['session_id'] as String?;
+
+      if (sessionId == null || sessionId.isEmpty) {
+        print('服务器返回的会话ID为空');
+        return false;
+      }
+
+      // 保存会话ID和会话密钥
+      _encryptionService.setHttpSessionKey(sessionId, sessionKey);
+
+      print('HTTP密钥交换成功');
+      return true;
+    } catch (e) {
+      print('HTTP密钥交换失败: $e');
+      return false;
+    }
+  }
+
+  /// 执行HTTP请求（自动处理密钥交换和加密/解密）
+  Future<http.Response> _executeRequest(
+    String method,
+    String url, {
+    Map<String, String>? headers,
+    Object? body,
+  }) async {
+    // 确保HTTP会话密钥已交换
+    if (!await _ensureHttpSessionKey()) {
+      throw Exception('HTTP密钥交换失败，无法发送请求');
+    }
+
+    // 创建请求头
+    final requestHeaders = <String, String>{
+      if (headers != null) ...headers,
+    };
+
+    // 添加会话ID
+    final sessionId = _encryptionService.getHttpSessionId();
+    if (sessionId != null) {
+      requestHeaders['X-Session-ID'] = sessionId;
+    }
+
+    // 发送请求
+    http.Response response;
+    if (method == 'GET') {
+      response = await http.get(Uri.parse(url), headers: requestHeaders);
+    } else if (method == 'POST') {
+      response = await http.post(
+        Uri.parse(url),
+        headers: requestHeaders,
+        body: body,
+      );
+    } else if (method == 'PUT') {
+      response = await http.put(
+        Uri.parse(url),
+        headers: requestHeaders,
+        body: body,
+      );
+    } else if (method == 'DELETE') {
+      response = await http.delete(Uri.parse(url), headers: requestHeaders);
+    } else {
+      throw Exception('不支持的HTTP方法: $method');
+    }
+
+    // 如果会话过期（401），重新进行密钥交换
+    if (response.statusCode == 401) {
+      print('HTTP会话已过期，重新进行密钥交换');
+      _encryptionService.clearHttpSessionKey();
+
+      // 重新交换密钥并重试
+      if (await _ensureHttpSessionKey()) {
+        final newSessionId = _encryptionService.getHttpSessionId();
+        if (newSessionId != null) {
+          requestHeaders['X-Session-ID'] = newSessionId;
+        }
+
+        // 重试请求
+        if (method == 'GET') {
+          response = await http.get(Uri.parse(url), headers: requestHeaders);
+        } else if (method == 'POST') {
+          response = await http.post(
+            Uri.parse(url),
+            headers: requestHeaders,
+            body: body,
+          );
+        } else if (method == 'PUT') {
+          response = await http.put(
+            Uri.parse(url),
+            headers: requestHeaders,
+            body: body,
+          );
+        } else if (method == 'DELETE') {
+          response = await http.delete(Uri.parse(url), headers: requestHeaders);
+        }
+      }
+    }
+
+    return response;
+  }
+
+  /// 解密HTTP响应
+  String _decryptResponse(String responseBody) {
+    try {
+      final responseObj = jsonDecode(responseBody);
+      if (responseObj is Map &&
+          responseObj['encrypted'] == true &&
+          responseObj['data'] != null) {
+        // 加密响应，需要解密
+        final encryptedData = responseObj['data'] as String;
+        final decrypted = _encryptionService.decryptStringForHttp(encryptedData);
+        if (decrypted != null) {
+          return decrypted;
+        }
+      }
+      // 非加密响应或解密失败，返回原始响应
+      return responseBody;
+    } catch (e) {
+      print('解密响应失败: $e');
+      // 解密失败，返回原始响应
+      return responseBody;
+    }
   }
 
   /// 获取联系人列表
@@ -27,9 +214,10 @@ class ApiService extends ChangeNotifier {
         url += '&we_chat_id=$weChatId';
       }
 
-      final response = await http.get(Uri.parse(url));
+      final response = await _executeRequest('GET', url);
       if (response.statusCode == 200) {
-        List<dynamic> jsonList = jsonDecode(response.body);
+        final decryptedBody = _decryptResponse(response.body);
+        List<dynamic> jsonList = jsonDecode(decryptedBody);
         return jsonList.map((json) => ContactModel.fromJson(json as Map<String, dynamic>)).toList();
       } else {
         throw Exception('获取联系人列表失败: ${response.statusCode}');
@@ -48,9 +236,10 @@ class ApiService extends ChangeNotifier {
         url += '&we_chat_id=$weChatId';
       }
 
-      final response = await http.get(Uri.parse(url));
+      final response = await _executeRequest('GET', url);
       if (response.statusCode == 200) {
-        List<dynamic> jsonList = jsonDecode(response.body);
+        final decryptedBody = _decryptResponse(response.body);
+        List<dynamic> jsonList = jsonDecode(decryptedBody);
         return jsonList.map((json) => MomentsModel.fromJson(json as Map<String, dynamic>)).toList();
       } else {
         throw Exception('获取朋友圈列表失败: ${response.statusCode}');
@@ -69,9 +258,10 @@ class ApiService extends ChangeNotifier {
         url += '?we_chat_id=$weChatId';
       }
 
-      final response = await http.get(Uri.parse(url));
+      final response = await _executeRequest('GET', url);
       if (response.statusCode == 200) {
-        return List<Map<String, dynamic>>.from(jsonDecode(response.body));
+        final decryptedBody = _decryptResponse(response.body);
+        return List<Map<String, dynamic>>.from(jsonDecode(decryptedBody));
       } else {
         throw Exception('获取标签列表失败: ${response.statusCode}');
       }
@@ -86,9 +276,10 @@ class ApiService extends ChangeNotifier {
     try {
       String url = '$_serverUrl/api/chat/messages?from_we_chat_id=$fromWeChatId&to_we_chat_id=$toWeChatId&limit=$limit';
 
-      final response = await http.get(Uri.parse(url));
+      final response = await _executeRequest('GET', url);
       if (response.statusCode == 200) {
-        List<dynamic> jsonList = jsonDecode(response.body);
+        final decryptedBody = _decryptResponse(response.body);
+        List<dynamic> jsonList = jsonDecode(decryptedBody);
         return jsonList.map((json) => ChatMessageModel.fromJson(json as Map<String, dynamic>)).toList();
       } else {
         throw Exception('获取聊天记录失败: ${response.statusCode}');
@@ -102,9 +293,10 @@ class ApiService extends ChangeNotifier {
   /// 获取系统状态
   Future<Map<String, dynamic>?> getStatus() async {
     try {
-      final response = await http.get(Uri.parse('$_serverUrl/api/status'));
+      final response = await _executeRequest('GET', '$_serverUrl/api/status');
       if (response.statusCode == 200) {
-        return jsonDecode(response.body) as Map<String, dynamic>;
+        final decryptedBody = _decryptResponse(response.body);
+        return jsonDecode(decryptedBody) as Map<String, dynamic>;
       } else {
         return null;
       }
@@ -124,9 +316,10 @@ class ApiService extends ChangeNotifier {
         url += '?phone=$phone';
       }
 
-      final response = await http.get(Uri.parse(url));
+      final response = await _executeRequest('GET', url);
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
+        final decryptedBody = _decryptResponse(response.body);
+        final data = jsonDecode(decryptedBody);
         if (data == null) {
           return null;
         }
@@ -156,9 +349,10 @@ class ApiService extends ChangeNotifier {
   Future<List<Map<String, dynamic>>> getAllAccounts({int limit = 100, int offset = 0}) async {
     try {
       final url = '$_serverUrl/api/accounts?limit=$limit&offset=$offset';
-      final response = await http.get(Uri.parse(url));
+      final response = await _executeRequest('GET', url);
       if (response.statusCode == 200) {
-        final List<dynamic> jsonList = jsonDecode(response.body);
+        final decryptedBody = _decryptResponse(response.body);
+        final List<dynamic> jsonList = jsonDecode(decryptedBody);
         return jsonList.map((json) {
           final account = json as Map<String, dynamic>;
           return {
@@ -201,9 +395,10 @@ class ApiService extends ChangeNotifier {
         url += '&phone=$phone';
       }
 
-      final response = await http.get(Uri.parse(url));
+      final response = await _executeRequest('GET', url);
       if (response.statusCode == 200) {
-        final List<dynamic> jsonList = jsonDecode(response.body);
+        final decryptedBody = _decryptResponse(response.body);
+        final List<dynamic> jsonList = jsonDecode(decryptedBody);
         return jsonList.map((json) => LicenseModel.fromJson(json as Map<String, dynamic>)).toList();
       } else {
         throw Exception('获取授权列表失败: ${response.statusCode}');
@@ -217,9 +412,10 @@ class ApiService extends ChangeNotifier {
   /// 获取单个授权用户信息
   Future<LicenseModel?> getLicense(int licenseId) async {
     try {
-      final response = await http.get(Uri.parse('$_serverUrl/api/licenses/$licenseId'));
+      final response = await _executeRequest('GET', '$_serverUrl/api/licenses/$licenseId');
       if (response.statusCode == 200) {
-        return LicenseModel.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
+        final decryptedBody = _decryptResponse(response.body);
+        return LicenseModel.fromJson(jsonDecode(decryptedBody) as Map<String, dynamic>);
       } else {
         return null;
       }
@@ -238,19 +434,22 @@ class ApiService extends ChangeNotifier {
     required DateTime expireDate,
   }) async {
     try {
-      final response = await http.post(
-        Uri.parse('$_serverUrl/api/licenses'),
+      final body = jsonEncode({
+        'phone': phone,
+        if (licenseKey != null) 'license_key': licenseKey,
+        if (boundWechatPhone != null) 'bound_wechat_phone': boundWechatPhone,
+        'has_manage_permission': hasManagePermission,
+        'expire_date': expireDate.toIso8601String(),
+      });
+      final response = await _executeRequest(
+        'POST',
+        '$_serverUrl/api/licenses',
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'phone': phone,
-          if (licenseKey != null) 'license_key': licenseKey,
-          if (boundWechatPhone != null) 'bound_wechat_phone': boundWechatPhone,
-          'has_manage_permission': hasManagePermission,
-          'expire_date': expireDate.toIso8601String(),
-        }),
+        body: body,
       );
       if (response.statusCode == 200) {
-        return LicenseModel.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
+        final decryptedBody = _decryptResponse(response.body);
+        return LicenseModel.fromJson(jsonDecode(decryptedBody) as Map<String, dynamic>);
       } else {
         final error = jsonDecode(response.body);
         throw Exception(error['detail'] ?? '创建失败');
@@ -278,13 +477,15 @@ class ApiService extends ChangeNotifier {
       if (status != null) body['status'] = status;
       if (expireDate != null) body['expire_date'] = expireDate.toIso8601String();
 
-      final response = await http.put(
-        Uri.parse('$_serverUrl/api/licenses/$licenseId'),
+      final response = await _executeRequest(
+        'PUT',
+        '$_serverUrl/api/licenses/$licenseId',
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode(body),
       );
       if (response.statusCode == 200) {
-        return LicenseModel.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
+        final decryptedBody = _decryptResponse(response.body);
+        return LicenseModel.fromJson(jsonDecode(decryptedBody) as Map<String, dynamic>);
       } else {
         final error = jsonDecode(response.body);
         throw Exception(error['detail'] ?? '更新失败');
@@ -298,7 +499,7 @@ class ApiService extends ChangeNotifier {
   /// 删除授权用户（软删除）
   Future<bool> deleteLicense(int licenseId) async {
     try {
-      final response = await http.delete(Uri.parse('$_serverUrl/api/licenses/$licenseId'));
+      final response = await _executeRequest('DELETE', '$_serverUrl/api/licenses/$licenseId');
       return response.statusCode == 200;
     } catch (e) {
       print('删除授权失败: $e');
@@ -319,13 +520,15 @@ class ApiService extends ChangeNotifier {
       if (months != null) body['months'] = months;
       if (years != null) body['years'] = years;
 
-      final response = await http.post(
-        Uri.parse('$_serverUrl/api/licenses/$licenseId/extend'),
+      final response = await _executeRequest(
+        'POST',
+        '$_serverUrl/api/licenses/$licenseId/extend',
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode(body),
       );
       if (response.statusCode == 200) {
-        return LicenseModel.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
+        final decryptedBody = _decryptResponse(response.body);
+        return LicenseModel.fromJson(jsonDecode(decryptedBody) as Map<String, dynamic>);
       } else {
         final error = jsonDecode(response.body);
         throw Exception(error['detail'] ?? '延期失败');
@@ -339,9 +542,10 @@ class ApiService extends ChangeNotifier {
   /// 生成新授权码
   Future<LicenseModel?> generateNewKey(int licenseId) async {
     try {
-      final response = await http.post(Uri.parse('$_serverUrl/api/licenses/$licenseId/generate-key'));
+      final response = await _executeRequest('POST', '$_serverUrl/api/licenses/$licenseId/generate-key');
       if (response.statusCode == 200) {
-        return LicenseModel.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
+        final decryptedBody = _decryptResponse(response.body);
+        return LicenseModel.fromJson(jsonDecode(decryptedBody) as Map<String, dynamic>);
       } else {
         final error = jsonDecode(response.body);
         throw Exception(error['detail'] ?? '生成授权码失败');
