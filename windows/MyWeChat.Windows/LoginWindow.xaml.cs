@@ -390,7 +390,7 @@ namespace MyWeChat.Windows
                 
                 // 打开主窗口（如果查询到账号信息，传递wxid；否则传递空字符串，主窗口会通过手机号查询）
                 string wxid = accountInfo?.WeChatId ?? "";
-                Logger.LogInfo($"[登录成功] 打开主窗口: wxid={wxid ?? "空"}, phone={phone}");
+                Logger.LogInfo($"[登录成功] 打开主窗口: wxid={(string.IsNullOrEmpty(wxid) ? "空" : wxid)}, phone={phone}");
                 var mainWindow = new MainWindow(wxid);
                 mainWindow.Show();
                 
